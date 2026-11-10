@@ -362,7 +362,7 @@ function hops(x, z, dx, dz, h, id, drop = 1, k0 = 1) {
 function placeChests() {
   const L = [
     // around Hearthvale and the fields
-    [190, 350, 'potion', 3], [252, 342, 'ether', 2], [170, 300, 'leathervest'], [262, 284, 'antidote', 3], [244, 410, 'shortbow'],
+    [190, 350, 'potion', 3], [252, 342, 'ether', 2], [170, 300, 'leathervest'], [262, 284, 'emerald'], [244, 410, 'shortbow'],
     // Fenside and the marsh
     [152, 392, 'potion', 2], [58, 420, 'powerring'], [30, 386, 'hipotion', 2], [96, 414, 'phoenix'], [44, 360, 'moonbow'],
     // the forest
@@ -372,13 +372,13 @@ function placeChests() {
     // the mushroom grove
     [308, 380, 'tigerclaw'], [352, 412, 'ether', 3], [366, 378, 'hipotion', 2],
     // Dunewell and the mesa
-    [330, 244, 'boots'], [290, 214, 'tent', 2], [360, 110, 'warhammer'], [300, 150, 'phoenix', 2], [346, 92, 'chainmail'], [384, 160, 'hipotion', 3],
+    [330, 244, 'boots'], [290, 214, 'tent', 2], [360, 110, 'warhammer'], [300, 150, 'phoenix', 2], [346, 92, 'chainmail'], [384, 160, 'thriftring'],
     // the volcano
-    [412, 74, 'flamering'], [380, 28, 'hipotion', 3], [396, 52, 'emberblade'],
+    [412, 74, 'flamering'], [380, 28, 'regenring'], [396, 52, 'emberblade'],
     // the ruins
-    [200, 110, 'guardring'], [238, 120, 'runeblade'], [212, 154, 'ether', 3], [196, 140, 'phoenix'],
+    [200, 110, 'guardring'], [238, 120, 'runeblade'], [212, 154, 'ether', 3], [196, 140, 'blackbelt'],
     // the mountains and the frozen plain
-    [98, 84, 'cape'], [56, 112, 'frostmail'], [122, 150, 'phoenix'], [40, 44, 'starrod'], [84, 20, 'hipotion', 3], [24, 62, 'guardring'],
+    [98, 84, 'cape'], [56, 112, 'frostmail'], [122, 150, 'phoenix'], [40, 44, 'starrod'], [84, 20, 'ribbon'], [24, 62, 'guardring'],
     // below the spire
     [200, 30, 'prismmail'], [238, 34, 'crystalblade'], [210, 62, 'prismstaff'],
   ];

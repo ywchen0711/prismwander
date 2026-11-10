@@ -2,14 +2,14 @@
 import { HEROES, JOBS, ABILITIES, ITEMS, START_JOBS, jpFor, expFor } from './data.js';
 import { L } from './i18n.js';
 
-export const S = { members: [], inv: {}, gold: 0, jobs: [], crystals: [], chests: {}, homes: [], flags: {}, beaten: {}, pos: null, yaw: 0, time: 0, clock: 0.3, quests: {}, shards: [], picked: {}, kills: {}, fish: {} };
+export const S = { scanned: {}, members: [], inv: {}, gold: 0, jobs: [], crystals: [], chests: {}, homes: [], flags: {}, beaten: {}, pos: null, yaw: 0, time: 0, clock: 0.3, quests: {}, shards: [], picked: {}, kills: {}, fish: {} };
 
 export function newParty() {
-  Object.assign(S, { members: [], inv: { potion: 4, ether: 1, antidote: 2 }, gold: 120, jobs: [...START_JOBS], crystals: [], chests: {}, homes: [], flags: {}, beaten: {}, pos: null, yaw: 0, time: 0, clock: 0.3, quests: {}, shards: [], picked: {}, kills: {}, fish: {} });
+  Object.assign(S, { members: [], inv: { potion: 4, ether: 1, antidote: 2 }, gold: 120, jobs: [...START_JOBS], crystals: [], chests: {}, homes: [], flags: {}, beaten: {}, pos: null, yaw: 0, time: 0, clock: 0.3, quests: {}, shards: [], picked: {}, kills: {}, fish: {}, scanned: {} });
   const gear = { lowe: ['shortsword', 'tunic'], flora: ['rod', 'tunic'], bal: ['mallet', 'tunic'], shia: ['dagger', 'tunic'] };
   for (const id of Object.keys(HEROES)) {
     const job = HEROES[id].job;
-    const m = { id, lv: 1, exp: 0, job, sub: null, jlv: { [job]: 1 }, jp: { [job]: 0 }, equip: { weapon: gear[id][0], armor: gear[id][1], acc: null }, status: {}, buffs: {} };
+    const m = { id, row: id === 'flora' || id === 'bal' ? 'back' : 'front', lv: 1, exp: 0, job, sub: null, jlv: { [job]: 1 }, jp: { [job]: 0 }, equip: { weapon: gear[id][0], armor: gear[id][1], acc: null }, status: {}, buffs: {} };
     const s = stats(m); m.hp = s.maxhp; m.mp = s.maxmp; S.members.push(m);
   }
 }
@@ -80,6 +80,9 @@ export function gain(exp, jp) {
   }
   return out;
 }
+export function gearHas(m, key) { for (const sl of ['weapon', 'armor', 'acc']) { const it = ITEMS[m.equip[sl]]; if (it && it[key]) return it[key]; } return null; }
+export const immuneTo = (m, st) => ['weapon', 'armor', 'acc'].some((sl) => { const it = ITEMS[m.equip[sl]]; return it && it.immune && it.immune.includes(st); });
+export const resists = (m, el) => ['weapon', 'armor', 'acc'].some((sl) => { const it = ITEMS[m.equip[sl]]; return it && it.res && it.res.includes(el); });
 export function addItem(id, n = 1) { S.inv[id] = (S.inv[id] || 0) + n; if (S.inv[id] <= 0) delete S.inv[id]; }
 export const count = (id) => S.inv[id] || 0;
 export function fullHeal() { for (const m of S.members) { const s = stats(m); m.hp = s.maxhp; m.mp = s.maxmp; m.status = {}; m.buffs = {}; } }
@@ -89,5 +92,5 @@ export const SAVE_VERSION = 2;
 export function save() { try { localStorage.setItem(KEY, JSON.stringify({ ...S, v: SAVE_VERSION, savedAt: Date.now() })); return true; } catch (e) { return false; } }
 export function hasSave() { try { return !!localStorage.getItem(KEY); } catch (e) { return false; } }
 export function load() {
-  try { const d = JSON.parse(localStorage.getItem(KEY)); if (!d) return false; if ((d.v || 1) < SAVE_VERSION) { d.pos = null; d.homes = []; d.chests = {}; d.beaten = {}; } Object.assign(S, { members: [], inv: {}, flags: {}, chests: {}, beaten: {}, clock: 0.3, quests: {}, shards: [], picked: {}, kills: {}, fish: {} }, d); return true; } catch (e) { return false; }
+  try { const d = JSON.parse(localStorage.getItem(KEY)); if (!d) return false; if ((d.v || 1) < SAVE_VERSION) { d.pos = null; d.homes = []; d.chests = {}; d.beaten = {}; } Object.assign(S, { members: [], inv: {}, flags: {}, chests: {}, beaten: {}, clock: 0.3, quests: {}, shards: [], picked: {}, kills: {}, fish: {}, scanned: {} }, d); for (const m of S.members) m.row = m.row || 'front'; return true; } catch (e) { return false; }
 }

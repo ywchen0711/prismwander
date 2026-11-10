@@ -13,10 +13,10 @@ bilingual(HEROES, ['name']);
 
 // stat multipliers in percent, weapons each can hold, and abilities by job level
 export const JOBS = {
-  fencer:   { name: ['劍士', 'Fencer'], desc: ['擅長用劍的前衛。', 'A front-liner who lives by the sword.'], st: { hp: 110, mp: 70, str: 115, def: 105, mag: 70, spr: 80, agi: 100 }, wep: ['sword'], learn: [[1, 'powerslash'], [2, 'guardup'], [4, 'twinslash'], [6, 'counter'], [9, 'crossblade']] },
-  mage:     { name: ['魔導士', 'Mage'], desc: ['操控火、冰、雷的術士。', 'A caster of fire, ice and lightning.'], st: { hp: 80, mp: 130, str: 70, def: 80, mag: 125, spr: 105, agi: 95 }, wep: ['staff'], learn: [[1, 'fire'], [1, 'ice'], [3, 'thunder'], [6, 'fira'], [9, 'meteorite']] },
-  cleric:   { name: ['祭司', 'Cleric'], desc: ['治療與守護的專家。', 'A healer and protector.'], st: { hp: 95, mp: 120, str: 80, def: 90, mag: 95, spr: 125, agi: 90 }, wep: ['staff', 'hammer'], learn: [[1, 'heal'], [2, 'cure'], [4, 'healall'], [6, 'revive'], [8, 'barrier']] },
-  rogue:    { name: ['盜賊', 'Rogue'], desc: ['敏捷，會偷東西和施毒。', 'Quick hands for stealing and poison.'], st: { hp: 90, mp: 80, str: 100, def: 85, mag: 80, spr: 85, agi: 130 }, wep: ['dagger'], learn: [[1, 'steal'], [2, 'venom'], [4, 'flee'], [6, 'doublestab'], [9, 'shadowstep']] },
+  fencer:   { name: ['劍士', 'Fencer'], desc: ['擅長用劍的前衛。', 'A front-liner who lives by the sword.'], st: { hp: 110, mp: 70, str: 115, def: 105, mag: 70, spr: 80, agi: 100 }, wep: ['sword'], learn: [[1, 'powerslash'], [2, 'guardup'], [3, 'powerbreak'], [4, 'twinslash'], [6, 'counter'], [9, 'crossblade']] },
+  mage:     { name: ['魔導士', 'Mage'], desc: ['操控火、冰、雷的術士。', 'A caster of fire, ice and lightning.'], st: { hp: 80, mp: 130, str: 70, def: 80, mag: 125, spr: 105, agi: 95 }, wep: ['staff'], learn: [[1, 'fire'], [1, 'ice'], [2, 'aqua'], [3, 'thunder'], [4, 'bolt1'], [6, 'fira'], [9, 'meteorite']] },
+  cleric:   { name: ['祭司', 'Cleric'], desc: ['治療與守護的專家。', 'A healer and protector.'], st: { hp: 95, mp: 120, str: 80, def: 90, mag: 95, spr: 125, agi: 90 }, wep: ['staff', 'hammer'], learn: [[1, 'heal'], [2, 'cure'], [3, 'holy'], [4, 'healall'], [6, 'revive'], [8, 'barrier']] },
+  rogue:    { name: ['盜賊', 'Rogue'], desc: ['敏捷，會偷東西和施毒。', 'Quick hands for stealing and poison.'], st: { hp: 90, mp: 80, str: 100, def: 85, mag: 80, spr: 85, agi: 130 }, wep: ['dagger'], learn: [[1, 'steal'], [2, 'venom'], [3, 'sandtoss'], [4, 'flee'], [6, 'doublestab'], [9, 'shadowstep']] },
   guardian: { name: ['守衛', 'Guardian'], desc: ['用身體替夥伴擋下攻擊。', 'Takes the hits so friends do not.'], st: { hp: 135, mp: 65, str: 105, def: 135, mag: 60, spr: 95, agi: 75 }, wep: ['sword', 'hammer'], learn: [[1, 'provoke'], [2, 'ironwall'], [4, 'shieldbash'], [6, 'cover'], [9, 'fortress']] },
   ranger:   { name: ['弓手', 'Ranger'], desc: ['從遠處瞄準弱點。', 'Aims for weak spots from afar.'], st: { hp: 95, mp: 85, str: 110, def: 90, mag: 80, spr: 90, agi: 115 }, wep: ['bow'], learn: [[1, 'aim'], [2, 'arrowrain'], [4, 'sleepshot'], [6, 'piercing'], [9, 'starshot']] },
   monk:     { name: ['武僧', 'Monk'], desc: ['空手的格鬥家，越戰越勇。', 'An unarmed fighter who grows stronger mid-fight.'], st: { hp: 125, mp: 70, str: 120, def: 95, mag: 65, spr: 100, agi: 110 }, wep: ['fist'], learn: [[1, 'chakra'], [2, 'roundkick'], [4, 'focus'], [6, 'thousandfists'], [9, 'innerpeace']] },
@@ -24,6 +24,10 @@ export const JOBS = {
   chrono:   { name: ['時術師', 'Chronomancer'], desc: ['讓時間變快或變慢。', 'Speeds time up or slows it down.'], st: { hp: 85, mp: 125, str: 70, def: 80, mag: 115, spr: 115, agi: 110 }, wep: ['staff'], learn: [[1, 'haste'], [2, 'slow'], [4, 'gravity'], [6, 'hasteall'], [9, 'stop']] },
   alchemist:{ name: ['鍊金術士', 'Alchemist'], desc: ['道具效果加倍，還會丟炸彈。', 'Doubles item effects and throws bombs.'], st: { hp: 100, mp: 95, str: 90, def: 95, mag: 110, spr: 100, agi: 95 }, wep: ['hammer', 'dagger'], learn: [[1, 'bomb'], [2, 'pharmacy'], [4, 'acid'], [6, 'elixirmix'], [9, 'megabomb']] },
   astro:    { name: ['星術師', 'Astromancer'], desc: ['借用星星的力量。', 'Borrows power from the stars.'], st: { hp: 85, mp: 140, str: 65, def: 80, mag: 135, spr: 120, agi: 95 }, wep: ['staff'], learn: [[1, 'starlight'], [3, 'comet'], [5, 'stardust'], [8, 'supernova']] },
+  scholar:  { name: ['學者', 'Scholar'], desc: ['看穿敵人的弱點，用對的屬性打。', 'Reads a foe\'s weaknesses and strikes with the right element.'], st: { hp: 85, mp: 125, str: 70, def: 85, mag: 115, spr: 115, agi: 100 }, wep: ['staff', 'dagger'], learn: [[1, 'scan'], [2, 'elemental'], [3, 'meditate'], [5, 'mpthrift'], [8, 'omniscience']] },
+  paladin:  { name: ['聖騎士', 'Paladin'], desc: ['以聖光守護夥伴，對不死者特別強。', 'Guards friends with holy light; deadly to the undead.'], st: { hp: 125, mp: 90, str: 110, def: 125, mag: 85, spr: 115, agi: 80 }, wep: ['sword', 'hammer'], learn: [[1, 'holyblade'], [2, 'regen'], [4, 'cover'], [6, 'sentinel'], [9, 'judgment']] },
+  samurai:  { name: ['武士', 'Samurai'], desc: ['蓄力、破甲，一刀定勝負。', 'Charges up, breaks armour, and ends it in one stroke.'], st: { hp: 110, mp: 70, str: 130, def: 95, mag: 60, spr: 85, agi: 105 }, wep: ['sword'], learn: [[1, 'iai'], [2, 'charge'], [3, 'armorbreak'], [5, 'flashcut'], [8, 'bushido']] },
+  druid:    { name: ['德魯伊', 'Druid'], desc: ['借大地之力：讓敵人看不見，讓夥伴慢慢回復。', 'Draws on the earth: blinds foes and slowly mends friends.'], st: { hp: 100, mp: 115, str: 85, def: 90, mag: 110, spr: 120, agi: 95 }, wep: ['staff', 'fist'], learn: [[1, 'thorn'], [2, 'regen'], [3, 'mist'], [6, 'quake2'], [8, 'lifebloom']] },
   dancer:   { name: ['劍舞者', 'Bladedancer'], desc: ['舞步與劍光合而為一。', 'Where dance steps and sword strokes become one.'], st: { hp: 105, mp: 90, str: 120, def: 90, mag: 90, spr: 95, agi: 135 }, wep: ['sword', 'dagger'], learn: [[1, 'flurry'], [3, 'sworddance'], [5, 'mirage'], [8, 'finale']] },
 };
 bilingual(JOBS);
@@ -86,6 +90,29 @@ export const ABILITIES = {
   comet:      { name: ['彗星', 'Comet'], mp: 12, type: 'magic', power: 60, el: 'none', target: 'enemy' },
   stardust:   { name: ['星塵', 'Stardust'], mp: 16, type: 'magic', power: 40, el: 'holy', target: 'enemies' },
   supernova:  { name: ['超新星', 'Supernova'], mp: 34, type: 'magic', power: 95, el: 'none', target: 'enemies' },
+  aqua:       { name: ['水流', 'Aqua'], mp: 4, type: 'magic', power: 20, el: 'water', target: 'enemy' },
+  bolt1:      { name: ['電擊', 'Zap'], mp: 5, type: 'magic', power: 26, el: 'bolt', target: 'enemy' },
+  holy:       { name: ['聖光', 'Holy'], mp: 8, type: 'magic', power: 34, el: 'holy', target: 'enemy' },
+  powerbreak: { name: ['破力斬', 'Power Break'], mp: 5, type: 'phys', power: 0.9, debuff: 'str', target: 'enemy' },
+  sandtoss:   { name: ['撒沙', 'Sand Toss'], mp: 3, type: 'status', status: 'blind', target: 'enemy' },
+  scan:       { name: ['看破', 'Scan'], mp: 1, type: 'scan', target: 'enemy' },
+  elemental:  { name: ['屬性解析', 'Element Strike'], mp: 7, type: 'magic', power: 30, el: 'auto', target: 'enemy' },
+  meditate:   { name: ['冥想', 'Meditate'], mp: 0, type: 'meditate', target: 'self' },
+  mpthrift:   { name: ['節約詠唱（被動）', 'MP Thrift (passive)'], passive: true },
+  omniscience:{ name: ['全知', 'Omniscience'], mp: 24, type: 'magic', power: 56, el: 'auto', target: 'enemies' },
+  holyblade:  { name: ['聖劍', 'Holy Blade'], mp: 5, type: 'phys', power: 1.4, el: 'holy', target: 'enemy' },
+  regen:      { name: ['再生', 'Regen'], mp: 6, type: 'regen', target: 'ally' },
+  sentinel:   { name: ['堅守', 'Sentinel'], mp: 6, type: 'sentinel', target: 'self' },
+  judgment:   { name: ['審判', 'Judgment'], mp: 26, type: 'magic', power: 60, el: 'holy', target: 'enemies' },
+  iai:        { name: ['居合', 'Iai'], mp: 4, type: 'phys', power: 1.35, sure: true, target: 'enemy' },
+  charge:     { name: ['蓄力', 'Charge'], mp: 3, type: 'charge', target: 'self' },
+  armorbreak: { name: ['破甲', 'Armour Break'], mp: 6, type: 'phys', power: 0.9, debuff: 'def', target: 'enemy' },
+  flashcut:   { name: ['一閃', 'Flash Cut'], mp: 12, type: 'phys', power: 1.0, target: 'enemies' },
+  bushido:    { name: ['武士道', 'Bushido'], mp: 22, type: 'phys', power: 3.4, target: 'enemy' },
+  thorn:      { name: ['荊棘', 'Thorn'], mp: 4, type: 'magic', power: 22, el: 'earth', target: 'enemy' },
+  mist:       { name: ['迷霧', 'Mist'], mp: 7, type: 'status', status: 'blind', target: 'enemies' },
+  quake2:     { name: ['大地之怒', 'Earthwrath'], mp: 16, type: 'magic', power: 42, el: 'earth', target: 'enemies' },
+  lifebloom:  { name: ['生命綻放', 'Lifebloom'], mp: 22, type: 'heal', power: 34, regen: true, target: 'allies' },
   flurry:     { name: ['亂舞', 'Flurry'], mp: 6, type: 'phys', power: 0.6, hits: 4, target: 'enemy' },
   sworddance: { name: ['劍之舞', 'Sword Dance'], mp: 10, type: 'phys', power: 1.0, target: 'enemies' },
   mirage:     { name: ['幻影', 'Mirage'], mp: 8, type: 'buff', stat: 'agi', big: true, target: 'self' },
@@ -99,11 +126,13 @@ export const ITEMS = {
   ether:    { name: ['以太', 'Ether'], price: 60, use: 'mp', power: 30, target: 'ally', desc: ['回復 30 MP', 'Restores 30 MP'] },
   phoenix:  { name: ['鳳凰尾羽', 'Phoenix Plume'], price: 180, use: 'revive', target: 'dead', desc: ['讓倒下的夥伴復活', 'Revives a fallen friend'] },
   antidote: { name: ['解毒劑', 'Antidote'], price: 12, use: 'cure', target: 'ally', desc: ['解除中毒', 'Cures poison'] },
+  lens:     { name: ['鑑定鏡', 'Seeing Lens'], price: 30, use: 'scan', target: 'enemy', desc: ['戰鬥中看穿一隻魔物的弱點、抗性與 HP', 'In battle, reveals a monster\'s weaknesses, resistances and HP'] },
+  eyedrops: { name: ['眼藥水', 'Eye Drops'], price: 15, use: 'cure', target: 'ally', desc: ['解除失明與中毒', 'Cures blindness and poison'] },
   tent:     { name: ['帳篷', 'Tent'], price: 80, use: 'tent', target: 'none', desc: ['在野外紮營，全員完全回復', 'Camp anywhere outside and fully recover'] },
   // weapons
   shortsword: { name: ['短劍', 'Short Sword'], price: 40, slot: 'weapon', kind: 'sword', atk: 6 },
   broadsword: { name: ['闊劍', 'Broadsword'], price: 260, slot: 'weapon', kind: 'sword', atk: 16 },
-  crystalblade: { name: ['水晶劍', 'Crystal Blade'], price: 0, slot: 'weapon', kind: 'sword', atk: 34, mag: 6 },
+  crystalblade: { name: ['水晶劍', 'Crystal Blade'], price: 0, slot: 'weapon', kind: 'sword', atk: 34, mag: 6, el: 'holy' },
   rod:        { name: ['木杖', 'Wooden Rod'], price: 30, slot: 'weapon', kind: 'staff', atk: 2, mag: 4 },
   silverstaff: { name: ['銀杖', 'Silver Staff'], price: 280, slot: 'weapon', kind: 'staff', atk: 6, mag: 12 },
   prismstaff: { name: ['稜晶杖', 'Prism Staff'], price: 0, slot: 'weapon', kind: 'staff', atk: 10, mag: 24 },
@@ -119,7 +148,7 @@ export const ITEMS = {
   tunic:      { name: ['布衣', 'Tunic'], price: 30, slot: 'armor', def: 3 },
   leathervest: { name: ['皮甲', 'Leather Vest'], price: 120, slot: 'armor', def: 8 },
   chainmail:  { name: ['鎖子甲', 'Chain Mail'], price: 420, slot: 'armor', def: 16 },
-  prismmail:  { name: ['稜晶鎧', 'Prism Mail'], price: 0, slot: 'armor', def: 28, spr: 6 },
+  prismmail:  { name: ['稜晶鎧', 'Prism Mail'], price: 0, slot: 'armor', def: 28, spr: 6, res: ['fire', 'ice', 'bolt'] },
   charm:      { name: ['幸運符', 'Lucky Charm'], price: 0, slot: 'acc', agi: 5 },
   powerring:  { name: ['力量戒指', 'Power Ring'], price: 0, slot: 'acc', str: 8 },
   sagering:   { name: ['賢者戒指', 'Sage Ring'], price: 0, slot: 'acc', mag: 8 },
@@ -141,23 +170,38 @@ export const ITEMS = {
   goldkoi:   { name: ['金鱗錦鯉', 'Golden Koi'], price: 300, fish: true, desc: ['閃著金光的稀有錦鯉。鹽灣港的老漁夫做夢都想要。', 'A rare koi of shining gold. The old Saltmere fisher dreams of one.'] },
   prismfish: { name: ['稜光魚', 'Prismfin'], price: 600, fish: true, desc: ['只在夜裡浮上來的傳說之魚，鱗片映著七彩。', 'A fish of legend that rises only at night, its scales full of colour.'] },
   // gear found out in the wider land
-  moonbow:    { name: ['月弧弓', 'Moon Bow'], price: 0, slot: 'weapon', kind: 'bow', atk: 25, spr: 4 },
-  runeblade:  { name: ['古都符文劍', 'Lumeran Runeblade'], price: 0, slot: 'weapon', kind: 'sword', atk: 26, mag: 4 },
-  emberblade: { name: ['熔岩劍', 'Ember Blade'], price: 0, slot: 'weapon', kind: 'sword', atk: 30, str: 3 },
+  moonbow:    { name: ['月弧弓', 'Moon Bow'], price: 0, slot: 'weapon', kind: 'bow', atk: 25, spr: 4, el: 'ice' },
+  runeblade:  { name: ['古都符文劍', 'Lumeran Runeblade'], price: 0, slot: 'weapon', kind: 'sword', atk: 26, mag: 4, el: 'holy' },
+  emberblade: { name: ['熔岩劍', 'Ember Blade'], price: 0, slot: 'weapon', kind: 'sword', atk: 30, str: 3, el: 'fire' },
   starrod:    { name: ['星辰杖', 'Star Rod'], price: 0, slot: 'weapon', kind: 'staff', atk: 8, mag: 20 },
-  frostmail:  { name: ['霜鱗甲', 'Frostscale Mail'], price: 0, slot: 'armor', def: 22 },
-  sporecloak: { name: ['孢子斗篷', 'Spore Cloak'], price: 0, slot: 'armor', def: 14, spr: 5 },
+  frostmail:  { name: ['霜鱗甲', 'Frostscale Mail'], price: 0, slot: 'armor', def: 22, res: ['ice'] },
+  sporecloak: { name: ['孢子斗篷', 'Spore Cloak'], price: 0, slot: 'armor', def: 14, spr: 5, immune: ['sleep'] },
   flamering:  { name: ['火焰戒指', 'Flame Ring'], price: 0, slot: 'acc', str: 4, mag: 6 },
   fishcharm:  { name: ['漁人護符', "Angler's Charm"], price: 0, slot: 'acc', agi: 3, desc: ['帶著它，釣魚的時機會寬一點。', 'Wear it and the timing for a catch is kinder.'] },
   wisdomring: { name: ['回憶之戒', 'Ring of Memory'], price: 0, slot: 'acc', mag: 10, spr: 10 },
+  // weapons that carry an element, and gear with special effects
+  icebrand:   { name: ['冰刃', 'Icebrand'], price: 520, slot: 'weapon', kind: 'sword', atk: 20, el: 'ice' },
+  flametongue:{ name: ['炎舌短劍', 'Flametongue'], price: 480, slot: 'weapon', kind: 'dagger', atk: 17, agi: 3, el: 'fire' },
+  aquastaff:  { name: ['潮汐杖', 'Tide Staff'], price: 460, slot: 'weapon', kind: 'staff', atk: 6, mag: 14, el: 'water' },
+  thunderfist:{ name: ['雷拳套', 'Thunder Knuckles'], price: 500, slot: 'weapon', kind: 'fist', atk: 21, el: 'bolt' },
+  salamander: { name: ['火蜥皮甲', 'Salamander Hide'], price: 560, slot: 'armor', def: 15, res: ['fire'] },
+  snowcoat:   { name: ['雪狐大衣', 'Snowfox Coat'], price: 560, slot: 'armor', def: 15, res: ['ice'] },
+  emerald:    { name: ['翠玉墜', 'Emerald Pendant'], price: 0, slot: 'acc', spr: 3, immune: ['poison'] },
+  stargazer:  { name: ['醒目護符', 'Wakeful Charm'], price: 400, slot: 'acc', spr: 3, immune: ['sleep'] },
+  goggles:    { name: ['護目鏡', 'Goggles'], price: 300, slot: 'acc', agi: 2, immune: ['blind'] },
+  ribbon:     { name: ['緞帶', 'Ribbon'], price: 0, slot: 'acc', spr: 6, immune: ['poison', 'sleep', 'stun', 'slow', 'blind'] },
+  regenring:  { name: ['再生指環', 'Regen Ring'], price: 0, slot: 'acc', regen: true },
+  thriftring: { name: ['節約戒指', 'Thrift Ring'], price: 0, slot: 'acc', mag: 3, mpcut: true },
+  quickcharm: { name: ['迅捷護符', 'Quick Charm'], price: 650, slot: 'acc', agi: 6, first: true },
+  blackbelt:  { name: ['黑帶', 'Black Belt'], price: 0, slot: 'acc', str: 4, counter: true },
 };
 bilingual(ITEMS);
 export const SHOPS = {
-  hearthvale: ['potion', 'antidote', 'ether', 'tent', 'shortsword', 'rod', 'dagger', 'mallet', 'shortbow', 'wraps', 'tunic', 'leathervest'],
-  dunewell:   ['potion', 'hipotion', 'ether', 'phoenix', 'antidote', 'tent', 'broadsword', 'silverstaff', 'kris', 'warhammer', 'longbow', 'tigerclaw', 'leathervest', 'chainmail'],
-  frostgate:  ['hipotion', 'ether', 'phoenix', 'antidote', 'tent', 'broadsword', 'silverstaff', 'kris', 'warhammer', 'longbow', 'tigerclaw', 'chainmail'],
-  fenside:    ['potion', 'antidote', 'ether', 'tent', 'phoenix', 'leathervest', 'shortbow', 'wraps'],
-  saltmere:   ['potion', 'hipotion', 'ether', 'antidote', 'tent', 'phoenix', 'broadsword', 'kris', 'longbow', 'leathervest', 'chainmail'],
+  hearthvale: ['potion', 'antidote', 'eyedrops', 'lens', 'ether', 'tent', 'shortsword', 'rod', 'dagger', 'mallet', 'shortbow', 'wraps', 'tunic', 'leathervest'],
+  dunewell:   ['potion', 'hipotion', 'ether', 'phoenix', 'antidote', 'tent', 'broadsword', 'silverstaff', 'kris', 'warhammer', 'longbow', 'tigerclaw', 'icebrand', 'leathervest', 'chainmail', 'snowcoat', 'goggles'],
+  frostgate:  ['hipotion', 'ether', 'phoenix', 'antidote', 'tent', 'broadsword', 'silverstaff', 'kris', 'flametongue', 'warhammer', 'longbow', 'tigerclaw', 'chainmail', 'salamander', 'stargazer'],
+  fenside:    ['potion', 'antidote', 'ether', 'tent', 'phoenix', 'leathervest', 'shortbow', 'wraps', 'goggles'],
+  saltmere:   ['potion', 'hipotion', 'ether', 'antidote', 'tent', 'phoenix', 'broadsword', 'kris', 'longbow', 'aquastaff', 'thunderfist', 'leathervest', 'chainmail', 'quickcharm'],
 };
 
 // model: a Kenney model path, or 'vox:' and a shape built from blocks in models.js
@@ -176,14 +220,14 @@ export const MONSTERS = {
   parrot:    { name: ['海鸚鵡', 'Sea Parrot'], model: 'pets/animal-parrot', lv: 10, agi: 1.5 },
   wisp:      { name: ['湖之精', 'Lake Wisp'], model: 'vox:wisp', color: '#a8f0ff', lv: 12, mag: 1.5, def: 0.6, acts: [['atk', 1], ['ice', 2], ['sleep', 1]] },
   ghost:     { name: ['幽靈', 'Ghost'], model: 'grave/character-ghost', lv: 13, mag: 1.4, acts: [['atk', 2], ['drain', 1], ['sleep', 1]], undead: true },
-  lion:      { name: ['沙丘獅', 'Dune Lion'], model: 'pets/animal-lion', lv: 14, hp: 1.3, atk: 1.3 },
-  scorpion:  { name: ['赤蠍', 'Red Scorpion'], model: 'vox:scorpion', color: '#d84a2a', lv: 15, acts: [['atk', 3], ['poison', 1]] },
+  lion:      { name: ['沙丘獅', 'Dune Lion'], model: 'pets/animal-lion', lv: 14, hp: 1.3, atk: 1.3, acts: [['atk', 4], ['roar', 1]] },
+  scorpion:  { name: ['赤蠍', 'Red Scorpion'], model: 'vox:scorpion', color: '#d84a2a', lv: 15, acts: [['atk', 3], ['poison', 1], ['blind', 1]] },
   tiger:     { name: ['岩虎', 'Rock Tiger'], model: 'pets/animal-tiger', lv: 17, agi: 1.3, atk: 1.3 },
   skeleton:  { name: ['骷髏兵', 'Skeleton'], model: 'kaykit/Skeleton_Warrior', lv: 18, hp: 1.1, undead: true },
   skelmage:  { name: ['骷髏術士', 'Skeleton Mage'], model: 'kaykit/Skeleton_Mage', lv: 19, mag: 1.5, def: 0.8, undead: true, acts: [['atk', 1], ['fire', 2], ['ice', 1]] },
   skelrogue: { name: ['骷髏刺客', 'Skeleton Rogue'], model: 'kaykit/Skeleton_Rogue', lv: 24, agi: 1.5, undead: true, acts: [['atk', 3], ['poison', 1]] },
   minion:    { name: ['骷髏小兵', 'Skeleton Minion'], model: 'kaykit/Skeleton_Minion', lv: 11, hp: 0.9, undead: true },
-  golem:     { name: ['石魔像', 'Stone Golem'], model: 'vox:golem', color: '#9aa0ae', lv: 19, hp: 1.8, def: 1.6, agi: 0.6 },
+  golem:     { name: ['石魔像', 'Stone Golem'], model: 'vox:golem', color: '#9aa0ae', lv: 19, hp: 1.8, def: 1.6, agi: 0.6, acts: [['atk', 3], ['harden', 1]] },
   zombie:    { name: ['殭屍', 'Zombie'], model: 'grave/character-zombie', lv: 20, hp: 1.6, undead: true, acts: [['atk', 3], ['poison', 1]] },
   yeti:      { name: ['雪原巨獸', 'Snow Brute'], model: 'pets/animal-elephant', lv: 21, hp: 1.7, atk: 1.3, acts: [['atk', 3], ['ice', 1]] },
   vampire:   { name: ['吸血鬼', 'Vampire'], model: 'grave/character-vampire', lv: 24, mag: 1.4, acts: [['atk', 2], ['drain', 2], ['fire', 1]], undead: true },
@@ -199,12 +243,12 @@ export const MONSTERS = {
   magmagolem:{ name: ['熔岩魔像', 'Magma Golem'], model: 'vox:golem', color: '#a04020', lv: 24, hp: 1.9, def: 1.6, agi: 0.6, acts: [['atk', 3], ['fire', 1], ['quake', 1]] },
   // guardians of the lands, and what waits at the top of the spire
   treant:    { name: ['古樹守衛', 'Elder Treant'], model: 'vox:treant', color: '#4a8a3a', lv: 9, boss: true, hp: 4.5, acts: [['atk', 3], ['poison', 1], ['quake', 1]] },
-  mesaking:  { name: ['台地之王', 'Mesa King'], model: 'vox:golem', color: '#c86a3a', lv: 17, boss: true, hp: 5, acts: [['atk', 3], ['quake', 2], ['fire', 1]] },
+  mesaking:  { name: ['台地之王', 'Mesa King'], model: 'vox:golem', color: '#c86a3a', lv: 17, boss: true, hp: 5, acts: [['atk', 3], ['quake', 2], ['fire', 1], ['harden', 1]] },
   frostwyrm: { name: ['冰霜飛龍', 'Frost Wyrm'], model: 'vox:dragon', color: '#9ad8ff', lv: 22, boss: true, hp: 6, acts: [['atk', 3], ['ice', 2], ['icestorm', 1]] },
   bogkeeper: { name: ['沼地守墓人', 'The Bog Keeper'], model: 'grave/character-keeper', lv: 12, boss: true, hp: 4.5, undead: true, acts: [['atk', 3], ['poison', 1], ['drain', 1], ['sleep', 1]] },
   sporelord: { name: ['菇王', 'The Sporelord'], model: 'vox:treant', color: '#d070e0', lv: 14, boss: true, hp: 5, acts: [['atk', 3], ['sleep', 1], ['poison', 1], ['quake', 1]] },
   fallenknight:{ name: ['古都亡騎', 'The Fallen Knight'], model: 'kaykit/Skeleton_Warrior', lv: 20, boss: true, hp: 5.5, undead: true, acts: [['atk', 4], ['drain', 1], ['quake', 1]] },
-  emberdrake:{ name: ['熔岩飛龍', 'The Ember Drake'], model: 'vox:dragon', color: '#ff6a30', lv: 25, boss: true, hp: 6, acts: [['atk', 3], ['fire', 2], ['firestorm', 1]] },
+  emberdrake:{ name: ['熔岩飛龍', 'The Ember Drake'], model: 'vox:dragon', color: '#ff6a30', lv: 25, boss: true, hp: 6, acts: [['atk', 3], ['fire', 2], ['firestorm', 1], ['roar', 1]] },
   prismheart:{ name: ['稜晶之心', 'The Prism Heart'], model: 'vox:heart', color: '#e8b0ff', lv: 30, boss: true, hp: 8, acts: [['atk', 2], ['icestorm', 1], ['firestorm', 1], ['quake', 1], ['drain', 1]] },
 };
 bilingual(MONSTERS, ['name']);
@@ -220,8 +264,27 @@ export const TECHS = {
   quake:    { name: ['地震', 'Quake'], kind: 'magic', power: 26, el: 'none', target: 'all' },
   icestorm: { name: ['暴風雪', 'Blizzard'], kind: 'magic', power: 34, el: 'ice', target: 'all' },
   firestorm:{ name: ['炎之嵐', 'Firestorm'], kind: 'magic', power: 36, el: 'fire', target: 'all' },
+  blind:    { name: ['煙沙', 'Dust Cloud'], kind: 'status', status: 'blind', target: 'one' },
+  harden:   { name: ['硬化', 'Harden'], kind: 'guard', target: 'self' },
+  roar:     { name: ['咆哮', 'Roar'], kind: 'rally', target: 'self' },
 };
 bilingual(TECHS, ['name']);
+// what each monster is weak to and shrugs off; weak takes 1.6x, resist 0.4x, absorb heals
+const AFF = {
+  fire: { weak: ['ice', 'water'], res: ['fire'] }, ice: { weak: ['fire'], res: ['ice', 'water'] }, plant: { weak: ['fire'], res: ['earth', 'water'] }, water: { weak: ['bolt'], res: ['water', 'fire'] },
+  undead: { weak: ['holy', 'fire'], res: ['earth'] }, stone: { weak: ['water'], res: ['bolt', 'earth'] }, flyer: { weak: ['bolt'], res: ['earth'] }, beast: { weak: ['fire'], res: [] }, spirit: { weak: ['holy'], res: ['ice'] },
+  sand: { weak: ['water', 'ice'], res: ['earth'] }, crystal: { weak: ['earth'], res: ['holy', 'bolt'] }, heart: { weak: [], res: [] },
+};
+const KIND = {
+  slime: 'plant', bunny: 'beast', chick: 'flyer', hog: 'beast', caterpillar: 'plant', monkey: 'beast', orc: 'beast', bluejelly: 'water', crab: 'water', fish: 'water', parrot: 'flyer',
+  wisp: 'spirit', ghost: 'undead', lion: 'sand', scorpion: 'sand', tiger: 'beast', skeleton: 'undead', skelmage: 'undead', skelrogue: 'undead', minion: 'undead', golem: 'stone', zombie: 'undead',
+  yeti: 'ice', vampire: 'undead', crysgolem: 'crystal', bogslime: 'plant', sporeling: 'plant', sporetreant: 'plant', ruinguard: 'stone', frostjelly: 'ice', icewisp: 'ice', magmaslime: 'fire',
+  emberwisp: 'fire', magmagolem: 'fire', treant: 'plant', mesaking: 'sand', frostwyrm: 'ice', bogkeeper: 'undead', sporelord: 'plant', fallenknight: 'undead', emberdrake: 'fire', prismheart: 'heart',
+};
+export const affinity = (id) => AFF[KIND[id]] || { weak: [], res: [] };
+export const EL_NAME = { fire: ['火', 'Fire'], ice: ['冰', 'Ice'], bolt: ['雷', 'Bolt'], water: ['水', 'Water'], holy: ['聖', 'Holy'], earth: ['土', 'Earth'] };
+// the jobs that are not found in crystals, and who teaches them
+export const JOB_GIFTS = { sporelord: 'druid', fallenknight: 'paladin', emberdrake: 'samurai' };
 // stats of a monster of level lv
 export function monsterStats(id) {
   const m = MONSTERS[id], lv = m.lv;

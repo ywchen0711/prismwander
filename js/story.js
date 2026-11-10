@@ -3,7 +3,7 @@
 // hero of old. In Hearthvale, young people set out on a "wandering year"; this year it is Lowe, Flora, Bal and
 // Shia. A cloaked traveller called Ein keeps crossing their path; the memory shards tell why.
 import { S, addItem, fullHeal, count } from './party.js';
-import { JOBS, ITEMS, SHOPS } from './data.js';
+import { JOBS, ITEMS, SHOPS, JOB_GIFTS } from './data.js';
 import { L } from './i18n.js';
 import { say, talk, ask, toast, fishGame } from './ui.js';
 import { shop, inn } from './menu.js';
@@ -91,7 +91,7 @@ export const SCRIPTS = {
       L('剩下的，要靠你們自己去找。看到發光的水晶，就去碰碰它吧。', 'The rest you must find yourselves. When you see a crystal glowing, go and touch it.'),
       L('聽說集齊八塊的人，能打開稜晶尖塔的大門。……我年輕時只找到三塊呢，哈哈。', 'They say whoever gathers all eight can open the gate of the Prism Spire. ...I only ever found three, ha ha.'),
       L('世界很大喔。北邊有古都的遺跡，東邊有港口，西邊有沼澤……慢慢走吧。', 'The world is wide. Ruins of the old capital to the north, a port to the east, a marsh to the west... take your time.'));
-    await say(null, L('【WASD／方向鍵】移動　【空白鍵】跳躍　【滑鼠拖曳／Q、R】轉動視角　【滾輪】拉遠拉近\n【E／Z】調查、對話　【Esc】選單　【M】音樂開關', '[WASD / arrows] move   [Space] jump   [drag / Q, R] turn the camera   [wheel] zoom\n[E / Z] look, talk   [Esc] menu   [M] music on/off'));
+    await say(null, L('【WASD／方向鍵】移動　【空白鍵】跳躍　【滑鼠拖曳】自由轉動、上下傾斜視角（Q、R、T、G 也可以）\n【V／右鍵】滑鼠直接轉視角　【滾輪】拉遠拉近　【E／Z】調查、對話　【Esc】選單　【M】音樂開關', '[WASD / arrows] move   [Space] jump   [drag] look around and tilt freely (or Q, R, T, G)\n[V / right-click] mouse look   [wheel] zoom   [E / Z] look, talk   [Esc] menu   [M] music on/off'));
     S.flags.intro = true;
   },
 
@@ -132,9 +132,10 @@ export const SCRIPTS = {
   async hv_sage() {
     const SC = L('村裡的學者', 'Village Scholar');
     if (!q('q_shards') && S.shards.length > 0) {
-      await talk(SC, L('那是……粉紅色的碎片？讓我看看！', 'Is that... a pink shard? Let me see!'), L('這是稜晶的「記憶碎片」！傳說稜晶碎掉時，它記得的事也一起碎了。', 'A memory shard of the Prism! They say that when the Prism broke, what it remembered broke with it.'), L('幫我找吧！十二塊就來找我，我會好好答謝你們。', 'Find more for me! Come back with twelve and I will thank you properly.'));
+      await talk(SC, L('那是……粉紅色的碎片？讓我看看！', 'Is that... a pink shard? Let me see!'), L('這是稜晶的「記憶碎片」！傳說稜晶碎掉時，它記得的事也一起碎了。', 'A memory shard of the Prism! They say that when the Prism broke, what it remembered broke with it.'), L('幫我找吧！六塊就來找我，我教你們學者的功夫；十二塊我會好好答謝你們。', 'Find more for me! Bring six and I will teach you the scholar\'s craft; twelve and I will thank you properly.'));
       start('q_shards'); return;
     }
+    if (q('q_shards') === 'on' && S.shards.length >= 6 && !S.jobs.includes('scholar')) { S.jobs.push('scholar'); jingle('crystal'); await talk(SC, L('六塊了！你們讀得懂碎片的話，也該讀得懂魔物。', 'Six! If you can read the shards, you can read monsters too.'), L('我把學者的功夫教給你們：看穿弱點，用對的屬性打。', 'Let me teach you the scholar\'s craft: see the weakness, strike with the right element.')); await say(null, L('學會了新的職業「學者」！', 'A new job: Scholar!')); return; }
     if (q('q_shards') === 'on' && S.shards.length >= 12 && !S.flags.shard12) { S.flags.shard12 = true; await say(SC, L('十二塊！……守護者艾茵。三百年前的人。原來稜晶是被她打碎的。', 'Twelve! ...A keeper named Ein, from three hundred years ago. So she is the one who broke the Prism.')); await gift('wisdomring'); await say(SC, L('如果二十四塊全部找齊，我們就能知道整個故事了。', 'If all twenty-four are found, we will know the whole story.')); return; }
     if (q('q_shards') === 'on' && S.shards.length >= 24) { done('q_shards'); await talk(SC, L('全部二十四塊……！', 'All twenty-four...!'), L('她不是壞人。她是為了讓明天能來，才打碎稜晶的。', 'She was no villain. She broke the Prism so that tomorrow could come.')); await gold(1000); return; }
     if (q('q_shards') === 'on') { await say(SC, L(`記憶碎片 ${S.shards.length} 塊。碎片在各地都有，靠近時會發出粉紅的光。`, `${S.shards.length} memory shards. They are everywhere, glowing pink when you come near.`)); return; }
@@ -324,6 +325,9 @@ export const SCRIPTS = {
     if (id === 'fallenknight') { await say(L('古都亡騎', 'The Fallen Knight'), L('……艾茵……要你們……說「辛苦了」……嗎。……是啊……好累……終於……可以……', '...Ein... told you to say "thank you for your service"...? ...Yes... so tired... at last... I can...')); await say(null, L('騎士的盔甲靜靜地倒下，再也沒有起來。', "The knight's armour quietly falls, and does not rise again.")); }
     if (id === 'frostwyrm') await say(L('冰霜飛龍', 'Frost Wyrm'), L('……去吧。山頂的星光，屬於能撐過寒風的人。', '...Go. The starlight of the summit belongs to those who can stand the wind.'));
     if (id === 'emberdrake') await say(L('熔岩飛龍', 'The Ember Drake'), L('……火……好像……沒那麼燙了……', '...The fire... somehow... is not so hot now...'));
+    // some guardians leave a craft behind
+    const job = JOB_GIFTS[id];
+    if (job && !S.jobs.includes(job)) { S.jobs.push(job); jingle('crystal'); await say(null, L(`守護者留下的光芒裡，封著一門技藝……\n學會了新的職業「${JOBS[job].name}」！`, `In the light the guardian leaves behind lies a craft...\nA new job: ${JOBS[job].name}!`)); await say(null, JOBS[job].desc); }
   },
   async ending() {
     await talk(L('稜晶之心', 'The Prism Heart'), L('……好溫暖。八塊碎片裡，都留著你們的手的溫度。', '...So warm. Every one of the eight shards still holds the warmth of your hands.'),

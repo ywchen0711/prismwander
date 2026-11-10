@@ -16,6 +16,15 @@ function memberCard(m, sel = false) {
     `<div class="row small"><span>HP ${m.hp}/${s.maxhp}</span><span>MP ${m.mp}/${s.maxmp}</span></div>${bar(m.hp, s.maxhp, '#7cf29a')}${bar(m.mp, s.maxmp, '#7cc4ff')}</div>`;
 }
 const partySide = () => `<div class="cols" style="flex-direction:column;gap:6px">${S.members.map((m) => memberCard(m)).join('')}</div><div class="small" style="margin-top:6px">${L('金幣', 'Gold')} ${S.gold}　${L('水晶', 'Crystals')} ${S.crystals.length}/8　${L('記憶', 'Memories')} ${S.shards.length}/24</div>`;
+// front and back rows: the back row takes less physical damage but hits softer in melee (bows do not mind)
+async function formationMenu() {
+  let start = 0;
+  for (;;) {
+    const r = await list(L('隊形', 'Formation'), S.members.map((m) => ({ label: heroName(m), right: m.row === 'back' ? L('後排', 'Back row') : L('前排', 'Front row') })), { width: 320, start, footer: L('後排：受到的物理傷害少四成、比較不會被盯上，但近戰傷害也少四成（弓不受影響）。選擇切換。', 'Back row: 40% less physical damage taken and targeted less often, but melee hits 40% softer (bows are unaffected). Select to switch.') });
+    if (r < 0) return;
+    const m = S.members[r]; m.row = m.row === 'back' ? 'front' : 'back'; start = r;
+  }
+}
 // the requests you have taken on, the unfinished ones first
 async function questMenu() {
   const ids = Object.keys(S.quests).sort((a, b) => (S.quests[a] === 'done') - (S.quests[b] === 'done'));
@@ -36,7 +45,7 @@ export async function fieldMenu(ctx) {
   for (;;) {
     const r = await list(L('選單', 'Menu'), [
       { label: L('職業', 'Jobs') }, { label: L('裝備', 'Equipment') }, { label: L('道具', 'Items') }, { label: L('能力', 'Status') },
-      { label: L('委託', 'Requests') }, { label: L('回憶', 'Memories'), disabled: !S.shards.length },
+      { label: L('隊形', 'Formation') }, { label: L('委託', 'Requests') }, { label: L('回憶', 'Memories'), disabled: !S.shards.length },
       { label: L('地圖', 'Map') }, { label: L('傳送', 'Warp'), disabled: S.homes.length < 2 }, { label: L('記錄', 'Save') }, { label: L('設定', 'Settings') },
     ], { side: partySide(), width: 200 });
     if (r < 0) return;
@@ -44,12 +53,13 @@ export async function fieldMenu(ctx) {
     if (r === 1) await equipMenu();
     if (r === 2) await itemsMenu(ctx);
     if (r === 3) await statusMenu();
-    if (r === 4) await questMenu();
-    if (r === 5) await memoryMenu();
-    if (r === 6) await mapMenu(ctx);
-    if (r === 7) { const ok = await warpMenu(ctx); if (ok) return; }
-    if (r === 8) { ctx.savePos(); if (save()) { sfx('ok'); toast(L('已記錄', 'Saved')); } }
-    if (r === 9) await settings();
+    if (r === 4) await formationMenu();
+    if (r === 5) await questMenu();
+    if (r === 6) await memoryMenu();
+    if (r === 7) await mapMenu(ctx);
+    if (r === 8) { const ok = await warpMenu(ctx); if (ok) return; }
+    if (r === 9) { ctx.savePos(); if (save()) { sfx('ok'); toast(L('已記錄', 'Saved')); } }
+    if (r === 10) await settings();
   }
 }
 const pickMember = (title) => list(title, S.members.map((m) => ({ label: heroName(m), right: `${JOBS[m.job].name}${m.sub ? ' / ' + JOBS[m.sub].name : ''}` })), { width: 320 });
@@ -96,7 +106,13 @@ async function equipMenu() {
   }
 }
 const kindName = (k) => ({ sword: L('劍', 'swords'), staff: L('杖', 'staves'), dagger: L('短劍', 'daggers'), hammer: L('鎚', 'hammers'), bow: L('弓', 'bows'), fist: L('拳套', 'fists') }[k]);
-function describeGear(id) { const it = ITEMS[id]; return [it.atk ? `${L('攻', 'ATK')}+${it.atk}` : '', it.def ? `${L('防', 'DEF')}+${it.def}` : '', it.mag ? `${L('魔', 'MAG')}+${it.mag}` : '', it.str ? `${L('力', 'STR')}+${it.str}` : '', it.agi ? `${L('速', 'AGI')}+${it.agi}` : '', it.spr ? `${L('精', 'SPR')}+${it.spr}` : ''].filter(Boolean).join(' '); }
+const EL = (e) => ({ fire: L('火', 'fire'), ice: L('冰', 'ice'), bolt: L('雷', 'bolt'), water: L('水', 'water'), holy: L('聖', 'holy'), earth: L('土', 'earth') }[e] || e);
+const ST = (s) => ({ poison: L('中毒', 'poison'), sleep: L('睡眠', 'sleep'), stun: L('暈眩', 'stun'), slow: L('減速', 'slow'), blind: L('失明', 'blind') }[s] || s);
+function describeGear(id) {
+  const it = ITEMS[id];
+  return [it.atk ? `${L('攻', 'ATK')}+${it.atk}` : '', it.def ? `${L('防', 'DEF')}+${it.def}` : '', it.mag ? `${L('魔', 'MAG')}+${it.mag}` : '', it.str ? `${L('力', 'STR')}+${it.str}` : '', it.agi ? `${L('速', 'AGI')}+${it.agi}` : '', it.spr ? `${L('精', 'SPR')}+${it.spr}` : '',
+    it.el ? L(`${EL(it.el)}屬性攻擊`, `${EL(it.el)} attacks`) : '', it.res ? L(`抗${it.res.map(EL).join('、')}`, `resists ${it.res.map(EL).join(', ')}`) : '', it.immune ? L(`防${it.immune.map(ST).join('、')}`, `blocks ${it.immune.map(ST).join(', ')}`) : '',
+    it.regen ? L('每回合回復 HP', 'HP every round') : '', it.mpcut ? L('MP 消耗 -25%', 'MP cost -25%') : '', it.first ? L('最先行動', 'acts first') : '', it.counter ? L('受攻擊時可能反擊', 'may counter') : ''].filter(Boolean).join(' '); }
 async function itemsMenu(ctx) {
   for (;;) {
     const ids = Object.keys(S.inv);
@@ -104,13 +120,14 @@ async function itemsMenu(ctx) {
     if (r < 0) return;
     const id = ids[r], it = ITEMS[id];
     if (it.use === 'tent') { if (ctx.inTown()) { toast(L('村子裡用不著帳篷。', 'No need for a tent in town.')); continue; } addItem(id, -1); await ctx.rest(); continue; }
+    if (it.use === 'scan') { toast(L('只能在戰鬥中使用。', 'Only in battle.')); continue; }
     const pool = S.members.filter((m) => (it.use === 'revive' ? m.hp <= 0 : m.hp > 0));
     const k = await list(it.name, pool.map((m) => ({ label: heroName(m), right: `HP ${m.hp}/${stats(m).maxhp}` })), { width: 300 });
     if (k < 0) continue;
     const m = pool[k], s = stats(m); addItem(id, -1); sfx('ok');
     if (it.use === 'heal') m.hp = Math.min(s.maxhp, m.hp + it.power);
     if (it.use === 'mp') m.mp = Math.min(s.maxmp, m.mp + it.power);
-    if (it.use === 'cure') delete m.status.poison;
+    if (it.use === 'cure') { delete m.status.poison; delete m.status.blind; }
     if (it.use === 'revive') m.hp = Math.round(s.maxhp * 0.4);
   }
 }

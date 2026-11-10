@@ -26,6 +26,12 @@ Long ago the Prism that crowned the Spire shattered into eight crystals, each ho
 - **Requests.** Villagers ask for help: deliver a letter, gather moonherbs in the marsh and glowcaps in the grove, clear the frozen plain, slay the drake of the volcano, catch a golden koi, bring back the memory shards. The menu keeps a request log.
 - **Fishing.** The Saltmere fisher gives you a rod. Where rings spread on the water, press E, pull when the "!" shows, then stop the needle on the bright mark. Seven kinds of fish, to eat or sell.
 - **Signposts and old tablets** point the way and tell a little of the land's past.
+- **Strategy in battle.**
+  - Sixteen jobs. Besides the eight crystals, the Scholar is taught by the Hearthvale scholar, and the Druid, Paladin and Samurai are left behind by guardians you defeat.
+  - Elements: fire, ice, bolt, water, holy and earth. Every monster has weaknesses (1.6x) and resistances (0.4x); Scan or a Seeing Lens reveals them and its HP, and the Scholar's spells pick the weakness on their own.
+  - Front and back rows: the back row takes 40% less physical damage and is targeted less, but hits softer in melee (bows are unaffected). Switch rows in battle without losing the turn, or under Formation in the menu.
+  - Breaks (attack down, defence down) work even on guardians; blindness, regen, charge, sentinel; monsters that harden or roar.
+  - Gear with effects: elemental weapons, armour that resists an element, charms against poison, sleep or blindness, a Ribbon against all of them, regen, MP thrift, acting first, counters.
 - **Turn-based battles** on a little 3D stage with the party's models in two staggered rows facing the monsters, with the land you were standing on behind them. Commands are Attack, Abilities, Items, Guard and Run. Battles include poison, sleep, stun, slow, buffs, and passives such as counter, cover and pharmacy.
 - **Home stones** heal and save the game, and let you warp between any of them you have touched. The Crystal Compass shows the nearest crystal still to find.
 
@@ -37,7 +43,7 @@ Long ago the Prism that crowned the Spire shattered into eight crystals, each ho
 | Jump, glide | Space | ⤒ | X |
 | Talk, look | E / Z / Enter | A | A |
 | Back | X / Backspace | B | B |
-| Turn the camera | drag the mouse, Q / R | drag | right stick, LB / RB |
+| Turn and tilt the camera | drag the mouse (any direction), Q / R / T / G; V or right-click captures the mouse for free look | drag | right stick, LB / RB |
 | Zoom | mouse wheel | | |
 | Menu | Esc | ≡ | Start / Y |
 

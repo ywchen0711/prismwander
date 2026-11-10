@@ -2,8 +2,8 @@
 // as 3D models, with the windows as HTML on top. Everyone picks a command, then the round plays out by speed.
 import * as THREE from 'three';
 import { make } from './models.js';
-import { MONSTERS, TECHS, ABILITIES, ITEMS, HEROES, monsterStats } from './data.js';
-import { S, stats, abilitiesOf, hasPassive, heroName, gain, addItem, count } from './party.js';
+import { MONSTERS, TECHS, ABILITIES, ITEMS, HEROES, monsterStats, affinity, EL_NAME } from './data.js';
+import { S, stats, abilitiesOf, hasPassive, heroName, gain, addItem, count, gearHas, immuneTo, resists } from './party.js';
 import { input } from './input.js';
 import { sfx, playMusic, jingle } from './audio.js';
 import { L } from './i18n.js';
@@ -52,6 +52,36 @@ function buildStage(kind) {
 }
 
 // ---------- start ----------
+// the back row stands a step further from the monsters
+const heroSpot = (i, m) => [0.9 + i * 1.15 + (m.row === 'back' ? 0.45 : 0), m.row === 'back' ? 0.3 : 1.9];
+const ELC = { fire: '#ff9050', ice: '#a0e8ff', bolt: '#fff080', water: '#70b0ff', holy: '#fff8d0', earth: '#d0a060' };
+const elName = (el) => (EL_NAME[el] ? L(EL_NAME[el][0], EL_NAME[el][1]) : '');
+// how hard an element lands on a monster, and a word to show when it matters
+function elemMult(f, el) {
+  if (!el || el === 'none' || f.kind !== 'foe') return 1;
+  const a = affinity(f.id);
+  if (a.weak.includes(el)) { popupLater(f, L('弱點！', 'WEAK!'), '#ffe27a'); return 1.6; }
+  if (a.res.includes(el)) { popupLater(f, L('抵抗', 'RESIST'), '#a0b0c8'); return 0.4; }
+  return 1;
+}
+const popupLater = (who, s, col) => setTimeout(() => B && popup(who, s, col), 260);
+// what a player knows about a monster: everything once it has been scanned
+function foeInfo(f) {
+  const debuffs = Object.entries(f.buffs).map(([k, b]) => (b.k < 1 ? '↓' : '↑') + { str: L('攻', 'Atk'), def: L('防', 'Def'), agi: L('速', 'Spd') }[k]).join('');
+  const st = Object.keys(f.status).map(statusWord).filter(Boolean).join(' ');
+  if (!S.scanned[f.id]) return `${f.name}　HP ???　${debuffs} ${st}`;
+  const a = affinity(f.id);
+  return `${f.name}　HP ${f.hp}/${f.maxhp}　${a.weak.length ? L('弱：', 'Weak: ') + a.weak.map(elName).join(L('、', ', ')) : ''}${a.res.length ? L('　抗：', '  Resist: ') + a.res.map(elName).join(L('、', ', ')) : ''}　${debuffs} ${st}`;
+}
+const mpCost = (m, a) => (hasPassive(m, 'mpthrift') || gearHas(m, 'mpcut') ? Math.ceil(a.mp * 0.75) : a.mp);
+// a line telling what an ability does
+function describe(a) {
+  const tgt = { enemy: L('單體', 'one foe'), enemies: L('全體敵人', 'all foes'), ally: L('一位夥伴', 'one friend'), allies: L('全體夥伴', 'all friends'), self: L('自己', 'self'), dead: L('倒下的夥伴', 'a fallen friend'), none: '' }[a.target] || '';
+  const what = { phys: L('物理', 'physical'), magic: L('魔法', 'magic'), heal: L('回復', 'healing'), buff: L('強化', 'boost'), status: L('異常狀態', 'status'), scan: L('看穿弱點、抗性與 HP', 'reveal weaknesses, resistances and HP'), regen: L('每回合回復 HP', 'restore HP every round'), charge: L('下一次物理攻擊 2.2 倍', 'next physical hit x2.2'), sentinel: L('吸引攻擊並大幅提升防禦', 'draw attacks and raise defence a lot'), meditate: L('回復自己的 MP', 'restore own MP'), steal: L('偷東西', 'steal'), taunt: L('吸引攻擊', 'draw attacks'), gravity: L('削去目前 HP 的四成', 'cut 40% of current HP'), cure: L('解除異常', 'cure ailments'), revive: L('復活', 'revive'), flee: L('逃跑', 'escape') }[a.type] || '';
+  const el = a.el === 'auto' ? L('自動選弱點屬性', 'element picked to hit a weakness') : a.el && a.el !== 'none' ? elName(a.el) + L('屬性', ' element') : '';
+  const extra = [a.hits > 1 ? L(`${a.hits} 連擊`, `${a.hits} hits`) : '', a.power && a.type === 'phys' ? `×${a.power}` : '', a.status ? statusWord(a.status) : '', a.debuff ? L(`降低${{ str: '攻擊', def: '防禦' }[a.debuff]}`, `lowers ${{ str: 'attack', def: 'defence' }[a.debuff]}`) : '', a.sure ? L('必中', 'never misses') : '', a.regen ? L('附加再生', 'plus regen') : ''];
+  return [what, el, tgt, ...extra].filter(Boolean).join('・');
+}
 export function startBattle(ids, { boss = false, bg = 'grass', canFlee = true } = {}) {
   return new Promise((resolve) => {
     const st = buildStage(bg);
@@ -66,10 +96,10 @@ export function startBattle(ids, { boss = false, bg = 'grass', canFlee = true } 
     });
     const party = S.members.map((m, i) => {
       // the party stands on the right in two staggered rows, mirroring the monsters
-      const inst = make(HEROES[m.id].model).fit(1.9); const x = 1.4 + i * 1.25, z = i % 2 ? 0.5 : 2.1;
+      const inst = make(HEROES[m.id].model).fit(1.9); const [x, z] = heroSpot(i, m);
       inst.obj.position.set(x, 0, z);
       st.scene.add(inst.obj); inst.play(m.hp > 0 ? 'idle' : 'die', { once: m.hp <= 0 });
-      m.buffs = {}; m.defending = false; delete m.status.sleep; delete m.status.stun; m.taunt = 0;
+      m.buffs = {}; m.defending = false; delete m.status.sleep; delete m.status.stun; m.taunt = 0; m.charge = false;
       return { m, inst, home: [x, z], h: 1.9 };
     });
     // everyone turns to face the middle of the other side
@@ -109,8 +139,8 @@ function drawParty() {
   const el = $('bparty'); if (!el) return;
   el.innerHTML = S.members.map((m) => {
     const s = stats(m), act = B.active === m, dead = m.hp <= 0;
-    const st = Object.keys(m.status).map((k) => ({ poison: L('毒', 'Psn'), sleep: L('睡', 'Zz'), stun: L('暈', 'Stn'), slow: L('緩', 'Slw') }[k])).filter(Boolean).join(' ');
-    return `<div class="hb${act ? ' act' : ''}${dead ? ' dead' : ''}"><div class="row"><span>${heroName(m)}</span><span class="small">${st}</span></div>` +
+    const st = Object.keys(m.status).map((k) => ({ poison: L('毒', 'Psn'), sleep: L('睡', 'Zz'), stun: L('暈', 'Stn'), slow: L('緩', 'Slw'), blind: L('盲', 'Bld'), regen: L('生', 'Rgn') }[k])).filter(Boolean).concat(m.charge ? [L('蓄', 'Chg')] : []).join(' ');
+    return `<div class="hb${act ? ' act' : ''}${dead ? ' dead' : ''}"><div class="row"><span>${heroName(m)} <span class="small">${m.row === 'back' ? L('後', 'B') : L('前', 'F')}</span></span><span class="small">${st}</span></div>` +
       `<div class="row small"><span>HP ${m.hp}/${s.maxhp}</span><span>MP ${m.mp}</span></div><div class="bar"><i style="width:${Math.max(0, m.hp / s.maxhp * 100)}%;background:${m.hp < s.maxhp / 4 ? '#ff7a8a' : '#7cf29a'}"></i></div></div>`;
   }).join('');
 }
@@ -132,7 +162,7 @@ async function run() {
       msg(L('逃不掉！', "Can't escape!")); await wait(700);
     }
     const order = [];
-    if (cmds !== 'flee') for (const c of cmds) if (c) order.push({ hero: c.p, c, spd: speed(c.p.m) * rnd(0.85, 1.15) + (c.type === 'guard' ? 999 : 0) });
+    if (cmds !== 'flee') for (const c of cmds) if (c) order.push({ hero: c.p, c, spd: speed(c.p.m) * rnd(0.85, 1.15) + (c.type === 'guard' ? 999 : 0) + (gearHas(c.p.m, 'first') ? 500 : 0) });
     for (const f of alive()) order.push({ foe: f, spd: f.agi * (f.status.slow ? 0.5 : 1) * rnd(0.85, 1.15) });
     order.sort((a, b) => b.spd - a.spd);
     for (const p of B.party) p.m.defending = false;
@@ -148,13 +178,14 @@ async function run() {
       const m = p.m, s = stats(m);
       if (m.status.poison) { const d = Math.max(1, Math.floor(s.maxhp / 12)); m.hp = Math.max(1, m.hp - d); popup(p, d, '#c080ff'); }
       if (hasPassive(m, 'innerpeace')) { const h = Math.round(s.maxhp * 0.05); m.hp = Math.min(s.maxhp, m.hp + h); }
-      for (const k of ['sleep', 'stun']) if (m.status[k] && --m.status[k] <= 0) delete m.status[k];
+      if (m.status.regen || gearHas(m, 'regen')) { const h = Math.round(s.maxhp * (m.status.regen ? 0.09 : 0.05)); if (m.hp < s.maxhp) { m.hp = Math.min(s.maxhp, m.hp + h); popup(p, h, '#7cf29a'); } }
+      for (const k of ['sleep', 'stun', 'blind', 'regen']) if (m.status[k] && --m.status[k] <= 0) delete m.status[k];
       for (const k of Object.keys(m.buffs)) if (--m.buffs[k].t <= 0) delete m.buffs[k];
       if (m.taunt) m.taunt--;
     }
     for (const f of alive()) {
       if (f.status.poison) { const d = Math.max(1, Math.floor(f.maxhp / 14)); hurt(f, d, '#c080ff'); }
-      for (const k of ['sleep', 'stun', 'slow']) if (f.status[k] && --f.status[k] <= 0) delete f.status[k];
+      for (const k of ['sleep', 'stun', 'slow', 'blind']) if (f.status[k] && --f.status[k] <= 0) delete f.status[k];
       for (const k of Object.keys(f.buffs)) if (--f.buffs[k].t <= 0) delete f.buffs[k];
     }
     drawParty();
@@ -182,7 +213,7 @@ async function victory() {
 }
 function waitKey() { return new Promise((r) => { const t0 = performance.now(); const off = onTick(() => { if ((performance.now() - t0 > 250 && (input.pressed('a') || input.pressed('b'))) || performance.now() - t0 > 2600) { off(); r(); } }); }); }
 function end(result) {
-  for (const m of S.members) { m.buffs = {}; m.defending = false; m.taunt = 0; delete m.status.sleep; delete m.status.stun; delete m.status.slow; }
+  for (const m of S.members) { m.buffs = {}; m.defending = false; m.taunt = 0; m.charge = false; for (const k of ['sleep', 'stun', 'slow', 'blind', 'regen']) delete m.status[k]; }
   $('battleui').classList.remove('on'); $('battleui').innerHTML = '';
   const r = B.resolve; B = null; r(result);
 }
@@ -205,7 +236,7 @@ async function choose() {
 function cmdMenu(items, { cancel = true } = {}) {
   return new Promise((res) => {
     const el = $('bcmd'); let sel = 0;
-    const draw = () => { el.innerHTML = items.map((o, i) => `<div class="opt${i === sel ? ' sel' : ''}${o.disabled ? ' off' : ''}" data-i="${i}"><div class="row"><span>${o.label}</span><span class="small">${o.right !== undefined ? o.right : ''}</span></div></div>`).join(''); el.classList.add('on'); const s = el.querySelector('.sel'); if (s) s.scrollIntoView({ block: 'nearest' }); };
+    const draw = () => { el.innerHTML = items.map((o, i) => `<div class="opt${i === sel ? ' sel' : ''}${o.disabled ? ' off' : ''}" data-i="${i}"><div class="row"><span>${o.label}</span><span class="small">${o.right !== undefined ? o.right : ''}</span></div></div>`).join('') + (items.some((o) => o.desc) ? `<div class="small bdesc">${(items[sel] && items[sel].desc) || ''}</div>` : ''); el.classList.add('on'); const s = el.querySelector('.sel'); if (s) s.scrollIntoView({ block: 'nearest' }); };
     el.onclick = (e) => { const o = e.target.closest('.opt'); if (!o) return; sel = +o.dataset.i; pick(); };
     const pick = () => { if (items[sel].disabled) { sfx('buzz'); return; } sfx('ok'); done(sel); };
     const done = (v) => { el.classList.remove('on'); el.onclick = null; off(); res(v); };
@@ -222,27 +253,32 @@ async function commandFor(p, canBack) {
   const m = p.m;
   for (;;) {
     const abil = abilitiesOf(m).filter((a) => !ABILITIES[a].passive);
+    const wep = ITEMS[m.equip.weapon], wel = wep && wep.el;
     const r = await cmdMenu([
-      { label: L('攻擊', 'Attack') }, { label: L('技能', 'Abilities'), disabled: !abil.length }, { label: L('道具', 'Items'), disabled: !Object.keys(S.inv).some((k) => ITEMS[k].use && ITEMS[k].use !== 'tent') },
-      { label: L('防禦', 'Guard') }, { label: L('逃跑', 'Run'), disabled: !B.canFlee },
+      { label: L('攻擊', 'Attack'), right: wel ? elName(wel) : '', desc: (wel ? elName(wel) + L('屬性・', ' element · ') : '') + (m.row === 'back' && !(wep && wep.kind === 'bow') ? L('後排：近戰傷害降低', 'back row: melee does less') : L('普通攻擊', 'a plain attack')) },
+      { label: L('技能', 'Abilities'), disabled: !abil.length, desc: L('職業技能', 'job abilities') }, { label: L('道具', 'Items'), disabled: !Object.keys(S.inv).some((k) => ITEMS[k].use && ITEMS[k].use !== 'tent'), desc: L('使用道具', 'use an item') },
+      { label: L('防禦', 'Guard'), desc: L('這回合受到的傷害減半，最先行動', 'halve damage this round, act first') },
+      { label: m.row === 'back' ? L('換到前排', 'To front row') : L('換到後排', 'To back row'), desc: L('後排受到的物理傷害少四成，但近戰傷害也降低（弓不受影響）。不消耗回合', 'Back row takes 40% less physical damage but deals less in melee (bows are unaffected). Costs no turn') },
+      { label: L('逃跑', 'Run'), disabled: !B.canFlee },
     ], { cancel: canBack });
     if (r < 0) return 'back';
     if (r === 0) { const t = await target('enemy', m); if (t) return { type: 'attack', target: t }; }
     if (r === 1) {
-      const k = await cmdMenu(abil.map((a) => ({ label: ABILITIES[a].name, right: ABILITIES[a].mp, disabled: ABILITIES[a].mp > m.mp })));
+      const k = await cmdMenu(abil.map((a) => ({ label: ABILITIES[a].name, right: mpCost(m, ABILITIES[a]), disabled: mpCost(m, ABILITIES[a]) > m.mp, desc: describe(ABILITIES[a]) })));
       if (k < 0) continue;
       const a = abil[k], t = await target(ABILITIES[a].target, m);
       if (t !== null) return { type: 'ability', id: a, target: t };
     }
     if (r === 2) {
       const items = Object.keys(S.inv).filter((k) => ITEMS[k].use && ITEMS[k].use !== 'tent');
-      const k = await cmdMenu(items.map((id) => ({ label: ITEMS[id].name, right: S.inv[id] })));
+      const k = await cmdMenu(items.map((id) => ({ label: ITEMS[id].name, right: S.inv[id], desc: ITEMS[id].desc || '' })));
       if (k < 0) continue;
       const id = items[k], t = await target(ITEMS[id].target, m);
       if (t !== null) return { type: 'item', id, target: t };
     }
     if (r === 3) return { type: 'guard' };
-    if (r === 4) return { type: 'flee' };
+    if (r === 4) { m.row = m.row === 'back' ? 'front' : 'back'; sfx('ok'); const i = B.party.indexOf(p); p.home = heroSpot(i, m); slide(p); drawParty(); continue; }
+    if (r === 5) return { type: 'flee' };
   }
 }
 // pick who: an arrow over the target, left and right to move it
@@ -256,7 +292,7 @@ function target(kind, m) {
   return new Promise((res) => {
     let i = 0;
     const arrow = document.createElement('div'); arrow.className = 'tgt'; arrow.textContent = '▼'; $('bfx').appendChild(arrow);
-    const place = () => { const o = pool[i].inst.obj.position; arrow.dataset.x = o.x; arrow.dataset.y = (pool[i].h || 1.9) + 0.5; arrow.dataset.z = o.z; msg(pool[i].name || heroName(pool[i].m)); };
+    const place = () => { const o = pool[i].inst.obj.position; arrow.dataset.x = o.x; arrow.dataset.y = (pool[i].h || 1.9) + 0.5; arrow.dataset.z = o.z; msg(pool[i].kind === 'foe' ? foeInfo(pool[i]) : heroName(pool[i].m)); };
     const off = onTick(() => {
       if (input.pressed('right') || input.pressed('down')) { i = (i + 1) % pool.length; sfx('cursor'); place(); }
       if (input.pressed('left') || input.pressed('up')) { i = (i + pool.length - 1) % pool.length; sfx('cursor'); place(); }
@@ -270,13 +306,24 @@ function target(kind, m) {
 // ---------- doing ----------
 const heroFighter = (m) => { const s = stats(m); return { atk: s.atk * buff(m, 'str'), dfn: s.dfn * buff(m, 'def'), mag: s.mag, spr: s.spr, agi: s.agi * buff(m, 'agi') }; };
 const foeFighter = (f) => ({ atk: f.atk * buff(f, 'str'), dfn: f.def * buff(f, 'def'), mag: f.mag, spr: f.def * 0.6, agi: f.agi });
-function physical(a, t, mult = 1, { sure = false, ignoreDef = false } = {}) {
-  if (!sure && Math.random() < Math.max(0.03, Math.min(0.25, 0.06 + (t.agi - a.agi) * 0.01))) return { miss: true };
+function physical(a, t, mult = 1, { sure = false, ignoreDef = false, blind = false } = {}) {
+  if (!sure && Math.random() < Math.max(0.03, Math.min(0.25, 0.06 + (t.agi - a.agi) * 0.01)) + (blind ? 0.45 : 0)) return { miss: true };
   const crit = Math.random() < 0.07;
   let d = (a.atk * rnd(0.9, 1.1) - (ignoreDef ? 0 : t.dfn * 0.55)) * mult * (crit ? 1.6 : 1);
   return { dmg: Math.max(1, Math.round(d)), crit };
 }
 const magical = (power, a, t) => Math.max(1, Math.round((power + a.mag * 1.6) * rnd(0.92, 1.08) - t.spr * 0.45));
+// a hero's physical hit: the back row holds back in melee, a charge doubles it, the element can find a weakness
+function heroHit(p, t, power = 1, a = {}) {
+  const m = p.m, wep = ITEMS[m.equip.weapon];
+  let mult = power;
+  if (m.row === 'back' && !(wep && wep.kind === 'bow')) mult *= 0.6;
+  if (m.charge) { mult *= 2.2; m.charge = false; }
+  const r = physical(heroFighter(m), foeFighter(t), mult, { sure: a.sure, ignoreDef: a.ignoreDef, blind: !!m.status.blind });
+  if (!r.miss) r.dmg = Math.max(1, Math.round(r.dmg * elemMult(t, a.el || (wep && wep.el))));
+  return r;
+}
+async function slide(who) { const o = who.inst.obj.position, [hx, hz] = who.home, sx = o.x, sz = o.z; for (let k = 1; k <= 8; k++) { o.x = sx + (hx - sx) * k / 8; o.z = sz + (hz - sz) * k / 8; await wait(16); } }
 async function lunge(who, toward) {
   const o = who.inst.obj.position, [hx, hz] = who.home, tx = toward ? toward.inst.obj.position.x : hx, tz = toward ? toward.inst.obj.position.z : hz;
   const ex = hx + (tx - hx) * 0.55, ez = hz + (tz - hz) * 0.55;
@@ -319,7 +366,7 @@ async function heroAct(p, c) {
     const t = pick(c.target); if (!t) return;
     msg(L(`${heroName(m)}的攻擊！`, `${heroName(m)} attacks!`));
     await lunge(p, t); await wait(180);
-    const r = physical(me, foeFighter(t));
+    const r = heroHit(p, t);
     if (r.miss) { sfx('miss'); popup(t, 'MISS', '#a0b0c8'); } else { sfx(r.crit ? 'crit' : 'hit'); hurt(t, r.dmg, r.crit ? '#ffe27a' : '#ffffff'); }
     await wait(320); await back(p); msg('');
     return;
@@ -330,19 +377,20 @@ async function heroAct(p, c) {
     addItem(c.id, -1);
     const k = hasPassive(m, 'pharmacy') ? 2 : 1, t = c.target;
     msg(L(`${heroName(m)}使用了${it.name}。`, `${heroName(m)} uses ${it.name}.`)); p.inst.play('interact-right', { once: true }); await wait(350);
+    if (it.use === 'scan') { const f = t && t.hp > 0 ? t : alive()[0]; if (f) { sparkle(f, 0xa0f0ff); S.scanned[f.id] = true; msg(foeInfo(f)); await wait(1800); } msg(''); return; }
     if (it.use === 'revive') { if (t.m.hp <= 0) { t.m.hp = Math.round(stats(t.m).maxhp * 0.4 * k); t.inst.play('idle'); sfx('heal'); sparkle(t, 0xfff0a0); popup(t, t.m.hp, '#7cf29a'); } }
     else if (t.m.hp > 0) {
       sfx('heal'); sparkle(t, 0x90ff90);
       if (it.use === 'heal') healHero(t, it.power * k);
       if (it.use === 'mp') { const s = stats(t.m); t.m.mp = Math.min(s.maxmp, t.m.mp + it.power * k); popup(t, it.power * k, '#7cc4ff'); }
-      if (it.use === 'cure') delete t.m.status.poison;
+      if (it.use === 'cure') { delete t.m.status.poison; delete t.m.status.blind; }
     }
     await wait(500); msg(''); return;
   }
   // abilities
-  const a = ABILITIES[c.id];
-  if (m.mp < a.mp) { msg(L('MP 不夠！', 'Not enough MP!')); await wait(600); return; }
-  m.mp -= a.mp;
+  const a = ABILITIES[c.id], cost = mpCost(m, a);
+  if (m.mp < cost) { msg(L('MP 不夠！', 'Not enough MP!')); await wait(600); return; }
+  m.mp -= cost;
   msg(`${heroName(m)}：${a.name}`);
   const foesT = c.target === 'allFoes' ? alive() : null;
   if (a.type === 'phys') {
@@ -351,8 +399,13 @@ async function heroAct(p, c) {
     await wait(200);
     for (const t of ts) for (let h = 0; h < (a.hits || 1); h++) {
       if (t.hp <= 0) break;
-      const r = physical(me, foeFighter(t), a.power, { sure: a.sure, ignoreDef: a.ignoreDef });
-      if (r.miss) { sfx('miss'); popup(t, 'MISS', '#a0b0c8'); } else { sfx(r.crit ? 'crit' : 'hit'); hurt(t, r.dmg, r.crit ? '#ffe27a' : '#ffffff'); if (a.status && Math.random() < 0.6 && !MONSTERS[t.id].boss) { t.status[a.status] = a.status === 'poison' ? 9 : 2; popup(t, statusWord(a.status), '#c8a0ff'); } }
+      const r = heroHit(p, t, a.power, a);
+      if (r.miss) { sfx('miss'); popup(t, 'MISS', '#a0b0c8'); } else {
+        sfx(r.crit ? 'crit' : 'hit'); hurt(t, r.dmg, r.crit ? '#ffe27a' : '#ffffff');
+        if (a.status && Math.random() < 0.6 && !MONSTERS[t.id].boss) { t.status[a.status] = a.status === 'poison' ? 9 : 2; popup(t, statusWord(a.status), '#c8a0ff'); }
+        // breaks work on bosses too
+        if (a.debuff && t.hp > 0 && h === 0) { t.buffs[a.debuff] = { k: 0.65, t: 4 }; popupLater(t, { str: L('攻擊↓', 'ATK DOWN'), def: L('防禦↓', 'DEF DOWN') }[a.debuff], '#c8a0ff'); }
+      }
       await wait(170);
     }
     await wait(250); if (!foesT) await back(p);
@@ -360,11 +413,15 @@ async function heroAct(p, c) {
     const ts = foesT || [pick(c.target)].filter(Boolean);
     p.inst.play('interact-right', { once: true }); sfx(a.el === 'fire' ? 'fire' : a.el === 'ice' ? 'ice' : a.el === 'bolt' ? 'bolt' : 'magic');
     await wait(300);
-    for (const t of ts) { sparkle(t, EL_COL[a.el] || 0xffffff); hurt(t, magical(a.power, me, foeFighter(t)), '#ffd8a0'); }
+    for (const t of ts) {
+      // an 'auto' spell takes whatever element the monster fears most
+      const el = a.el === 'auto' ? affinity(t.id).weak[0] || 'none' : a.el;
+      sparkle(t, EL_COL[el] || 0xffffff); hurt(t, Math.max(1, Math.round(magical(a.power, me, foeFighter(t)) * elemMult(t, el))), ELC[el] || '#ffd8a0');
+    }
     await wait(500);
   } else if (a.type === 'heal') {
     const ts = c.target === 'allHeroes' ? heroesUp() : [c.target].filter((t) => t.m.hp > 0);
-    sfx('heal'); for (const t of ts) { sparkle(t, 0x90ff90); healHero(t, Math.round((a.power + me.mag * 0.6 + me.spr * 1.2) * rnd(0.95, 1.05))); }
+    sfx('heal'); for (const t of ts) { sparkle(t, 0x90ff90); healHero(t, Math.round((a.power + me.mag * 0.6 + me.spr * 1.2) * rnd(0.95, 1.05))); if (a.regen) t.m.status.regen = 4; }
     await wait(600);
   } else if (a.type === 'cure') { sfx('heal'); sparkle(c.target, 0xc0ffc0); c.target.m.status = {}; await wait(500); }
   else if (a.type === 'revive') { if (c.target.m.hp <= 0) { sfx('heal'); sparkle(c.target, 0xfff0a0); c.target.m.hp = Math.round(stats(c.target.m).maxhp * 0.5); c.target.inst.play('idle'); popup(c.target, c.target.m.hp, '#7cf29a'); } await wait(600); }
@@ -375,7 +432,8 @@ async function heroAct(p, c) {
   } else if (a.type === 'status') {
     const ts = foesT || [pick(c.target)].filter(Boolean);
     sfx('magic');
-    for (const t of ts) { if (!MONSTERS[t.id].boss && Math.random() < 0.7) { t.status[a.status] = a.status === 'poison' ? 9 : a.status === 'slow' ? 4 : 2; popup(t, statusWord(a.status), '#c8a0ff'); } else popup(t, 'MISS', '#a0b0c8'); }
+    // bosses shrug off most ailments, but blindness and slowness can still catch them sometimes
+    for (const t of ts) { const boss = MONSTERS[t.id].boss, ok = boss ? ['blind', 'slow'].includes(a.status) && Math.random() < 0.4 : Math.random() < 0.7; if (ok) { t.status[a.status] = a.status === 'poison' ? 9 : a.status === 'slow' || a.status === 'blind' ? 4 : 2; popup(t, statusWord(a.status), '#c8a0ff'); } else popup(t, 'MISS', '#a0b0c8'); }
     await wait(700);
   } else if (a.type === 'steal') {
     const t = pick(c.target); await lunge(p, t);
@@ -384,10 +442,16 @@ async function heroAct(p, c) {
     await wait(700); await back(p);
   } else if (a.type === 'flee') { if (B.canFlee) { msg(L('趁著煙幕逃走了！', 'Slipped away in the smoke!')); await wait(700); end('flee'); return; } }
   else if (a.type === 'taunt') { m.taunt = 3; sparkle(p, 0xff8080); msg(L('敵人的目光都集中過來了！', 'All eyes are on them now!')); await wait(700); }
+  else if (a.type === 'scan') {
+    const t = pick(c.target); sfx('magic'); sparkle(t, 0xa0f0ff); S.scanned[t.id] = true; msg(foeInfo(t)); await wait(1800);
+  } else if (a.type === 'regen') { const t = c.target; sfx('heal'); sparkle(t, 0xa0ffa0); t.m.status.regen = 4; popup(t, L('再生', 'REGEN'), '#7cf29a'); await wait(600); }
+  else if (a.type === 'charge') { m.charge = true; sfx('buff'); sparkle(p, 0xffc060); popup(p, L('蓄力', 'CHARGE'), '#ffe27a'); await wait(600); }
+  else if (a.type === 'sentinel') { m.taunt = 3; m.buffs.def = { k: 1.8, t: 3 }; sfx('buff'); sparkle(p, 0xc0d8ff); msg(L('堅守陣地，敵人的目光都集中過來了！', 'Holding the line - all eyes are on them!')); await wait(700); }
+  else if (a.type === 'meditate') { const s = stats(m), g = Math.min(s.maxmp - m.mp, Math.round(8 + me.mag * 0.25)); m.mp += g; sfx('heal'); sparkle(p, 0x80c0ff); popup(p, g, '#7cc4ff'); await wait(600); }
   else if (a.type === 'gravity') { const t = pick(c.target); sfx('magic'); sparkle(t, 0x8060ff); hurt(t, Math.max(1, Math.round(t.hp * (MONSTERS[t.id].boss ? 0.12 : 0.4))), '#c0a0ff'); await wait(600); }
   msg('');
 }
-const statusWord = (s) => ({ poison: L('中毒', 'POISON'), sleep: L('睡著', 'SLEEP'), stun: L('暈眩', 'STUN'), slow: L('減速', 'SLOW') }[s]);
+const statusWord = (s) => ({ poison: L('中毒', 'POISON'), sleep: L('睡著', 'SLEEP'), stun: L('暈眩', 'STUN'), slow: L('減速', 'SLOW'), blind: L('失明', 'BLIND'), regen: L('再生', 'REGEN') }[s]);
 async function foeAct(f) {
   if (f.status.sleep) { popup(f, 'Zz', '#c0c0ff'); await wait(400); return; }
   if (f.status.stun) { popup(f, statusWord('stun'), '#c8a0ff'); await wait(400); return; }
@@ -395,7 +459,8 @@ async function foeAct(f) {
   let r = Math.random() * total, act = 'atk'; for (const [a, w] of acts) { r -= w; if (r <= 0) { act = a; break; } }
   const ups = heroesUp(); if (!ups.length) return;
   const taunter = ups.find((p) => p.m.taunt > 0);
-  const pickHero = () => taunter || ups[Math.floor(Math.random() * ups.length)];
+  // monsters go for the front row twice as often
+  const pickHero = () => { if (taunter) return taunter; const w = ups.map((p) => (p.m.row === 'back' ? 1 : 2)), tot = w.reduce((a, b) => a + b, 0); let r = Math.random() * tot; for (let i = 0; i < ups.length; i++) { r -= w[i]; if (r <= 0) return ups[i]; } return ups[0]; };
   if (act === 'atk') {
     let t = pickHero();
     // a guardian may step in for a friend who is low
@@ -403,10 +468,10 @@ async function foeAct(f) {
     if (cover && Math.random() < 0.6) { msg(L(`${heroName(cover.m)}挺身擋下了攻擊！`, `${heroName(cover.m)} steps in to take the blow!`)); t = cover; }
     else msg(L(`${f.name}的攻擊！`, `${f.name} attacks!`));
     await lunge(f, t); await wait(160);
-    const res = physical(foeFighter(f), heroFighter(t.m), t.m.defending ? 0.5 : 1);
+    const res = physical(foeFighter(f), heroFighter(t.m), (t.m.defending ? 0.5 : 1) * (t.m.row === 'back' ? 0.6 : 1), { blind: !!f.status.blind });
     if (res.miss) { sfx('miss'); popup(t, 'MISS', '#a0b0c8'); } else { sfx(res.crit ? 'crit' : 'hit'); hurt(t, res.dmg, '#ff9a9a'); }
     await wait(250); await back(f);
-    if (!res.miss && t.m.hp > 0 && hasPassive(t.m, 'counter') && Math.random() < 0.3) { msg(L(`${heroName(t.m)}反擊！`, `${heroName(t.m)} counters!`)); await lunge(t, f); const c2 = physical(heroFighter(t.m), foeFighter(f)); if (!c2.miss) { sfx('hit'); hurt(f, c2.dmg); } await wait(200); await back(t); }
+    if (!res.miss && t.m.hp > 0 && (hasPassive(t.m, 'counter') || gearHas(t.m, 'counter')) && Math.random() < 0.3) { msg(L(`${heroName(t.m)}反擊！`, `${heroName(t.m)} counters!`)); await lunge(t, f); const c2 = heroHit(t, f); if (!c2.miss) { sfx('hit'); hurt(f, c2.dmg); } await wait(200); await back(t); }
     msg(''); return;
   }
   const tech = TECHS[act];
@@ -416,10 +481,13 @@ async function foeAct(f) {
   if (tech.kind === 'magic') {
     const ts = tech.target === 'all' ? ups : [pickHero()];
     sfx(tech.el === 'fire' ? 'fire' : tech.el === 'ice' ? 'ice' : 'magic');
-    for (const t of ts) { sparkle(t, EL_COL[tech.el] || 0xffffff); const d = magical(tech.power + (MONSTERS[f.id].boss ? f.lv * 1.5 : 0), foeFighter(f), heroFighter(t.m)) * (t.m.defending ? 0.6 : 1); hurt(t, Math.round(d), '#ff9a9a'); }
+    for (const t of ts) { sparkle(t, EL_COL[tech.el] || 0xffffff); const res = resists(t.m, tech.el); if (res) popupLater(t, L('抵抗', 'RESIST'), '#a0b0c8'); const d = magical(tech.power + (MONSTERS[f.id].boss ? f.lv * 1.5 : 0), foeFighter(f), heroFighter(t.m)) * (t.m.defending ? 0.6 : 1) * (res ? 0.5 : 1); hurt(t, Math.max(1, Math.round(d)), '#ff9a9a'); }
   } else if (tech.kind === 'status') {
     const t = pickHero();
-    if (Math.random() < 0.6) { t.m.status[tech.status] = tech.status === 'sleep' ? 2 : 1; popup(t, statusWord(tech.status), '#c8a0ff'); } else popup(t, 'MISS', '#a0b0c8');
+    if (immuneTo(t.m, tech.status)) popup(t, L('無效', 'IMMUNE'), '#a0e0ff');
+    else if (Math.random() < 0.6) { t.m.status[tech.status] = tech.status === 'sleep' ? 2 : tech.status === 'blind' ? 3 : 1; popup(t, statusWord(tech.status), '#c8a0ff'); } else popup(t, 'MISS', '#a0b0c8');
+  } else if (tech.kind === 'guard') { f.buffs.def = { k: 1.8, t: 3 }; sparkle(f, 0xc0c0c0); popup(f, L('防禦↑', 'DEF UP'), '#c0d0ff');
+  } else if (tech.kind === 'rally') { f.buffs.str = { k: 1.4, t: 3 }; sparkle(f, 0xff6040); popup(f, L('攻擊↑', 'ATK UP'), '#ffa080');
   } else if (tech.kind === 'drain') {
     const t = pickHero(), d = magical(tech.power, foeFighter(f), heroFighter(t.m)); hurt(t, d, '#ff9a9a'); f.hp = Math.min(f.maxhp, f.hp + d); popup(f, d, '#7cf29a');
   } else if (tech.kind === 'steal') {

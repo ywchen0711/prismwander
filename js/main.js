@@ -57,6 +57,8 @@ const ents = [];      // { kind, inst, data, pos, ... }
 let player = null;
 const P = { x: 216.5, y: 12, z: 378.5, vy: 0, ground: false, yaw: Math.PI, safe: [216.5, 12, 378.5], inv: 0, region: '' };
 const cam = { yaw: 0, dist: 12.5, pitch: 0.55 };
+// the mouse is let go whenever a window opens or a battle starts
+const unlockMouse = () => { if (document.pointerLockElement) document.exitPointerLock(); };
 
 // ---------- time of day ----------
 // one day lasts eight minutes; the clock runs from 0 (midnight) through 0.5 (noon)
@@ -258,13 +260,14 @@ function movePlayer(dt) {
   if (moving && P.ground && Math.random() < 0.04) sfx('step');
 }
 function updateCamera(dt, instant = false) {
-  cam.yaw += input.look; cam.dist = Math.max(6, Math.min(24, cam.dist + input.zoom * 1.2));
-  // a little steeper when far out, so you can see over the hills
-  const pitch = cam.pitch + (cam.dist - 12) * 0.012;
+  // free camera: turn all the way round, tilt from looking up at the sky to straight down, zoom in and out
+  cam.yaw += input.look; cam.dist = Math.max(4, Math.min(28, cam.dist + input.zoom * 1.2));
+  cam.pitch = Math.max(-0.35, Math.min(1.45, cam.pitch + input.lookY));
+  const pitch = cam.pitch;
   const tx = P.x, ty = P.y + 1.4, tz = P.z;
   let d = cam.dist, cx, cy, cz;
   // pull in if the camera would end up inside a hill
-  for (; d > 2; d -= 0.5) { cx = tx - Math.sin(cam.yaw) * Math.cos(pitch) * d; cz = tz - Math.cos(cam.yaw) * Math.cos(pitch) * d; cy = ty + Math.sin(pitch) * d; const cb = get(Math.floor(cx), Math.floor(cy), Math.floor(cz)); if (!solid(cb) || seeThrough(cb)) break; }
+  for (; d > 1.2; d -= 0.4) { cx = tx - Math.sin(cam.yaw) * Math.cos(pitch) * d; cz = tz - Math.cos(cam.yaw) * Math.cos(pitch) * d; cy = ty + Math.sin(pitch) * d; const cb = get(Math.floor(cx), Math.floor(cy), Math.floor(cz)); if ((!solid(cb) || seeThrough(cb)) && cy > ground(cx, cz) + 0.3) break; }
   const k = instant ? 1 : Math.min(1, dt * 8);
   camera.position.x += (cx - camera.position.x) * k; camera.position.y += (cy - camera.position.y) * k; camera.position.z += (cz - camera.position.z) * k;
   camera.lookAt(tx, ty, tz);
@@ -306,7 +309,7 @@ async function interact(e) {
   if (e.kind === 'fish') { P.yaw = Math.atan2(e.data.water[0] - P.x, e.data.water[1] - P.z); player.obj.rotation.y = P.yaw; player.play('interact-right', { once: true }); await run(() => SCRIPTS.fishing(e.data, isNight())); fishCool = 1.2; }
 }
 let busy = false;
-async function run(fn) { busy = true; prompt(null); try { await fn(); } catch (err) { console.error(err); } busy = false; }
+async function run(fn) { busy = true; prompt(null); unlockMouse(); try { await fn(); } catch (err) { console.error(err); } busy = false; }
 // what menus and scripts need from here
 const ctx = {
   savePos() { S.pos = [P.x, P.y, P.z]; S.yaw = cam.yaw; },
@@ -349,7 +352,7 @@ async function startEncounter(e) {
   const group = [id];
   if (!boss) { const pool = W.spawns.filter((s) => regionAt(s.pos[0], s.pos[2]) === reg && !MONSTERS[s.monster].boss && (isNight() || !NIGHT.has(s.monster))).map((s) => s.monster); const extra = Math.random() < 0.55 ? 1 + (Math.random() < 0.35 ? 1 : 0) : 0; for (let k = 0; k < extra; k++) group.push(pool[Math.floor(Math.random() * pool.length)] || id); }
   if (boss) await SCRIPTS.bossIntro(id);
-  sfx('encounter');
+  sfx('encounter'); unlockMouse();
   await fade(true);
   mode = 'battle';
   $('hud').style.display = 'none'; $('touch').style.visibility = 'hidden';
@@ -438,7 +441,7 @@ function showTitle() {
   const draw = () => {
     t.innerHTML = `<div class="logo">${L('晶境漫遊', 'PRISMWANDER')}</div><div class="sub">${L('PRISMWANDER', '晶境漫遊')}</div>` +
       `<div class="panel opts">${opts().map((o, i) => `<div class="opt${i === sel ? ' sel' : ''}${o.off ? ' off' : ''}" data-i="${i}">${o.label}</div>`).join('')}</div>` +
-      `<div class="hint">${L('WASD 移動・空白鍵 跳躍・滑鼠拖曳轉視角・滾輪拉遠・E 調查・Esc 選單・M 音樂開關', 'WASD move · Space jump · drag to turn · wheel to zoom · E look · Esc menu · M music on/off')}<br>${L('© 2026 原創作品・模型 KayKit、Kenney (CC0)・音樂 Ninja Adventure (CC0)', '© 2026 an original game · models by KayKit and Kenney (CC0) · music from Ninja Adventure (CC0)')}</div>`;
+      `<div class="hint">${L('WASD 移動・空白鍵 跳躍・拖曳滑鼠自由轉動視角（V 或右鍵：滑鼠直接轉）・滾輪拉遠・E 調查・Esc 選單・M 音樂開關', 'WASD move · Space jump · drag to look around freely (V or right-click: mouse look) · wheel to zoom · E look · Esc menu · M music on/off')}<br>${L('© 2026 原創作品・模型 KayKit、Kenney (CC0)・音樂 Ninja Adventure (CC0)', '© 2026 an original game · models by KayKit and Kenney (CC0) · music from Ninja Adventure (CC0)')}</div>`;
     t.classList.add('on');
   };
   t.onclick = (e) => { const o = e.target.closest('.opt'); if (o) { sel = +o.dataset.i; choose(); } initAudio(); };
@@ -502,7 +505,7 @@ function frame(now) {
     S.time += dt; if (P.inv > 0) P.inv -= dt;
     if (!UI.active && !busy) {
       movePlayer(dt);
-      if (input.pressed('menu')) { prompt(null); busy = true; fieldMenu(ctx).then(() => { busy = false; refreshEnts(); }); }
+      if (input.pressed('menu')) { unlockMouse(); prompt(null); busy = true; fieldMenu(ctx).then(() => { busy = false; refreshEnts(); }); }
     } else player.play('idle');
     player.update(dt);
     updateCamera(dt); updateRegion(); updateChunks(P.x, P.z); updateSky(dt); cullFar();
