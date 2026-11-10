@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { generate, buildChunk, setAtlas, W, WX, WZ, WY, SEA, CHUNK, get, solid, B, regionAt, REGIONS, ground, SPIRE } from './world.js';
 import { preload, make, crystalMesh, homeMesh } from './models.js';
 import { input, setupInput, pollInput, endInput } from './input.js';
-import { initAudio, playMusic, sfx, jingle } from './audio.js';
+import { initAudio, playMusic, sfx, jingle, music, setMusic } from './audio.js';
 import { UI, uiUpdate, say, ask, toast, areaName, prompt, fade, wait } from './ui.js';
 import { S, newParty, stats, fullHeal, save, load, hasSave } from './party.js';
 import { HEROES, MONSTERS, ITEMS } from './data.js';
@@ -306,7 +306,7 @@ function showTitle() {
   const draw = () => {
     t.innerHTML = `<div class="logo">${L('晶境漫遊', 'PRISMWANDER')}</div><div class="sub">${L('PRISMWANDER', '晶境漫遊')}</div>` +
       `<div class="panel opts">${opts().map((o, i) => `<div class="opt${i === sel ? ' sel' : ''}${o.off ? ' off' : ''}" data-i="${i}">${o.label}</div>`).join('')}</div>` +
-      `<div class="hint">${L('WASD 移動・空白鍵 跳躍・滑鼠拖曳轉視角・E 調查・Esc 選單', 'WASD move · Space jump · drag to turn · E look · Esc menu')}<br>${L('© 2026 原創作品・模型 Kenney (CC0)・音樂 Ninja Adventure (CC0)', '© 2026 an original game · models by Kenney (CC0) · music from Ninja Adventure (CC0)')}</div>`;
+      `<div class="hint">${L('WASD 移動・空白鍵 跳躍・滑鼠拖曳轉視角・E 調查・Esc 選單・M 音樂開關', 'WASD move · Space jump · drag to turn · E look · Esc menu · M music on/off')}<br>${L('© 2026 原創作品・模型 Kenney (CC0)・音樂 Ninja Adventure (CC0)', '© 2026 an original game · models by Kenney (CC0) · music from Ninja Adventure (CC0)')}</div>`;
     t.classList.add('on');
   };
   t.onclick = (e) => { const o = e.target.closest('.opt'); if (o) { sel = +o.dataset.i; choose(); } initAudio(); };
@@ -384,6 +384,9 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 addEventListener('keydown', initAudio); addEventListener('pointerdown', initAudio);
+// the music switch: the round button at the top and the M key
+{ const mb = $('musicBtn'); mb.classList.toggle('off', !music.on); mb.addEventListener('click', (e) => { e.stopPropagation(); initAudio(); setMusic(!music.on); }); mb.addEventListener('pointerdown', (e) => e.stopPropagation()); }
+addEventListener('keydown', (e) => { if (e.code === 'KeyM' && !e.repeat) setMusic(!music.on); });
 onLang(() => { if (mode === 'title') showTitle(); });
 boot();
 // hooks for automated checks

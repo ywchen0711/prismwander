@@ -2,7 +2,7 @@
 import { JOBS, ITEMS, ABILITIES, HEROES, jpFor } from './data.js';
 import { S, stats, heroName, jlvOf, learned, setJob, canEquip, addItem, count, fullHeal, save } from './party.js';
 import { list, say, ask, toast } from './ui.js';
-import { sfx, vol, setVolumes } from './audio.js';
+import { sfx, vol, setVolumes, music, setMusic } from './audio.js';
 import { L, LANG, setLang } from './i18n.js';
 import { REGIONS, WX, WZ, W, ground, SEA, get, B } from './world.js';
 
@@ -135,12 +135,15 @@ async function settings() {
   for (;;) {
     const r = await list(L('設定', 'Settings'), [
       { label: L('語言', 'Language'), right: LANG === 'en' ? 'English' : '中文' },
+      { label: L('音樂', 'Music'), right: music.on ? L('開', 'On') : L('關', 'Off') },
       { label: L('音樂音量', 'Music volume'), right: Math.round(vol.music * 10) }, { label: L('音效音量', 'Sound volume'), right: Math.round(vol.sfx * 10) },
     ], { width: 300 });
     if (r < 0) return;
     if (r === 0) setLang(LANG === 'en' ? 'zh' : 'en');
-    if (r === 1) { vol.music = (Math.round(vol.music * 10) + 2) % 12 / 10; setVolumes(); }
-    if (r === 2) vol.sfx = (Math.round(vol.sfx * 10) + 2) % 12 / 10;
+    if (r === 1) setMusic(!music.on);
+    // volume steps 0.2 to 1.0 and round again
+    if (r === 2) { vol.music = Math.round(vol.music * 10) >= 10 ? 0.2 : Math.min(1, Math.round(vol.music * 10 + 2) / 10); setVolumes(); }
+    if (r === 3) vol.sfx = Math.round(vol.sfx * 10) >= 10 ? 0 : Math.min(1, Math.round(vol.sfx * 10 + 2) / 10);
     try { localStorage.setItem('prismwander-vol', JSON.stringify(vol)); } catch (e) { /* ignore */ }
   }
 }

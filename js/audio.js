@@ -1,5 +1,9 @@
 // Music is recorded tracks from the Ninja Adventure pack (CC0); jingles too. Sound effects are synthesized.
 export const vol = { music: 0.5, sfx: 0.6 };
+// music can be switched off altogether; the volume is kept for when it comes back on
+export const music = { on: true };
+try { music.on = localStorage.getItem('prismwander-music') !== 'off'; } catch (e) { /* private mode */ }
+const mv = () => (music.on ? vol.music : 0);
 let A = null, el = null, want = null, cur = null;
 export function initAudio() {
   if (!A) { try { A = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; } }
@@ -12,12 +16,17 @@ export function playMusic(name, { force = false } = {}) {
   stopMusic();
   if (!name) return;
   cur = name;
-  const a = new Audio('assets/music/' + name + '.ogg'); a.loop = true; a.volume = vol.music;
+  const a = new Audio('assets/music/' + name + '.ogg'); a.loop = true; a.volume = mv();
   el = a;
   if (A) a.play().catch(() => {});
 }
 export function stopMusic() { if (el) { const a = el; let v = a.volume; const t = setInterval(() => { v -= 0.08; if (v <= 0) { a.pause(); clearInterval(t); } else a.volume = v; }, 40); } el = null; cur = null; }
-export function setVolumes() { if (el) el.volume = vol.music; }
+export function setVolumes() { if (el) el.volume = mv(); }
+export function setMusic(on) {
+  music.on = on; setVolumes();
+  try { localStorage.setItem('prismwander-music', on ? 'on' : 'off'); } catch (e) { /* private mode */ }
+  const b = document.getElementById('musicBtn'); if (b) b.classList.toggle('off', !on);
+}
 export function jingle(n) { const a = new Audio('assets/jingle/' + n + '.wav'); a.volume = vol.sfx; a.play().catch(() => {}); }
 function tone(f0, f1, len, type = 'square', v = 0.12, t0 = 0) {
   if (!A) return;
