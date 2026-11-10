@@ -1,5 +1,5 @@
-// Models: Kenney's CC0 blocky characters, pets and props (GLB), each clone with its own animation mixer,
-// and monsters built here out of blocks (slimes, crabs, golems, wisps, scorpions, a treant, a wyrm, the heart).
+// Models: KayKit's adventurers, skeletons and decorations and Kenney's blocky villagers, pets and props
+// (all CC0), each clone with its own animation mixer, and monsters built here out of blocks.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
@@ -9,12 +9,28 @@ const cache = new Map();
 export function preload(paths) {
   return Promise.all(paths.map((p) => new Promise((res) => {
     if (cache.has(p)) { res(); return; }
-    loader.load(`assets/models/${p}.glb`, (g) => {
-      g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = false; if (o.material && o.material.map) { o.material.map.magFilter = THREE.NearestFilter; o.material.map.colorSpace = THREE.SRGBColorSpace; } } });
+    loader.load(p.endsWith('.gltf') ? `assets/models/${p}` : `assets/models/${p}.glb`, (g) => {
+      hideSpares(p, g.scene);
+      g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.material && o.material.map) { o.material.map.magFilter = THREE.NearestFilter; o.material.map.colorSpace = THREE.SRGBColorSpace; } } });
       cache.set(p, g); res();
     }, undefined, () => { console.warn('missing model', p); cache.set(p, null); res(); });
   })));
 }
+// a KayKit character carries every weapon it could hold; keep the ones each hero uses
+const KEEP = { Knight: ['1H_Sword', 'Round_Shield'], Mage: ['2H_Staff'], Barbarian: ['1H_Axe', 'Barbarian_Round_Shield'], Rogue_Hooded: ['Knife', 'Knife_Offhand'], Rogue: ['Knife', 'Knife_Offhand'] };
+function hideSpares(path, scene) {
+  const n = path.split('/').pop(), keep = KEEP[n];
+  if (!keep) return;
+  const own = n.split('_')[0];
+  scene.traverse((o) => { if (o.isMesh || o.isSkinnedMesh) { const nm = o.name || (o.parent && o.parent.name) || ''; if (!nm.startsWith(own) && !keep.includes(nm)) o.visible = false; } });
+}
+// the names this game asks for, and what each pack calls them
+const ALIAS = {
+  idle: ['Idle', 'idle', 'static'], walk: ['Walking_A', 'walk'], sprint: ['Running_A', 'sprint', 'run', 'walk'], run: ['Running_A', 'run', 'walk'],
+  jump: ['Jump_Idle', 'jump', 'walk'], fall: ['Jump_Idle', 'fall', 'walk'], die: ['Death_A', 'die'],
+  'attack-melee-right': ['1H_Melee_Attack_Slice_Diagonal', 'attack-melee-right', 'walk'], 'interact-right': ['Spellcast_Shoot', 'interact-right', 'idle'],
+  'emote-yes': ['Cheer', 'emote-yes', 'idle'],
+};
 // an instance: { obj, mixer, play(name), update(dt) }
 export function make(path, opts = {}) {
   if (path.startsWith('vox:')) return voxel(path.slice(4), opts);
@@ -30,7 +46,7 @@ export function make(path, opts = {}) {
     obj: wrap, mixer, clips, h: g.userData.h,
     fit(target) { wrap.scale.setScalar(target / g.userData.h); return inst; },
     play(name, { once = false, fade = 0.15 } = {}) {
-      const c = clips[name] || clips[{ sprint: 'walk', run: 'walk', jump: 'walk', fall: 'walk' }[name]] || clips.idle || clips.static;
+      const c = (ALIAS[name] || [name]).map((k) => clips[k]).find(Boolean) || clips[name] || clips.Idle || clips.idle || clips.static;
       if (!c || (curName === name && !once)) return;
       const a = mixer.clipAction(c); a.reset(); a.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat); a.clampWhenFinished = once;
       if (cur && cur !== a) cur.crossFadeTo(a, fade, false); a.play(); cur = a; curName = name;

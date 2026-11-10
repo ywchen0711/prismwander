@@ -22,12 +22,22 @@ const canvas = $('view');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
 renderer.setPixelRatio(Math.min(1.5, devicePixelRatio || 1));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 const SKYC = new THREE.Color(0x9ad4f8);
 scene.background = SKYC.clone();
 scene.fog = new THREE.Fog(SKYC.clone(), 40, 110);
-scene.add(new THREE.HemisphereLight(0xeaf6ff, 0x5a5a40, 1.5));
-const sun = new THREE.DirectionalLight(0xfff4e0, 1.6); sun.position.set(-40, 80, 30); scene.add(sun);
+const hemi = new THREE.HemisphereLight(0xdcefff, 0x6a5a48, 1.25); scene.add(hemi);
+// a warm sun whose shadow box follows the player
+const sun = new THREE.DirectionalLight(0xfff0d8, 2.4); sun.position.set(-30, 60, 20); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -36, right: 36, top: 36, bottom: -36, near: 1, far: 160 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.04;
+scene.add(sun); scene.add(sun.target);
+// the sky: a gradient from deep blue overhead to a pale horizon
+function skyTexture(top, horizon) { const c = document.createElement('canvas'); c.width = 2; c.height = 256; const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, top); gr.addColorStop(0.62, horizon); gr.addColorStop(1, horizon); g.fillStyle = gr; g.fillRect(0, 0, 2, 256); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }
+const SKIES = { default: ['#3d7fd8', '#cfe8f8'], forest: ['#2f6a5a', '#b8d8c0'], mesa: ['#c86a48', '#f8dcc0'], mountain: ['#5a78b0', '#e8eef8'], spire: ['#3a2a7a', '#d8c8f0'] };
+let skyKind = '';
+function setSky(kind) { if (kind === skyKind) return; skyKind = kind; const [a, b] = SKIES[kind] || SKIES.default; scene.background = skyTexture(a, b); scene.fog.color.set(b); }
 const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 260);
 function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
 addEventListener('resize', resize); resize();
@@ -49,11 +59,15 @@ async function boot() {
   setAtlas(info); setBattleAtlas(tex, info);
   generate();
   const mat = new THREE.MeshLambertMaterial({ map: tex, vertexColors: true });
-  for (let cz = 0; cz < Math.ceil(WZ / CHUNK); cz++) for (let cx = 0; cx < Math.ceil(WX / CHUNK); cx++) { const m = new THREE.Mesh(buildChunk(cx, cz), mat); m.userData.chunk = [cx, cz]; scene.add(m); chunks.set(cx + ',' + cz, m); }
-  const water = new THREE.Mesh(new THREE.PlaneGeometry(WX * 3, WZ * 3), new THREE.MeshLambertMaterial({ color: 0x3a86e0, transparent: true, opacity: 0.72 }));
+  for (let cz = 0; cz < Math.ceil(WZ / CHUNK); cz++) for (let cx = 0; cx < Math.ceil(WX / CHUNK); cx++) { const m = new THREE.Mesh(buildChunk(cx, cz), mat); m.userData.chunk = [cx, cz]; m.castShadow = true; m.receiveShadow = true; scene.add(m); chunks.set(cx + ',' + cz, m); }
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(WX * 3, WZ * 3), new THREE.MeshPhongMaterial({ color: 0x2f7fd8, specular: 0x9fd8ff, shininess: 60, transparent: true, opacity: 0.78 }));
+  water.receiveShadow = true; G.water = water;
+  setSky('default');
   water.rotation.x = -Math.PI / 2; water.position.set(WX / 2, SEA + 0.82, WZ / 2); scene.add(water);
   const models = new Set(Object.values(HEROES).map((h) => h.model));
   for (const e of W.ents) if (e.model) models.add(e.model);
+  for (const d of W.decor) models.add(d.model);
+  models.add('hex/cloud_big.gltf'); models.add('hex/cloud_small.gltf');
   for (const m of Object.values(MONSTERS)) if (!m.model.startsWith('vox:')) models.add(m.model);
   models.add('dungeon/chest');
   await preload([...models]);
@@ -81,9 +95,14 @@ function buildEnts() {
   }
   for (const c of W.crystals) { const cm = crystalMesh(); cm.obj.position.set(...c.pos); scene.add(cm.obj); ents.push({ kind: 'crystal', inst: cm, data: c, pos: c.pos }); }
   for (const h of W.homes) { const hm = homeMesh(); hm.obj.position.set(...h.pos); scene.add(hm.obj); ents.push({ kind: 'home', inst: hm, data: h, pos: h.pos }); }
-  for (const ch of W.chests) { const inst = make('dungeon/chest').fit(0.8); inst.obj.position.set(...ch.pos); inst.obj.rotation.y = Math.PI * rnd(ch.pos[0], 2); scene.add(inst.obj); ents.push({ kind: 'chest', inst, data: ch, pos: ch.pos }); }
+  for (const ch of W.chests) { const inst = make('dungeon/chest').fit(0.8); inst.obj.traverse((o) => { if (o.isMesh) o.castShadow = true; }); inst.obj.position.set(...ch.pos); inst.obj.rotation.y = Math.PI * rnd(ch.pos[0], 2); scene.add(inst.obj); ents.push({ kind: 'chest', inst, data: ch, pos: ch.pos }); }
   for (const sp of W.spawns) spawnMonster(sp);
+  // KayKit decorations: trees, rocks, village props, lily pads
+  for (const d of W.decor) { const inst = make(d.model); inst.fit(d.h); inst.obj.position.set(...d.pos); inst.obj.rotation.y = d.rot; scene.add(inst.obj); }
+  // clouds drifting high over the land
+  for (let k = 0; k < 26; k++) { const c = make(k % 3 ? 'hex/cloud_small.gltf' : 'hex/cloud_big.gltf'); c.fit(3 + (k % 4)); c.obj.scale.multiplyScalar(2.4); c.obj.position.set(rnd(k, 7) * WX, 52 + rnd(k, 8) * 10, rnd(k, 9) * WZ); c.obj.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } }); scene.add(c.obj); clouds.push(c.obj); }
 }
+const clouds = [];
 const rnd = (a, b) => ((Math.sin(a * 12.9898 + b * 78.233) * 43758.5453) % 1 + 1) % 1;
 function spawnMonster(sp) {
   const m = MONSTERS[sp.monster], inst = make(m.model, { color: m.color });
@@ -295,7 +314,7 @@ function drawMinimap() {
 }
 function updateRegion() {
   const r = regionAt(P.x, P.z);
-  if (r !== P.region) { P.region = r; areaName(REGIONS[r].name[LANG === 'en' ? 1 : 0]); playMusic(REGIONS[r].music); const dark = r === 'forest' ? 0x6a9a7a : r === 'spire' ? 0x9a90d0 : r === 'mesa' ? 0xf0c098 : r === 'mountain' ? 0xc8d4e8 : 0x9ad4f8; scene.background.set(dark); scene.fog.color.set(dark); }
+  if (r !== P.region) { P.region = r; areaName(REGIONS[r].name[LANG === 'en' ? 1 : 0]); playMusic(REGIONS[r].music); setSky(['forest', 'mesa', 'mountain', 'spire'].includes(r) ? r : r === 'dunewell' ? 'mesa' : r === 'frostgate' ? 'mountain' : 'default'); }
 }
 
 // ---------- title, opening, ending ----------
@@ -308,7 +327,7 @@ function showTitle() {
   const draw = () => {
     t.innerHTML = `<div class="logo">${L('晶境漫遊', 'PRISMWANDER')}</div><div class="sub">${L('PRISMWANDER', '晶境漫遊')}</div>` +
       `<div class="panel opts">${opts().map((o, i) => `<div class="opt${i === sel ? ' sel' : ''}${o.off ? ' off' : ''}" data-i="${i}">${o.label}</div>`).join('')}</div>` +
-      `<div class="hint">${L('WASD 移動・空白鍵 跳躍・滑鼠拖曳轉視角・E 調查・Esc 選單・M 音樂開關', 'WASD move · Space jump · drag to turn · E look · Esc menu · M music on/off')}<br>${L('© 2026 原創作品・模型 Kenney (CC0)・音樂 Ninja Adventure (CC0)', '© 2026 an original game · models by Kenney (CC0) · music from Ninja Adventure (CC0)')}</div>`;
+      `<div class="hint">${L('WASD 移動・空白鍵 跳躍・滑鼠拖曳轉視角・E 調查・Esc 選單・M 音樂開關', 'WASD move · Space jump · drag to turn · E look · Esc menu · M music on/off')}<br>${L('© 2026 原創作品・模型 KayKit、Kenney (CC0)・音樂 Ninja Adventure (CC0)', '© 2026 an original game · models by KayKit and Kenney (CC0) · music from Ninja Adventure (CC0)')}</div>`;
     t.classList.add('on');
   };
   t.onclick = (e) => { const o = e.target.closest('.opt'); if (o) { sel = +o.dataset.i; choose(); } initAudio(); };
@@ -373,6 +392,9 @@ function frame(now) {
     player.update(dt);
     updateCamera(dt); updateRegion();
     if (!UI.active && !busy) updateWorldEnts(dt); else for (const e of ents) if (e.inst && e.inst.update) e.inst.update(dt, S.time);
+    sun.position.set(P.x - 30, P.y + 60, P.z + 20); sun.target.position.set(P.x, P.y, P.z);
+    for (const c of clouds) { c.position.x += dt * 0.8; if (c.position.x > WX + 20) c.position.x = -20; }
+    if (G.water) G.water.material.opacity = 0.76 + Math.sin(S.time * 0.8) * 0.03;
     renderer.render(scene, camera);
     drawMinimap();
   } else if (mode === 'battle') {

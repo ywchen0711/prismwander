@@ -50,4 +50,4 @@ There is no build step. Open `index.html` through any static web server. three.j
 
 ## Credits
 
-See [CREDITS.md](CREDITS.md). All 3D models and block textures are by Kenney (CC0). The music comes from the Ninja Adventure pack by Pixel-boy and AAA (CC0). The world, story, characters and code are original.
+See [CREDITS.md](CREDITS.md). The 3D models are by KayKit (Kay Lousberg) and Kenney, and the block textures are by Kenney; all are CC0. The music comes from the Ninja Adventure pack by Pixel-boy and AAA (CC0). The world, story, characters and code are original.

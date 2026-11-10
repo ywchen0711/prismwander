@@ -5,7 +5,7 @@ import * as THREE from 'three';
 
 export const WX = 192, WZ = 192, WY = 56, SEA = 6;
 // block ids; the atlas faces are [top, side, bottom]
-export const B = { air: 0, grass: 1, dirt: 2, stone: 3, sand: 4, snow: 5, ice: 6, wood: 7, leaves: 8, redsand: 9, redstone: 10, brick: 11, gravel: 12, crystal: 13, cobble: 14, orange: 15, birch: 16, plank: 17, water: 20 };
+export const B = { post: 21, air: 0, grass: 1, dirt: 2, stone: 3, sand: 4, snow: 5, ice: 6, wood: 7, leaves: 8, redsand: 9, redstone: 10, brick: 11, gravel: 12, crystal: 13, cobble: 14, orange: 15, birch: 16, plank: 17, water: 20 };
 const FACES = {
   1: ['grass_top', 'dirt_grass', 'dirt'], 2: ['dirt', 'dirt', 'dirt'], 3: ['greystone', 'greystone', 'greystone'], 4: ['sand', 'sand', 'sand'], 5: ['snow', 'dirt_snow', 'dirt'],
   6: ['ice', 'ice', 'ice'], 7: ['trunk_top', 'trunk_side', 'trunk_top'], 8: ['leaves', 'leaves', 'leaves'], 9: ['redsand', 'redsand', 'redsand'], 10: ['redstone', 'redstone', 'redstone'],
@@ -13,6 +13,8 @@ const FACES = {
   15: ['leaves_orange', 'leaves_orange', 'leaves_orange'], 16: ['trunk_top', 'trunk_white_side', 'trunk_top'], 17: ['table', 'brick_red', 'table'],
 };
 export const solid = (id) => id !== 0 && id !== B.water;
+// blocks you see; the post is solid but invisible, standing inside a model's trunk
+const opaque = (id) => solid(id) && id !== B.post;
 
 // ---------- noise ----------
 function hash2(x, z, s) { let h = (x * 374761393 + z * 668265263 + s * 1442695040) | 0; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
@@ -130,12 +132,13 @@ export function generate() {
     const h = height[z * WX + x], reg = regionAt(x, z), top = get(x, h - 1, z);
     if (top !== B.grass || h <= SEA + 1) continue;
     const r = rand(x, z, 11);
-    const p = reg === 'forest' ? 0.055 : reg === 'lake' ? 0.02 : reg === 'meadow' ? 0.008 : reg === 'mountain' ? 0.012 : 0;
+    // block trees thin out where the KayKit trees stand in for them
+    const p = reg === 'forest' ? 0.03 : reg === 'lake' ? 0.008 : reg === 'mountain' ? 0.012 : 0;
     if (r < p && !isClear(x, z)) tree(x, h, z, reg === 'lake' ? 'birch' : reg === 'forest' && rand(x, z, 12) > 0.8 ? 'autumn' : 'oak');
   }
-  W.ents = []; W.crystals = []; W.homes = []; W.chests = []; W.spawns = [];
+  W.ents = []; W.crystals = []; W.homes = []; W.chests = []; W.spawns = []; W.decor = [];
   buildHearthvale(); buildDunewell(); buildFrostgate(); buildSpire();
-  placeCrystals(); placeChests(); placeHomes(); placeSpawns();
+  placeCrystals(); placeChests(); placeHomes(); placeSpawns(); placeDecor();
   return W;
 }
 // villages keep their ground free of trees
@@ -258,8 +261,8 @@ function placeHomes() {
 }
 // where monsters walk, by region
 const SPAWN = {
-  meadow: ['slime', 'bunny', 'chick', 'hog'], forest: ['caterpillar', 'monkey', 'orc', 'bluejelly'], coast: ['crab', 'fish', 'parrot', 'bluejelly'], lake: ['wisp', 'fish', 'ghost'],
-  mesa: ['lion', 'scorpion', 'tiger'], mountain: ['skeleton', 'golem', 'zombie', 'yeti'], spire: ['vampire', 'crysgolem', 'ghost'],
+  meadow: ['slime', 'bunny', 'chick', 'hog'], forest: ['caterpillar', 'monkey', 'orc', 'bluejelly'], coast: ['crab', 'fish', 'parrot', 'bluejelly'], lake: ['wisp', 'fish', 'ghost', 'minion'],
+  mesa: ['lion', 'scorpion', 'tiger'], mountain: ['skeleton', 'skelmage', 'golem', 'zombie', 'yeti'], spire: ['vampire', 'crysgolem', 'skelrogue', 'ghost'],
 };
 function placeSpawns() {
   let k = 0;
@@ -275,6 +278,28 @@ function placeSpawns() {
   W.spawns.push({ id: 'b_treant', monster: 'treant', boss: true, pos: [34.5, ground(34, 116), 116.5] });
   W.spawns.push({ id: 'b_mesa', monster: 'mesaking', boss: true, pos: [150.5, ground(150, 42), 42.5] });
   W.spawns.push({ id: 'b_wyrm', monster: 'frostwyrm', boss: true, pos: [34.5, ground(34, 40), 40.5] });
+}
+
+// KayKit trees, rocks and props scattered over the open ground; trees get an invisible post to bump into
+function placeDecor() {
+  const TREES = ['hex/tree_single_A.gltf', 'hex/tree_single_B.gltf', 'hex/trees_A_small.gltf', 'hex/trees_B_small.gltf', 'hex/trees_A_medium.gltf', 'hex/trees_B_medium.gltf'];
+  const ROCKS = ['hex/rock_single_A.gltf', 'hex/rock_single_B.gltf', 'hex/rock_single_C.gltf', 'hex/rock_single_D.gltf', 'hex/rock_single_E.gltf'];
+  for (let z = 6; z < WZ - 6; z += 3) for (let x = 6; x < WX - 6; x += 3) {
+    const reg = regionAt(x, z), r = rand(x, z, 41);
+    if (REGIONS[reg].town || isClear(x, z)) continue;
+    const y = ground(x, z), top = get(x, y - 1, z);
+    if (y <= SEA + 1 || solid(get(x, y, z))) continue;
+    if (top === B.grass && (reg === 'meadow' || reg === 'lake' || reg === 'forest') && r < (reg === 'forest' ? 0.16 : 0.1)) {
+      W.decor.push({ model: TREES[Math.floor(rand(x, z, 42) * TREES.length)], pos: [x + 0.5, y, z + 0.5], h: 3.2 + rand(x, z, 43) * 1.6, rot: rand(x, z, 44) * 6.28 });
+      set(x, y, z, B.post); set(x, y + 1, z, B.post);
+    } else if (r > 0.9 && reg !== 'spire') W.decor.push({ model: ROCKS[Math.floor(rand(x, z, 45) * ROCKS.length)], pos: [x + 0.5, y, z + 0.5], h: 0.5 + rand(x, z, 46) * 0.5, rot: rand(x, z, 47) * 6.28 });
+  }
+  // a lived-in village: crates, barrels, a weapon rack, flags
+  const y = 9;
+  for (const [m, x, z, h] of [['hex/barrel.gltf', 90, 164, 0.9], ['hex/crate_A_small.gltf', 91, 165, 0.8], ['hex/sack.gltf', 101, 165, 0.6], ['hex/weaponrack.gltf', 100, 160, 1.2], ['hex/flag_blue.gltf', 94, 160, 1.7], ['hex/flag_blue.gltf', 99, 160, 1.7], ['hex/wheelbarrow.gltf', 110, 166, 0.9], ['hex/bucket_water.gltf', 97, 165, 0.5], ['hex/resource_lumber.gltf', 85, 166, 0.8]]) W.decor.push({ model: m, pos: [x + 0.5, y, z + 0.5], h, rot: rand(x, z, 3) * 6.28 });
+  for (const [x, z] of [[124, 96], [154, 98], [52, 88]]) W.decor.push({ model: 'hex/tent.gltf', pos: [x + 0.5, ground(x, z), z + 0.5], h: 2.2, rot: rand(x, z, 4) * 6.28 });
+  // lily pads on the lake
+  for (let k = 0; k < 18; k++) { const a = rand(k, 1, 50) * 6.28, d = 6 + rand(k, 2, 51) * 10, x = Math.floor(100 + Math.cos(a) * d), z = Math.floor(96 + Math.sin(a) * d); if (get(x, SEA, z) === B.water) W.decor.push({ model: 'hex/waterlily_A.gltf', pos: [x + 0.5, SEA + 0.85, z + 0.5], h: 0.12, rot: a, flat: true }); }
 }
 
 // ---------- meshing ----------
@@ -294,17 +319,22 @@ export function buildChunk(cx, cz) {
   const { size, cols, rows, faces } = atlasInfo, du = 1 / cols, dv = 1 / rows, pad = 0.5 / (size * cols);
   for (let x = cx * CHUNK; x < Math.min(WX, cx * CHUNK + CHUNK); x++) for (let z = cz * CHUNK; z < Math.min(WZ, cz * CHUNK + CHUNK); z++) for (let y = 0; y < WY; y++) {
     const id = get(x, y, z);
-    if (!solid(id)) continue;
+    if (!opaque(id)) continue;
     for (const d of DIRS) {
       const nb = get(x + d.n[0], y + d.n[1], z + d.n[2]);
-      if (solid(nb) && !(nb === B.leaves && id !== B.leaves)) continue;
+      if (opaque(nb) && !(nb === B.leaves && id !== B.leaves)) continue;
       if (y + d.n[1] < 0) continue;
       const fi = faces[FACES[id][d.f]], u0 = (fi % cols) * du + pad, v0 = 1 - (Math.floor(fi / cols) + 1) * dv + pad, u1 = u0 + du - pad * 2, v1 = v0 + dv - pad * 2;
       const base = pos.length / 3;
-      // a touch of shade where a face sits under something
-      const occl = d.n[1] === 1 && solid(get(x, y + 2, z)) ? 0.8 : 1;
-      const s = d.shade * occl * (0.94 + rand(x, z, y) * 0.06);
-      for (const [a, b2, c] of d.c) { pos.push(x + a, y + b2, z + c); col.push(s, s, s); }
+      // ambient occlusion: each corner darkens with the blocks crowding it from the layer in front of the face
+      const s = d.shade * (0.95 + rand(x, z, y) * 0.05), ax = d.n.map((v) => (v ? 0 : 1)), ox = x + d.n[0], oy = y + d.n[1], oz = z + d.n[2];
+      for (const [a, b2, c] of d.c) {
+        const off = [a, b2, c].map((v, i) => (ax[i] ? (v ? 1 : -1) : 0)), axes = [0, 1, 2].filter((i) => ax[i]);
+        const u = [0, 0, 0], v2 = [0, 0, 0]; u[axes[0]] = off[axes[0]]; v2[axes[1]] = off[axes[1]];
+        const s1 = opaque(get(ox + u[0], oy + u[1], oz + u[2])) ? 1 : 0, s2 = opaque(get(ox + v2[0], oy + v2[1], oz + v2[2])) ? 1 : 0, cr = opaque(get(ox + u[0] + v2[0], oy + u[1] + v2[1], oz + u[2] + v2[2])) ? 1 : 0;
+        const ao = s1 && s2 ? 0 : 3 - (s1 + s2 + cr), k = s * [0.5, 0.68, 0.84, 1][ao];
+        pos.push(x + a, y + b2, z + c); col.push(k, k, k);
+      }
       uv.push(u0, v0, u1, v0, u1, v1, u0, v1);
       ind.push(base, base + 1, base + 2, base, base + 2, base + 3);
     }

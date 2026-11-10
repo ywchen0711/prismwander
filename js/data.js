@@ -4,10 +4,10 @@ import { bilingual } from './i18n.js';
 
 // the four travellers; model is a Kenney blocky character
 export const HEROES = {
-  lowe:  { name: ['洛', 'Lowe'], model: 'chars/character-a', job: 'fencer', base: { hp: 52, mp: 10, str: 11, def: 9, mag: 6, spr: 7, agi: 9 } },
-  flora: { name: ['芙蘿', 'Flora'], model: 'chars/character-h', job: 'mage', base: { hp: 40, mp: 22, str: 6, def: 6, mag: 13, spr: 10, agi: 9 } },
-  bal:   { name: ['巴爾', 'Bal'], model: 'chars/character-d', job: 'cleric', base: { hp: 48, mp: 18, str: 8, def: 8, mag: 9, spr: 13, agi: 7 } },
-  shia:  { name: ['希雅', 'Shia'], model: 'chars/character-k', job: 'rogue', base: { hp: 44, mp: 12, str: 9, def: 7, mag: 7, spr: 7, agi: 14 } },
+  lowe:  { name: ['洛', 'Lowe'], model: 'kaykit/Knight', job: 'fencer', base: { hp: 52, mp: 10, str: 11, def: 9, mag: 6, spr: 7, agi: 9 } },
+  flora: { name: ['芙蘿', 'Flora'], model: 'kaykit/Mage', job: 'mage', base: { hp: 40, mp: 22, str: 6, def: 6, mag: 13, spr: 10, agi: 9 } },
+  bal:   { name: ['巴爾', 'Bal'], model: 'kaykit/Barbarian', job: 'cleric', base: { hp: 48, mp: 18, str: 8, def: 8, mag: 9, spr: 13, agi: 7 } },
+  shia:  { name: ['希雅', 'Shia'], model: 'kaykit/Rogue_Hooded', job: 'rogue', base: { hp: 44, mp: 12, str: 9, def: 7, mag: 7, spr: 7, agi: 14 } },
 };
 bilingual(HEROES, ['name']);
 
@@ -155,7 +155,10 @@ export const MONSTERS = {
   lion:      { name: ['沙丘獅', 'Dune Lion'], model: 'pets/animal-lion', lv: 14, hp: 1.3, atk: 1.3 },
   scorpion:  { name: ['赤蠍', 'Red Scorpion'], model: 'vox:scorpion', color: '#d84a2a', lv: 15, acts: [['atk', 3], ['poison', 1]] },
   tiger:     { name: ['岩虎', 'Rock Tiger'], model: 'pets/animal-tiger', lv: 17, agi: 1.3, atk: 1.3 },
-  skeleton:  { name: ['骷髏兵', 'Skeleton'], model: 'grave/character-skeleton', lv: 18, hp: 1.1, undead: true },
+  skeleton:  { name: ['骷髏兵', 'Skeleton'], model: 'kaykit/Skeleton_Warrior', lv: 18, hp: 1.1, undead: true },
+  skelmage:  { name: ['骷髏術士', 'Skeleton Mage'], model: 'kaykit/Skeleton_Mage', lv: 19, mag: 1.5, def: 0.8, undead: true, acts: [['atk', 1], ['fire', 2], ['ice', 1]] },
+  skelrogue: { name: ['骷髏刺客', 'Skeleton Rogue'], model: 'kaykit/Skeleton_Rogue', lv: 24, agi: 1.5, undead: true, acts: [['atk', 3], ['poison', 1]] },
+  minion:    { name: ['骷髏小兵', 'Skeleton Minion'], model: 'kaykit/Skeleton_Minion', lv: 11, hp: 0.9, undead: true },
   golem:     { name: ['石魔像', 'Stone Golem'], model: 'vox:golem', color: '#9aa0ae', lv: 19, hp: 1.8, def: 1.6, agi: 0.6 },
   zombie:    { name: ['殭屍', 'Zombie'], model: 'grave/character-zombie', lv: 20, hp: 1.6, undead: true, acts: [['atk', 3], ['poison', 1]] },
   yeti:      { name: ['雪原巨獸', 'Snow Brute'], model: 'pets/animal-elephant', lv: 21, hp: 1.7, atk: 1.3, acts: [['atk', 3], ['ice', 1]] },

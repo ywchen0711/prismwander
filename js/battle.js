@@ -35,8 +35,8 @@ function buildStage(kind) {
   scene.background = new THREE.Color(SKY[kind] || SKY.grass);
   scene.fog = new THREE.Fog(scene.background, 14, 30);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.6));
-  const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(-4, 10, 6); scene.add(sun);
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(28, 20), floorMaterial(kind)); floor.rotation.x = -Math.PI / 2; scene.add(floor);
+  const sun = new THREE.DirectionalLight(0xfff0d8, 2.2); sun.position.set(-4, 10, 6); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10 }); scene.add(sun);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(28, 20), floorMaterial(kind)); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
   const cam = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 80);
   cam.position.set(0.2, 4.2, 10.2); cam.lookAt(0.1, 1.1, 0.3);
   return { scene, cam };
