@@ -84,3 +84,38 @@ export function prompt(s) { const p = $('prompt'); if (s) { p.textContent = s; p
 export function fade(on) { $('fade').classList.toggle('on', on); return new Promise((r) => setTimeout(r, 420)); }
 export const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 void L;
+
+// fishing: wait for the bite, pull when the "!" shows, then stop the needle on the bright mark
+export function fishGame(width = 0.2) {
+  return new Promise((res) => {
+    const el = document.createElement('div'); el.id = 'fishui'; el.className = 'panel'; document.body.appendChild(el);
+    const t0 = performance.now(), bite = 1200 + Math.random() * 2200, zone = 0.15 + Math.random() * (0.7 - width);
+    let phase = 'wait', tBite = 0, tBar = 0, needle = 0;
+    const draw = (msg) => {
+      el.innerHTML = `<div class="ft">${msg}</div>` + (phase === 'bar' ? `<div class="fbar"><i style="left:${zone * 100}%;width:${width * 100}%"></i><b style="left:${needle * 100}%"></b></div>` : '');
+    };
+    const finish = (ok) => { pop(w); el.remove(); res(ok); };
+    const w = {
+      update() {
+        const now = performance.now();
+        if (phase === 'wait') {
+          draw('……');
+          if (input.pressed('a')) { sfx('cancel'); finish(false); return; }
+          if (now - t0 > bite) { phase = 'bite'; tBite = now; sfx('encounter'); }
+        } else if (phase === 'bite') {
+          draw('<span class="bang">！</span>');
+          if (input.pressed('a')) { phase = 'bar'; tBar = now; sfx('ok'); }
+          else if (now - tBite > 900) { finish(false); }
+        } else {
+          needle = 0.5 - Math.cos((now - tBar) / 700 * Math.PI) * 0.5;
+          draw(L('按 E 拉起！', 'Press E to reel in!'));
+          if (input.pressed('a')) finish(needle >= zone && needle <= zone + width);
+          else if (now - tBar > 6000) finish(false);
+        }
+        if (input.pressed('b')) finish(false);
+      },
+      close() { el.remove(); },
+    };
+    push(w); draw('……');
+  });
+}

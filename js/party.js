@@ -2,10 +2,10 @@
 import { HEROES, JOBS, ABILITIES, ITEMS, START_JOBS, jpFor, expFor } from './data.js';
 import { L } from './i18n.js';
 
-export const S = { members: [], inv: {}, gold: 0, jobs: [], crystals: [], chests: {}, homes: [], flags: {}, beaten: {}, pos: null, yaw: 0, time: 0 };
+export const S = { members: [], inv: {}, gold: 0, jobs: [], crystals: [], chests: {}, homes: [], flags: {}, beaten: {}, pos: null, yaw: 0, time: 0, clock: 0.3, quests: {}, shards: [], picked: {}, kills: {}, fish: {} };
 
 export function newParty() {
-  Object.assign(S, { members: [], inv: { potion: 4, ether: 1, antidote: 2 }, gold: 120, jobs: [...START_JOBS], crystals: [], chests: {}, homes: [], flags: {}, beaten: {}, pos: null, yaw: 0, time: 0 });
+  Object.assign(S, { members: [], inv: { potion: 4, ether: 1, antidote: 2 }, gold: 120, jobs: [...START_JOBS], crystals: [], chests: {}, homes: [], flags: {}, beaten: {}, pos: null, yaw: 0, time: 0, clock: 0.3, quests: {}, shards: [], picked: {}, kills: {}, fish: {} });
   const gear = { lowe: ['shortsword', 'tunic'], flora: ['rod', 'tunic'], bal: ['mallet', 'tunic'], shia: ['dagger', 'tunic'] };
   for (const id of Object.keys(HEROES)) {
     const job = HEROES[id].job;
@@ -85,8 +85,9 @@ export const count = (id) => S.inv[id] || 0;
 export function fullHeal() { for (const m of S.members) { const s = stats(m); m.hp = s.maxhp; m.mp = s.maxmp; m.status = {}; m.buffs = {}; } }
 
 const KEY = 'prismwander-save';
-export function save() { try { localStorage.setItem(KEY, JSON.stringify({ ...S, savedAt: Date.now() })); return true; } catch (e) { return false; } }
+export const SAVE_VERSION = 2;
+export function save() { try { localStorage.setItem(KEY, JSON.stringify({ ...S, v: SAVE_VERSION, savedAt: Date.now() })); return true; } catch (e) { return false; } }
 export function hasSave() { try { return !!localStorage.getItem(KEY); } catch (e) { return false; } }
 export function load() {
-  try { const d = JSON.parse(localStorage.getItem(KEY)); if (!d) return false; Object.assign(S, { members: [], inv: {}, flags: {}, chests: {}, beaten: {} }, d); return true; } catch (e) { return false; }
+  try { const d = JSON.parse(localStorage.getItem(KEY)); if (!d) return false; if ((d.v || 1) < SAVE_VERSION) { d.pos = null; d.homes = []; d.chests = {}; d.beaten = {}; } Object.assign(S, { members: [], inv: {}, flags: {}, chests: {}, beaten: {}, clock: 0.3, quests: {}, shards: [], picked: {}, kills: {}, fish: {} }, d); return true; } catch (e) { return false; }
 }

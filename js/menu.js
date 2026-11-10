@@ -5,7 +5,9 @@ import { list, say, ask, toast } from './ui.js';
 import { sfx, vol, setVolumes, music, setMusic } from './audio.js';
 import { L, LANG, setLang } from './i18n.js';
 import { REGIONS, WX, WZ, W, ground, SEA, get, B } from './world.js';
+import { QUESTS, SHARDS } from './story.js';
 
+export const MAPCOL = { [B.grass]: [96, 176, 72], [B.sand]: [232, 214, 160], [B.redsand]: [208, 112, 64], [B.redstone]: [168, 80, 56], [B.snow]: [236, 244, 252], [B.stone]: [140, 146, 160], [B.gravel]: [150, 150, 150], [B.cobble]: [120, 120, 130], [B.leaves]: [56, 130, 56], [B.orange]: [220, 130, 50], [B.brick]: [150, 150, 160], [B.crystal]: [150, 230, 255], [B.ice]: [190, 230, 250], [B.plank]: [180, 120, 80], [B.wood]: [110, 80, 50], [B.birch]: [220, 220, 200], [B.lava]: [255, 110, 30], [B.mushroom]: [210, 50, 50], [B.moss]: [96, 128, 84], [B.mud]: [128, 126, 108], [B.cactus]: [80, 150, 60] };
 const bar = (v, max, col) => `<div class="bar"><i style="width:${Math.max(0, Math.min(100, v / max * 100))}%;background:${col}"></i></div>`;
 function memberCard(m, sel = false) {
   const s = stats(m);
@@ -13,12 +15,28 @@ function memberCard(m, sel = false) {
     `<div class="jb">${JOBS[m.job].name} ${jlvOf(m, m.job)}${m.sub ? ' / ' + JOBS[m.sub].name + ' ' + jlvOf(m, m.sub) : ''}</div>` +
     `<div class="row small"><span>HP ${m.hp}/${s.maxhp}</span><span>MP ${m.mp}/${s.maxmp}</span></div>${bar(m.hp, s.maxhp, '#7cf29a')}${bar(m.mp, s.maxmp, '#7cc4ff')}</div>`;
 }
-const partySide = () => `<div class="cols" style="flex-direction:column;gap:6px">${S.members.map((m) => memberCard(m)).join('')}</div><div class="small" style="margin-top:6px">${L('金幣', 'Gold')} ${S.gold}　${L('水晶', 'Crystals')} ${S.crystals.length}/8</div>`;
+const partySide = () => `<div class="cols" style="flex-direction:column;gap:6px">${S.members.map((m) => memberCard(m)).join('')}</div><div class="small" style="margin-top:6px">${L('金幣', 'Gold')} ${S.gold}　${L('水晶', 'Crystals')} ${S.crystals.length}/8　${L('記憶', 'Memories')} ${S.shards.length}/24</div>`;
+// the requests you have taken on, the unfinished ones first
+async function questMenu() {
+  const ids = Object.keys(S.quests).sort((a, b) => (S.quests[a] === 'done') - (S.quests[b] === 'done'));
+  if (!ids.length) { await say(null, L('還沒有接下任何委託。去跟各地的人聊聊吧。', 'You have not taken on any requests yet. Talk to people around the land.')); return; }
+  await list(L('委託', 'Requests'), ids.map((id) => { const qd = QUESTS[id], fin = S.quests[id] === 'done'; return { label: (fin ? '✔ ' : '◇ ') + qd.title, right: fin ? L('完成', 'Done') : qd.progress || '', desc: qd.desc }; }), { width: 420, footer: L('選一個看看內容。', 'Pick one to read about it.') });
+}
+// the memory shards you have found, in the order they were written
+async function memoryMenu() {
+  const ids = [...S.shards].sort((a, b) => a - b);
+  for (;;) {
+    const r = await list(L(`回憶　${ids.length}／24`, `Memories  ${ids.length} / 24`), ids.map((i) => ({ label: L(`記憶碎片 ${i + 1}`, `Memory Shard ${i + 1}`), desc: L(SHARDS[i][0], SHARDS[i][1]).slice(0, 26) + '…' })), { width: 360 });
+    if (r < 0) return;
+    await say(L(`記憶碎片 ${ids[r] + 1}`, `Memory Shard ${ids[r] + 1}`), L(SHARDS[ids[r]][0], SHARDS[ids[r]][1]));
+  }
+}
 
 export async function fieldMenu(ctx) {
   for (;;) {
     const r = await list(L('選單', 'Menu'), [
       { label: L('職業', 'Jobs') }, { label: L('裝備', 'Equipment') }, { label: L('道具', 'Items') }, { label: L('能力', 'Status') },
+      { label: L('委託', 'Requests') }, { label: L('回憶', 'Memories'), disabled: !S.shards.length },
       { label: L('地圖', 'Map') }, { label: L('傳送', 'Warp'), disabled: S.homes.length < 2 }, { label: L('記錄', 'Save') }, { label: L('設定', 'Settings') },
     ], { side: partySide(), width: 200 });
     if (r < 0) return;
@@ -26,10 +44,12 @@ export async function fieldMenu(ctx) {
     if (r === 1) await equipMenu();
     if (r === 2) await itemsMenu(ctx);
     if (r === 3) await statusMenu();
-    if (r === 4) await mapMenu(ctx);
-    if (r === 5) { const ok = await warpMenu(ctx); if (ok) return; }
-    if (r === 6) { ctx.savePos(); if (save()) { sfx('ok'); toast(L('已記錄', 'Saved')); } }
-    if (r === 7) await settings();
+    if (r === 4) await questMenu();
+    if (r === 5) await memoryMenu();
+    if (r === 6) await mapMenu(ctx);
+    if (r === 7) { const ok = await warpMenu(ctx); if (ok) return; }
+    if (r === 8) { ctx.savePos(); if (save()) { sfx('ok'); toast(L('已記錄', 'Saved')); } }
+    if (r === 9) await settings();
   }
 }
 const pickMember = (title) => list(title, S.members.map((m) => ({ label: heroName(m), right: `${JOBS[m.job].name}${m.sub ? ' / ' + JOBS[m.sub].name : ''}` })), { width: 320 });
@@ -109,17 +129,17 @@ async function statusMenu() {
 async function mapMenu(ctx) {
   const c = document.createElement('canvas'); c.width = WX; c.height = WZ;
   const g = c.getContext('2d'), img = g.createImageData(WX, WZ);
-  const COL = { [B.grass]: [96, 176, 72], [B.sand]: [232, 214, 160], [B.redsand]: [208, 112, 64], [B.redstone]: [168, 80, 56], [B.snow]: [236, 244, 252], [B.stone]: [140, 146, 160], [B.gravel]: [150, 150, 150], [B.cobble]: [120, 120, 130], [B.leaves]: [56, 130, 56], [B.orange]: [220, 130, 50], [B.brick]: [150, 150, 160], [B.crystal]: [150, 230, 255], [B.ice]: [190, 230, 250], [B.plank]: [180, 120, 80] };
+  const COL = MAPCOL;
   for (let z = 0; z < WZ; z++) for (let x = 0; x < WX; x++) {
     const y = ground(x, z) - 1, id = get(x, y, z), i = (z * WX + x) * 4;
     let col = y < SEA ? [60, 120, 220] : COL[id] || [110, 160, 90];
-    const shade = 0.75 + Math.min(1, y / 40) * 0.4; col = col.map((v) => Math.min(255, v * shade));
+    const shade = 0.7 + Math.min(1, y / 50) * 0.5; col = col.map((v) => Math.min(255, v * shade));
     img.data.set([...col, 255], i);
   }
   g.putImageData(img, 0, 0);
-  g.fillStyle = '#7ab8ff'; for (const h of W.homes) if (S.homes.includes(h.id)) g.fillRect(h.pos[0] - 2, h.pos[2] - 2, 4, 4);
-  g.fillStyle = '#ff4060'; const p = ctx.playerPos(); g.beginPath(); g.arc(p[0], p[2], 3, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#ffe27a'; for (const cr of W.crystals) if (S.crystals.includes(cr.job)) { g.fillRect(cr.pos[0] - 1.5, cr.pos[2] - 1.5, 3, 3); }
+  g.fillStyle = '#7ab8ff'; for (const h of W.homes) if (S.homes.includes(h.id)) g.fillRect(h.pos[0] - 3, h.pos[2] - 3, 6, 6);
+  g.fillStyle = '#ff4060'; const p = ctx.playerPos(); g.beginPath(); g.arc(p[0], p[2], 5, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#ffe27a'; for (const cr of W.crystals) if (S.crystals.includes(cr.job)) { g.fillRect(cr.pos[0] - 3, cr.pos[2] - 3, 6, 6); }
   const labels = Object.values(REGIONS).filter((r) => !r.town || true).map((r) => `<div class="small" style="position:absolute;left:${r.c[0] / WX * 100}%;top:${r.c[1] / WZ * 100}%;transform:translate(-50%,-50%);text-shadow:0 1px 0 #000;white-space:nowrap">${r.name[LANG === 'en' ? 1 : 0]}</div>`).join('');
   await list(L('地圖', 'Map'), [], { side: `<div style="position:relative;width:min(70vh,80vw);aspect-ratio:1"><img src="${c.toDataURL()}" style="width:100%;height:100%;image-rendering:pixelated;border-radius:6px">${labels}</div>`, width: 180, footer: L('紅點是你，藍點是到過的家石，金點是找到的水晶。', 'Red is you, blue are home stones you have touched, gold are crystals you have found.') });
 }
@@ -130,7 +150,7 @@ async function warpMenu(ctx) {
   await ctx.warp(homes[r].pos);
   return true;
 }
-export const homeName = (id) => ({ h_hearth: L('爐心村', 'Hearthvale'), h_forest: L('低語林', 'Whisperwood'), h_coast: L('白貝海岸', 'Shellshore'), h_dune: L('沙泉鎮', 'Dunewell'), h_frost: L('霜門村', 'Frostgate'), h_peak: L('灰脊山腰', 'Greyridge Slopes'), h_spire: L('尖塔之下', 'Below the Spire') }[id] || id);
+export const homeName = (id) => ({ h_hearth: L('爐心村', 'Hearthvale'), h_fen: L('芬邊村', 'Fenside'), h_forest: L('低語林', 'Whisperwood'), h_salt: L('鹽灣港', 'Saltmere'), h_dune: L('沙泉鎮', 'Dunewell'), h_frost: L('霜門村', 'Frostgate'), h_spore: L('孢子林', 'Sporewood'), h_ruins: L('古都遺跡', 'Old Lumera'), h_peak: L('灰脊山腰', 'Greyridge Slopes'), h_rime: L('霜原', 'Rimefield'), h_ember: L('熔岩峰山腳', 'Foot of Emberpeak'), h_spire: L('尖塔之下', 'Below the Spire') }[id] || id);
 async function settings() {
   for (;;) {
     const r = await list(L('設定', 'Settings'), [

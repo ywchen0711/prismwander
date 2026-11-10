@@ -128,12 +128,36 @@ export const ITEMS = {
   boots:      { name: ['彈跳靴', 'Spring Boots'], key: true, desc: ['跳得比以前高一格。', 'Jump one block higher than before.'] },
   cape:       { name: ['滑翔斗篷', 'Glide Cape'], key: true, desc: ['在空中按住跳躍可以慢慢滑翔。', 'Hold jump in the air to glide down slowly.'] },
   compass:    { name: ['晶石羅盤', 'Crystal Compass'], key: true, desc: ['小地圖上會顯示最近的水晶。', 'Shows the nearest crystal on the minimap.'] },
+  fishrod:    { name: ['釣竿', 'Fishing Rod'], key: true, desc: ['在有魚影的水邊按 E 釣魚。', 'Press E by water where fish are rippling to fish.'] },
+  letter:     { name: ['給姊姊的信', 'Letter for a Sister'], key: true, desc: ['爐心村的小孩託你帶給在鹽灣港工作的姊姊。', 'A Hearthvale child asked you to take this to their sister in Saltmere.'] },
+  moonherb:   { name: ['月光草', 'Moonherb'], quest: true, desc: ['霧沼裡發著淡光的藥草。芬邊村的藥師在找它。', 'A faintly glowing herb from the Mistfen. The Fenside healer wants it.'] },
+  glowcap:    { name: ['螢光菇', 'Glowcap'], quest: true, desc: ['孢子林裡的發光小菇。隱士想要它。', 'A little glowing mushroom from Sporewood. The hermit wants it.'] },
+  // fish: eat them for HP, or sell them
+  carp:      { name: ['鏡湖鯉', 'Mirror Carp'], price: 24, use: 'heal', power: 70, target: 'ally', fish: true, desc: ['回復 70 HP。湖裡最常見的魚。', 'Restores 70 HP. The commonest fish in the lake.'] },
+  trout:     { name: ['虹鱒', 'Rainbow Trout'], price: 40, use: 'heal', power: 120, target: 'ally', fish: true, desc: ['回復 120 HP。', 'Restores 120 HP.'] },
+  bream:     { name: ['海鯛', 'Sea Bream'], price: 60, use: 'heal', power: 180, target: 'ally', fish: true, desc: ['回復 180 HP。', 'Restores 180 HP.'] },
+  mudcat:    { name: ['泥鬚魚', 'Mud Whisker'], price: 18, use: 'cure', target: 'ally', fish: true, desc: ['解除中毒。沼澤人說這是藥。', 'Cures poison. Marsh folk swear by it.'] },
+  sandeel:   { name: ['沙泉鰻', 'Oasis Eel'], price: 70, use: 'mp', power: 25, target: 'ally', fish: true, desc: ['回復 25 MP。', 'Restores 25 MP.'] },
+  goldkoi:   { name: ['金鱗錦鯉', 'Golden Koi'], price: 300, fish: true, desc: ['閃著金光的稀有錦鯉。鹽灣港的老漁夫做夢都想要。', 'A rare koi of shining gold. The old Saltmere fisher dreams of one.'] },
+  prismfish: { name: ['稜光魚', 'Prismfin'], price: 600, fish: true, desc: ['只在夜裡浮上來的傳說之魚，鱗片映著七彩。', 'A fish of legend that rises only at night, its scales full of colour.'] },
+  // gear found out in the wider land
+  moonbow:    { name: ['月弧弓', 'Moon Bow'], price: 0, slot: 'weapon', kind: 'bow', atk: 25, spr: 4 },
+  runeblade:  { name: ['古都符文劍', 'Lumeran Runeblade'], price: 0, slot: 'weapon', kind: 'sword', atk: 26, mag: 4 },
+  emberblade: { name: ['熔岩劍', 'Ember Blade'], price: 0, slot: 'weapon', kind: 'sword', atk: 30, str: 3 },
+  starrod:    { name: ['星辰杖', 'Star Rod'], price: 0, slot: 'weapon', kind: 'staff', atk: 8, mag: 20 },
+  frostmail:  { name: ['霜鱗甲', 'Frostscale Mail'], price: 0, slot: 'armor', def: 22 },
+  sporecloak: { name: ['孢子斗篷', 'Spore Cloak'], price: 0, slot: 'armor', def: 14, spr: 5 },
+  flamering:  { name: ['火焰戒指', 'Flame Ring'], price: 0, slot: 'acc', str: 4, mag: 6 },
+  fishcharm:  { name: ['漁人護符', "Angler's Charm"], price: 0, slot: 'acc', agi: 3, desc: ['帶著它，釣魚的時機會寬一點。', 'Wear it and the timing for a catch is kinder.'] },
+  wisdomring: { name: ['回憶之戒', 'Ring of Memory'], price: 0, slot: 'acc', mag: 10, spr: 10 },
 };
 bilingual(ITEMS);
 export const SHOPS = {
   hearthvale: ['potion', 'antidote', 'ether', 'tent', 'shortsword', 'rod', 'dagger', 'mallet', 'shortbow', 'wraps', 'tunic', 'leathervest'],
   dunewell:   ['potion', 'hipotion', 'ether', 'phoenix', 'antidote', 'tent', 'broadsword', 'silverstaff', 'kris', 'warhammer', 'longbow', 'tigerclaw', 'leathervest', 'chainmail'],
   frostgate:  ['hipotion', 'ether', 'phoenix', 'antidote', 'tent', 'broadsword', 'silverstaff', 'kris', 'warhammer', 'longbow', 'tigerclaw', 'chainmail'],
+  fenside:    ['potion', 'antidote', 'ether', 'tent', 'phoenix', 'leathervest', 'shortbow', 'wraps'],
+  saltmere:   ['potion', 'hipotion', 'ether', 'antidote', 'tent', 'phoenix', 'broadsword', 'kris', 'longbow', 'leathervest', 'chainmail'],
 };
 
 // model: a Kenney model path, or 'vox:' and a shape built from blocks in models.js
@@ -164,11 +188,24 @@ export const MONSTERS = {
   yeti:      { name: ['雪原巨獸', 'Snow Brute'], model: 'pets/animal-elephant', lv: 21, hp: 1.7, atk: 1.3, acts: [['atk', 3], ['ice', 1]] },
   vampire:   { name: ['吸血鬼', 'Vampire'], model: 'grave/character-vampire', lv: 24, mag: 1.4, acts: [['atk', 2], ['drain', 2], ['fire', 1]], undead: true },
   crysgolem: { name: ['晶石魔像', 'Crystal Golem'], model: 'vox:golem', color: '#7ce8ff', lv: 25, hp: 1.9, def: 1.8, acts: [['atk', 3], ['quake', 1]] },
-  // guardians of the hardest crystals, and what waits at the top of the spire
+  bogslime:  { name: ['沼泥怪', 'Bog Ooze'], model: 'vox:slime', color: '#7a8a3a', lv: 10, hp: 1.1, acts: [['atk', 3], ['poison', 1]] },
+  sporeling: { name: ['孢子球', 'Sporeling'], model: 'vox:slime', color: '#c070e0', lv: 13, mag: 1.2, acts: [['atk', 2], ['sleep', 1]] },
+  sporetreant:{ name: ['菇樹精', 'Shroomling'], model: 'vox:treant', color: '#b060c8', lv: 14, hp: 1.3, acts: [['atk', 3], ['poison', 1]] },
+  ruinguard: { name: ['古都守像', 'Lumeran Sentinel'], model: 'vox:golem', color: '#b8ae90', lv: 20, hp: 1.6, def: 1.7, agi: 0.6, acts: [['atk', 3], ['quake', 1]] },
+  frostjelly:{ name: ['霜凝膠', 'Frost Jelly'], model: 'vox:slime', color: '#d8f4ff', lv: 18, mag: 1.4, acts: [['atk', 2], ['ice', 2]] },
+  icewisp:   { name: ['冰晶精', 'Rime Wisp'], model: 'vox:wisp', color: '#e8fbff', lv: 20, mag: 1.6, def: 0.7, acts: [['atk', 1], ['ice', 2], ['sleep', 1]] },
+  magmaslime:{ name: ['熔岩史萊姆', 'Magma Ooze'], model: 'vox:slime', color: '#ff6030', lv: 22, hp: 1.2, acts: [['atk', 2], ['fire', 2]] },
+  emberwisp: { name: ['火焰精', 'Ember Wisp'], model: 'vox:wisp', color: '#ffa040', lv: 23, mag: 1.6, def: 0.7, acts: [['atk', 1], ['fire', 3]] },
+  magmagolem:{ name: ['熔岩魔像', 'Magma Golem'], model: 'vox:golem', color: '#a04020', lv: 24, hp: 1.9, def: 1.6, agi: 0.6, acts: [['atk', 3], ['fire', 1], ['quake', 1]] },
+  // guardians of the lands, and what waits at the top of the spire
   treant:    { name: ['古樹守衛', 'Elder Treant'], model: 'vox:treant', color: '#4a8a3a', lv: 9, boss: true, hp: 4.5, acts: [['atk', 3], ['poison', 1], ['quake', 1]] },
   mesaking:  { name: ['台地之王', 'Mesa King'], model: 'vox:golem', color: '#c86a3a', lv: 17, boss: true, hp: 5, acts: [['atk', 3], ['quake', 2], ['fire', 1]] },
   frostwyrm: { name: ['冰霜飛龍', 'Frost Wyrm'], model: 'vox:dragon', color: '#9ad8ff', lv: 22, boss: true, hp: 6, acts: [['atk', 3], ['ice', 2], ['icestorm', 1]] },
-  prismheart:{ name: ['稜晶之心', 'The Prism Heart'], model: 'vox:heart', color: '#e8b0ff', lv: 28, boss: true, hp: 8, acts: [['atk', 2], ['icestorm', 1], ['firestorm', 1], ['quake', 1], ['drain', 1]] },
+  bogkeeper: { name: ['沼地守墓人', 'The Bog Keeper'], model: 'grave/character-keeper', lv: 12, boss: true, hp: 4.5, undead: true, acts: [['atk', 3], ['poison', 1], ['drain', 1], ['sleep', 1]] },
+  sporelord: { name: ['菇王', 'The Sporelord'], model: 'vox:treant', color: '#d070e0', lv: 14, boss: true, hp: 5, acts: [['atk', 3], ['sleep', 1], ['poison', 1], ['quake', 1]] },
+  fallenknight:{ name: ['古都亡騎', 'The Fallen Knight'], model: 'kaykit/Skeleton_Warrior', lv: 20, boss: true, hp: 5.5, undead: true, acts: [['atk', 4], ['drain', 1], ['quake', 1]] },
+  emberdrake:{ name: ['熔岩飛龍', 'The Ember Drake'], model: 'vox:dragon', color: '#ff6a30', lv: 25, boss: true, hp: 6, acts: [['atk', 3], ['fire', 2], ['firestorm', 1]] },
+  prismheart:{ name: ['稜晶之心', 'The Prism Heart'], model: 'vox:heart', color: '#e8b0ff', lv: 30, boss: true, hp: 8, acts: [['atk', 2], ['icestorm', 1], ['firestorm', 1], ['quake', 1], ['drain', 1]] },
 };
 bilingual(MONSTERS, ['name']);
 // what monsters can do besides hit you

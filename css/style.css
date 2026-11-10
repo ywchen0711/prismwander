@@ -57,7 +57,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0a1020; col
 #title .sub { font-size: clamp(14px, 2.6vw, 22px); color: #bfe8ff; margin: 6px 0 26px; letter-spacing: 3px; }
 #title .opts { padding: 10px 18px; min-width: 240px; }
 #title .hint { margin-top: 18px; font-size: 13px; color: var(--dim); text-align: center; line-height: 1.6; }
-#musicBtn { position: fixed; right: 18px; top: 174px; z-index: 30; width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(111,216,255,0.6); background: rgba(14,22,48,0.7); color: #eef6ff; font: 20px sans-serif; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+#musicBtn { position: fixed; right: 18px; top: 214px; z-index: 30; width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(111,216,255,0.6); background: rgba(14,22,48,0.7); color: #eef6ff; font: 20px sans-serif; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 #musicBtn.off { opacity: 0.6; }
 #musicBtn.off::after { content: ''; position: absolute; width: 30px; height: 3px; background: #ff6070; transform: rotate(-45deg); border-radius: 2px; }
 #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
@@ -72,5 +72,11 @@ body.touching #touch { display: block; }
 #tJump { right: 22px; bottom: 30px; }
 #tAct { right: 98px; bottom: 70px; }
 #tBack { right: 22px; bottom: 112px; background: rgba(120, 40, 60, 0.5); }
-#tMenu { right: 22px; top: 156px; }
+#tMenu { right: 22px; top: 262px; }
 @media (max-width: 640px) { #minimap { width: 96px; height: 96px; } #mini { width: 88px; height: 88px; } #bparty { grid-template-columns: repeat(2, 1fr); font-size: 12px; } #bcmd { bottom: 150px; } }
+#fishui { position: fixed; left: 50%; top: 38%; transform: translate(-50%, -50%); padding: 14px 20px; min-width: 260px; text-align: center; font-size: 20px; }
+#fishui .bang { color: var(--gold); font-size: 40px; text-shadow: 0 0 12px #ff8040; }
+#fishui .fbar { position: relative; height: 18px; margin-top: 10px; border-radius: 9px; background: #1a2544; overflow: hidden; }
+#fishui .fbar i { position: absolute; top: 0; bottom: 0; background: rgba(255, 226, 122, 0.85); }
+#fishui .fbar b { position: absolute; top: -2px; bottom: -2px; width: 4px; margin-left: -2px; background: #ff5060; }
+#clock { position: absolute; right: 18px; top: 168px; font-size: 13px; text-align: right; text-shadow: 0 2px 0 #000; color: var(--dim); }

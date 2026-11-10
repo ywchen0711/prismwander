@@ -14,9 +14,9 @@ By [Kenney](https://kenney.nl), released under CC0 1.0:
 - **Cube Pets**: the wild animals. https://kenney.nl/assets/cube-pets
 - **Graveyard Kit**: the ghost, skeleton, zombie and vampire, plus lamps, fences and other props. https://kenney.nl/assets/graveyard-kit
 - **Mini Dungeon**: the forest orc, chests and barrels. https://kenney.nl/assets/mini-dungeon
-- **Voxel Pack**: the block textures, packed into `assets/tex/blocks.png`. https://kenney.nl/assets/voxel-pack
+- **Voxel Pack**: the block textures, packed into `assets/tex/blocks.png`. https://kenney.nl/assets/voxel-pack (The mushroom-cap and mossy-stone tiles in the last row of the atlas were drawn for this game, the moss from the pack's grey stone.)
 
-Each pack's own licence file sits next to its models in `assets/models/` and `assets/tex/`. The slimes, crabs, golems, wisps, scorpions, the treant, the wyrm and the Prism Heart are built from boxes in code for this game.
+Each pack's own licence file sits next to its models in `assets/models/` and `assets/tex/`. The slimes, crabs, golems, wisps, scorpions, the treants, the drakes and the Prism Heart are built from boxes in code for this game, and so are the memory shards, signposts, herbs and ripples.
 
 ## Music and jingles (CC0)
 

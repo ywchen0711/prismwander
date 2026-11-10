@@ -19,9 +19,11 @@ const rnd = (a, b) => a + Math.random() * (b - a);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // the stage: a floor of the ground you were standing on, a sky colour, two lights
-const SKY = { grass: 0x8cc8f0, forest: 0x305a3a, sand: 0x9ad0f0, redsand: 0xe8a070, stone: 0x8890a8, snow: 0xc8d8f0, crystal: 0x40306a };
-const FLOOR = { grass: 'grass_top', forest: 'grass_top', sand: 'sand', redsand: 'redsand', stone: 'greystone', snow: 'snow', crystal: 'stone_diamond' };
+const SKY = { grass: 0x8cc8f0, forest: 0x305a3a, sand: 0x9ad0f0, redsand: 0xe8a070, stone: 0x8890a8, snow: 0xc8d8f0, crystal: 0x40306a, marsh: 0x5a6e62, spore: 0x5a3e7a, ember: 0x6a2a1a };
+const FLOOR = { grass: 'grass_top', forest: 'grass_top', sand: 'sand', redsand: 'redsand', stone: 'greystone', snow: 'snow', crystal: 'stone_diamond', marsh: 'mossstone', spore: 'grass_top', ember: 'redstone' };
 export function setBattleAtlas(t, info) { tex = { t, info }; }
+const TREES = ['hex/tree_single_A.gltf', 'hex/trees_A_small.gltf', 'hex/tree_single_B.gltf', 'hex/trees_B_medium.gltf'];
+const ROCKS = ['hex/rock_single_A.gltf', 'hex/rock_single_C.gltf', 'hex/rock_single_E.gltf'];
 function floorMaterial(kind) {
   const { t, info } = tex, fi = info.faces[FLOOR[kind] || 'grass_top'], cols = info.cols, rows = info.rows;
   const c = document.createElement('canvas'); c.width = c.height = info.size;
@@ -33,12 +35,19 @@ function floorMaterial(kind) {
 function buildStage(kind) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(SKY[kind] || SKY.grass);
-  scene.fog = new THREE.Fog(scene.background, 14, 30);
+  scene.fog = new THREE.Fog(scene.background, 16, 34);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.6));
   const sun = new THREE.DirectionalLight(0xfff0d8, 2.2); sun.position.set(-4, 10, 6); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10 }); scene.add(sun);
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(28, 20), floorMaterial(kind)); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 26), floorMaterial(kind)); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+  // the land you were standing on, behind the fight: trees, pines or rocks
+  const back = { grass: TREES, forest: TREES, marsh: TREES, spore: ['grave/pumpkin'], snow: ['grave/pine', 'grave/pine-crooked'], stone: ROCKS, crystal: ROCKS, sand: ROCKS, redsand: ROCKS, ember: ROCKS }[kind] || TREES;
+  for (let k = 0; k < 14; k++) {
+    const path = back[k % back.length], tree = back === TREES || path.includes('pine'), inst = make(path);
+    inst.fit(tree ? 3 + (k * 7 % 5) * 0.5 : path.includes('pumpkin') ? 0.9 : 0.8 + (k % 3) * 0.4);
+    inst.obj.position.set(-13 + k * 2 + Math.sin(k * 3.1) * 0.8, 0, -5.5 - (k % 3) * 2.2); inst.obj.rotation.y = k * 1.7; scene.add(inst.obj);
+  }
   const cam = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 80);
-  cam.position.set(0.2, 4.2, 10.2); cam.lookAt(0.1, 1.1, 0.3);
+  cam.position.set(1.0, 5.4, 12.6); cam.lookAt(1.0, 1.0, 0.0);
   return { scene, cam };
 }
 
@@ -48,21 +57,26 @@ export function startBattle(ids, { boss = false, bg = 'grass', canFlee = true } 
     const st = buildStage(bg);
     const foes = ids.map((id, i) => {
       const m = MONSTERS[id], s = monsterStats(id), inst = make(m.model, { color: m.color });
-      // the monsters stand in a loose line on the left, facing right
-      const n = ids.length, x = -1.4 - i * 1.7 + (n === 1 ? -0.6 : 0), z = -0.3 - (i % 2) * 1.0;
-      inst.obj.position.set(x, 0, z); inst.obj.rotation.y = Math.PI / 2;
+      // the monsters stand on the left in two staggered rows, so none hides another
+      const n = ids.length, x = boss ? -3.2 : n === 1 ? -2.8 : -1.9 - i * 1.25, z = boss ? 0.2 : n === 1 ? 1.2 : i % 2 ? 0.2 : 1.9;
+      inst.obj.position.set(x, 0, z);
       if (m.model.startsWith('vox:')) inst.obj.scale.setScalar(m.boss ? 1.6 : 1.2); else inst.fit(m.boss ? 3.6 : m.model.startsWith('pets/') ? 1.4 : 2.0);
       st.scene.add(inst.obj); inst.play('idle');
       return { id, kind: 'foe', name: m.name + (ids.filter((t) => t === id).length > 1 ? 'ABCD'[ids.slice(0, i).filter((t) => t === id).length] : ''), ...s, maxhp: s.hp, inst, home: [x, z], status: {}, buffs: {}, h: m.boss ? 3.6 : 1.8 };
     });
     const party = S.members.map((m, i) => {
-      // the party stands in a row on the right, facing left
-      const inst = make(HEROES[m.id].model).fit(1.9); const x = 1.0 + i * 1.1, z = 1.6 + i * 0.3;
-      inst.obj.position.set(x, 0, z); inst.obj.rotation.y = -Math.PI / 2;
+      // the party stands on the right in two staggered rows, mirroring the monsters
+      const inst = make(HEROES[m.id].model).fit(1.9); const x = 1.4 + i * 1.25, z = i % 2 ? 0.5 : 2.1;
+      inst.obj.position.set(x, 0, z);
       st.scene.add(inst.obj); inst.play(m.hp > 0 ? 'idle' : 'die', { once: m.hp <= 0 });
       m.buffs = {}; m.defending = false; delete m.status.sleep; delete m.status.stun; m.taunt = 0;
       return { m, inst, home: [x, z], h: 1.9 };
     });
+    // everyone turns to face the middle of the other side
+    const mid = (l) => [l.reduce((a, o) => a + o.home[0], 0) / l.length, l.reduce((a, o) => a + o.home[1], 0) / l.length];
+    const fm = mid(foes), pm = mid(party);
+    for (const f of foes) { f.face = Math.atan2(pm[0] - f.home[0], pm[1] - f.home[1]); f.inst.obj.rotation.y = f.face; }
+    for (const p of party) { p.face = Math.atan2(fm[0] - p.home[0], fm[1] - p.home[1]); p.inst.obj.rotation.y = p.face; }
     // how tall each one really stands, for the arrow and the numbers
     for (const o of [...foes, ...party]) { const bb = new THREE.Box3().setFromObject(o.inst.obj); o.h = Math.max(0.6, bb.max.y - bb.min.y); }
     B = { ...st, foes, party, boss, canFlee: canFlee && !boss, resolve, round: 0, pops: [], over: false, t: 0, drops: [] };
@@ -266,11 +280,12 @@ const magical = (power, a, t) => Math.max(1, Math.round((power + a.mag * 1.6) * 
 async function lunge(who, toward) {
   const o = who.inst.obj.position, [hx, hz] = who.home, tx = toward ? toward.inst.obj.position.x : hx, tz = toward ? toward.inst.obj.position.z : hz;
   const ex = hx + (tx - hx) * 0.55, ez = hz + (tz - hz) * 0.55;
+  if (toward) who.inst.obj.rotation.y = Math.atan2(tx - hx, tz - hz);
   who.inst.play('sprint');
   for (let k = 1; k <= 8; k++) { o.x = hx + (ex - hx) * k / 8; o.z = hz + (ez - hz) * k / 8; await wait(16); }
   who.inst.play('attack-melee-right', { once: true });
 }
-async function back(who) { const o = who.inst.obj.position, [hx, hz] = who.home, sx = o.x, sz = o.z; for (let k = 1; k <= 8; k++) { o.x = sx + (hx - sx) * k / 8; o.z = sz + (hz - sz) * k / 8; await wait(16); } who.inst.play('idle'); }
+async function back(who) { const o = who.inst.obj.position, [hx, hz] = who.home, sx = o.x, sz = o.z; for (let k = 1; k <= 8; k++) { o.x = sx + (hx - sx) * k / 8; o.z = sz + (hz - sz) * k / 8; await wait(16); } if (who.face !== undefined) who.inst.obj.rotation.y = who.face; who.inst.play('idle'); }
 function shake(who) { const o = who.inst.obj.position, x0 = who.home[0]; let k = 0; const t = setInterval(() => { o.x = x0 + (k % 2 ? 0.12 : -0.12); if (++k > 6) { clearInterval(t); o.x = x0; } }, 30); }
 function hurt(t, d, col = '#ffffff') {
   if (t.kind === 'foe') {

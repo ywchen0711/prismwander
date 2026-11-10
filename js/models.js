@@ -137,3 +137,48 @@ export function homeMesh() {
   pillar.position.y = 0.95; g.add(pillar);
   return { obj: g, update(dt, t) { pillar.rotation.y += dt * 0.7; pillar.material.emissive.setRGB(0.12 + Math.sin(t * 2) * 0.06, 0.25, 0.5); } };
 }
+
+// many copies of one decoration drawn in a single call: each mesh of the model becomes an InstancedMesh
+export function instanced(path, list) {
+  const g = cache.get(path), out = new THREE.Group();
+  if (!g || !list.length) return out;
+  if (!g.userData.h) { const bb = new THREE.Box3().setFromObject(g.scene); g.userData.h = Math.max(0.1, bb.max.y - bb.min.y); }
+  g.scene.updateMatrixWorld(true);
+  const T = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), v = new THREE.Vector3(), sc = new THREE.Vector3();
+  g.scene.traverse((o) => {
+    if (!o.isMesh || !o.visible) return;
+    const im = new THREE.InstancedMesh(o.geometry, o.material, list.length);
+    list.forEach((d, i) => { const k = d.h / g.userData.h; q.setFromAxisAngle(up, d.rot || 0); T.compose(v.set(...d.pos), q, sc.set(k, k, k)); T.multiply(o.matrixWorld); im.setMatrixAt(i, T); });
+    im.castShadow = !list[0].flat; im.receiveShadow = true; im.computeBoundingSphere();
+    out.add(im);
+  });
+  return out;
+}
+// a memory shard: a small rose-coloured sliver of the old Prism, turning over and over
+export function shardMesh() {
+  const g = new THREE.Group();
+  const geo = new THREE.OctahedronGeometry(0.22, 0); geo.scale(0.7, 1.5, 0.7);
+  const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0xffb0e0, emissive: 0x803060 })); m.position.y = 1.0; g.add(m);
+  const halo = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.36, 16), new THREE.MeshBasicMaterial({ color: 0xffd0f0, transparent: true, opacity: 0.6, side: THREE.DoubleSide })); halo.position.y = 1.0; g.add(halo);
+  return { obj: g, update(dt, t) { m.rotation.y += dt * 2.2; m.rotation.z = Math.sin(t * 1.7) * 0.4; m.position.y = halo.position.y = 1.0 + Math.sin(t * 2.4) * 0.1; halo.lookAt(m.position.x, 1, m.position.z + 1); halo.rotation.z += t; } };
+}
+// a wooden signpost with a board
+export function signMesh() {
+  const g = new THREE.Group();
+  g.add(box(0.14, 1.3, 0.14, 0x6a4a2a, 0, 0.65, 0)); g.add(box(0.9, 0.5, 0.08, 0xb08050, 0, 1.15, 0.08)); g.add(box(0.7, 0.06, 0.09, 0x5a3a1a, 0, 1.2, 0.09)); g.add(box(0.5, 0.06, 0.09, 0x5a3a1a, -0.06, 1.05, 0.09));
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  return { obj: g };
+}
+// herbs to gather: a pale glowing sprig, or a little luminous mushroom
+export function herbMesh(kind) {
+  const g = new THREE.Group();
+  if (kind === 'glowcap') { g.add(box(0.08, 0.25, 0.08, 0xe8e0d0, 0, 0.12, 0)); g.add(box(0.3, 0.1, 0.3, 0x80f0ff, 0, 0.28, 0, 0x30a0c0)); g.add(box(0.06, 0.15, 0.06, 0xe8e0d0, 0.18, 0.07, 0.1)); g.add(box(0.16, 0.07, 0.16, 0x80f0ff, 0.18, 0.17, 0.1, 0x30a0c0)); }
+  else for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2, l = box(0.05, 0.4, 0.05, 0xc8f0ff, Math.cos(a) * 0.08, 0.2, Math.sin(a) * 0.08, 0x4080a0); l.rotation.set(Math.sin(a) * 0.4, 0, -Math.cos(a) * 0.4); g.add(l); }
+  return { obj: g, update(dt, t) { g.rotation.y = Math.sin(t * 0.8) * 0.3; } };
+}
+// rings spreading on the water where fish are biting
+export function rippleMesh() {
+  const g = new THREE.Group(), rings = [];
+  for (let k = 0; k < 3; k++) { const r = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.38, 20), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false })); r.rotation.x = -Math.PI / 2; g.add(r); rings.push(r); }
+  return { obj: g, update(dt, t) { rings.forEach((r, i) => { const p = (t * 0.6 + i / 3) % 1; r.scale.setScalar(0.5 + p * 2.2); r.material.opacity = 0.55 * (1 - p); }); } };
+}
