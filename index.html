@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>晶境漫遊 Prismwander</title>
+<meta name="description" content="原創的 3D 方塊世界自由探索 RPG：跳上懸崖、找出散落各地的水晶解鎖職業，自由搭配主副職業。中英雙語。An original open-world 3D block RPG in Chinese and English: climb and jump anywhere, find crystals that unlock jobs, and mix main and sub jobs.">
+<link rel="preload" href="fonts/Cubic_11.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Cpath d=%22M8 1 L13 6 L8 15 L3 6 Z%22 fill=%22%238ae8ff%22 stroke=%22%232a4a8a%22/%3E%3C/svg%3E">
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div id="hud">
+  <div id="area"></div>
+  <div id="minimap"><canvas id="mini" width="120" height="120"></canvas></div>
+  <div id="crystals"></div>
+  <div id="prompt"></div>
+  <div id="toast"></div>
+</div>
+<div id="battleui"></div>
+<div id="dialog" class="panel"></div>
+<div id="menu"></div>
+<div id="title"></div>
+<div id="fade"></div>
+<div id="touch">
+  <div id="stick"><div id="knob"></div></div>
+  <div class="tbtn" id="tJump" data-k="jump">⤒</div>
+  <div class="tbtn" id="tAct" data-k="a">A</div>
+  <div class="tbtn" id="tBack" data-k="b">B</div>
+  <div class="tbtn small" id="tMenu" data-k="menu">≡</div>
+</div>
+<div id="loading">Loading…</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
