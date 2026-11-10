@@ -18,7 +18,7 @@ const stick = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
 let drag = null;
 export function setupInput(canvas) {
   canvas.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse' || !stickArea(e)) drag = { id: e.pointerId, x: e.clientX }; });
-  addEventListener('pointermove', (e) => { if (drag && drag.id === e.pointerId) { input.look += (e.clientX - drag.x) * 0.008; drag.x = e.clientX; } });
+  addEventListener('pointermove', (e) => { if (drag && drag.id === e.pointerId) { input.look -= (e.clientX - drag.x) * 0.008; drag.x = e.clientX; } });
   addEventListener('pointerup', (e) => { if (drag && drag.id === e.pointerId) drag = null; });
   canvas.addEventListener('wheel', (e) => { input.zoom += Math.sign(e.deltaY); e.preventDefault(); }, { passive: false });
   const st = document.getElementById('stick'), knob = document.getElementById('knob');
@@ -46,7 +46,7 @@ function pollPad() {
   if (b(12)) now.add('up'); if (b(13)) now.add('down'); if (b(14)) now.add('left'); if (b(15)) now.add('right'); if (b(4)) now.add('turnL'); if (b(5)) now.add('turnR');
   for (const k of now) if (!pad.held.has(k)) pad.down.add(k);
   pad.held = now;
-  if (Math.abs(gp.axes[2] || 0) > 0.2) input.look += gp.axes[2] * 0.04;
+  if (Math.abs(gp.axes[2] || 0) > 0.2) input.look -= gp.axes[2] * 0.04;
   return { x: Math.abs(gp.axes[0]) > 0.2 ? gp.axes[0] : 0, z: Math.abs(gp.axes[1]) > 0.2 ? gp.axes[1] : 0 };
 }
 export function pollInput() {
@@ -55,6 +55,7 @@ export function pollInput() {
   if (input.held('left')) x -= 1; if (input.held('right')) x += 1; if (input.held('up')) z -= 1; if (input.held('down')) z += 1;
   const l = Math.hypot(x, z); if (l > 1) { x /= l; z /= l; }
   input.move.x = x; input.move.z = z;
-  if (input.held('turnL')) input.look -= 0.035; if (input.held('turnR')) input.look += 0.035;
+  // turning left swings the view left (a larger yaw); dragging or turning right does the opposite
+  if (input.held('turnL')) input.look += 0.035; if (input.held('turnR')) input.look -= 0.035;
 }
 export function endInput() { down.clear(); input.look = 0; input.zoom = 0; }

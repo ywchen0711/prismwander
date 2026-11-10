@@ -130,7 +130,8 @@ function movePlayer(dt) {
   // stick and keys move relative to the camera
   const mx = input.move.x, mz = input.move.z;
   const sin = Math.sin(cam.yaw), cos = Math.cos(cam.yaw);
-  let dx = (mx * cos + mz * sin) * sp, dz = (-mx * sin + mz * cos) * sp;
+  // the camera looks along (sin yaw, cos yaw); its right hand is (-cos yaw, sin yaw). Up on the stick is -z.
+  let dx = (-mz * sin - mx * cos) * sp, dz = (-mz * cos + mx * sin) * sp;
   const moving = Math.hypot(dx, dz) > 0.0001;
   if (moving) P.yaw = Math.atan2(dx, dz);
   // across, with a one-block step up when walking into a ledge
@@ -271,7 +272,8 @@ function drawMinimap() {
   if (!colourMap) { buildColourMap(); miniCanvas.getContext('2d').putImageData(colourMap, 0, 0); }
   const s = 3, R = 60;
   mini.save(); mini.fillStyle = '#0a1020'; mini.fillRect(0, 0, 120, 120);
-  mini.translate(60, 60); mini.rotate(-cam.yaw + Math.PI);
+  // turn the map so the way the camera faces is up
+  mini.translate(60, 60); mini.rotate(cam.yaw - Math.PI);
   mini.imageSmoothingEnabled = false;
   mini.drawImage(miniCanvas, P.x - R / s, P.z - R / s, (R * 2) / s, (R * 2) / s, -R, -R, R * 2, R * 2);
   for (const e of ents) {
