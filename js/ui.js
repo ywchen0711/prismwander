@@ -80,7 +80,9 @@ let toastT = null;
 export function toast(s, ms = 2200) { const t = $('toast'); t.textContent = s; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), ms); }
 let areaT = null;
 export function areaName(s) { const a = $('area'); a.textContent = s; a.classList.add('on'); clearTimeout(areaT); areaT = setTimeout(() => a.classList.remove('on'), 3200); }
-export function prompt(s) { const p = $('prompt'); if (s) { p.textContent = s; p.classList.add('on', 'panel'); } else p.classList.remove('on'); }
+// the prompt is touched only when it changes, so the page does not lay itself out again every frame
+let promptNow = null;
+export function prompt(s) { if (s === promptNow) return; promptNow = s; const p = $('prompt'); if (s) { p.textContent = s; p.classList.add('on', 'panel'); } else p.classList.remove('on'); }
 export function fade(on) { $('fade').classList.toggle('on', on); return new Promise((r) => setTimeout(r, 420)); }
 export const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 void L;

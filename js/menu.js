@@ -6,6 +6,7 @@ import { sfx, vol, setVolumes, music, setMusic } from './audio.js';
 import { L, LANG, setLang } from './i18n.js';
 import { REGIONS, WX, WZ, W, ground, SEA, get, B } from './world.js';
 import { QUESTS, SHARDS } from './story.js';
+import { qualityChoice, autoLevel, setQuality } from './quality.js';
 
 export const MAPCOL = { [B.grass]: [96, 176, 72], [B.sand]: [232, 214, 160], [B.redsand]: [208, 112, 64], [B.redstone]: [168, 80, 56], [B.snow]: [236, 244, 252], [B.stone]: [140, 146, 160], [B.gravel]: [150, 150, 150], [B.cobble]: [120, 120, 130], [B.leaves]: [56, 130, 56], [B.orange]: [220, 130, 50], [B.brick]: [150, 150, 160], [B.crystal]: [150, 230, 255], [B.ice]: [190, 230, 250], [B.plank]: [180, 120, 80], [B.wood]: [110, 80, 50], [B.birch]: [220, 220, 200], [B.lava]: [255, 110, 30], [B.mushroom]: [210, 50, 50], [B.moss]: [96, 128, 84], [B.mud]: [128, 126, 108], [B.cactus]: [80, 150, 60] };
 const bar = (v, max, col) => `<div class="bar"><i style="width:${Math.max(0, Math.min(100, v / max * 100))}%;background:${col}"></i></div>`;
@@ -59,7 +60,7 @@ export async function fieldMenu(ctx) {
     if (r === 7) await mapMenu(ctx);
     if (r === 8) { const ok = await warpMenu(ctx); if (ok) return; }
     if (r === 9) { ctx.savePos(); if (save()) { sfx('ok'); toast(L('已記錄', 'Saved')); } }
-    if (r === 10) await settings();
+    if (r === 10) await settings(ctx);
   }
 }
 const pickMember = (title) => list(title, S.members.map((m) => ({ label: heroName(m), right: `${JOBS[m.job].name}${m.sub ? ' / ' + JOBS[m.sub].name : ''}` })), { width: 320 });
@@ -168,18 +169,25 @@ async function warpMenu(ctx) {
   return true;
 }
 export const homeName = (id) => ({ h_hearth: L('爐心村', 'Hearthvale'), h_fen: L('芬邊村', 'Fenside'), h_forest: L('低語林', 'Whisperwood'), h_salt: L('鹽灣港', 'Saltmere'), h_dune: L('沙泉鎮', 'Dunewell'), h_frost: L('霜門村', 'Frostgate'), h_spore: L('孢子林', 'Sporewood'), h_ruins: L('古都遺跡', 'Old Lumera'), h_peak: L('灰脊山腰', 'Greyridge Slopes'), h_rime: L('霜原', 'Rimefield'), h_ember: L('熔岩峰山腳', 'Foot of Emberpeak'), h_spire: L('尖塔之下', 'Below the Spire'), h_meadow: L('晨風原', 'Dawnbreeze Fields'), h_lake: L('鏡湖南岸', 'Mirror Lake shore'), h_coast: L('白貝海岸', 'Shellshore'), h_mesa: L('台地南麓', 'Below the Mesa'), h_mist: L('霧沼', 'Mistfen'), h_wood: L('低語林深處', 'Deep Whisperwood'), h_mtn: L('灰脊山麓', 'Greyridge foothills') }[id] || id);
-async function settings() {
+const QNAME = { auto: () => L('自動', 'Auto'), high: () => L('高', 'High'), medium: () => L('中', 'Medium'), low: () => L('低（最流暢）', 'Low (smoothest)') };
+async function settings(ctx) {
   for (;;) {
     const r = await list(L('設定', 'Settings'), [
       { label: L('語言', 'Language'), right: LANG === 'en' ? 'English' : '中文' },
       { label: L('音樂', 'Music'), right: music.on ? L('開', 'On') : L('關', 'Off') },
       { label: L('音樂音量', 'Music volume'), right: Math.round(vol.music * 10) }, { label: L('音效音量', 'Sound volume'), right: Math.round(vol.sfx * 10) },
-    ], { width: 300 });
+      { label: L('畫質', 'Graphics'), right: QNAME[qualityChoice]() + (qualityChoice === 'auto' ? `（${QNAME[autoLevel]()}）` : ''), desc: L('手機和平板若會卡頓，請選「低」。變更後會自動記錄並重新載入。', 'If a phone or tablet stutters, choose Low. Changing it saves and reloads the game.') },
+    ], { width: 320 });
     if (r < 0) return;
     if (r === 0) setLang(LANG === 'en' ? 'zh' : 'en');
     if (r === 1) setMusic(!music.on);
     // volume steps 0.2 to 1.0 and round again
     if (r === 2) { vol.music = Math.round(vol.music * 10) >= 10 ? 0.2 : Math.min(1, Math.round(vol.music * 10 + 2) / 10); setVolumes(); }
+    if (r === 4) {
+      const order = ['auto', 'high', 'medium', 'low'], k = await list(L('畫質', 'Graphics'), order.map((o) => ({ label: QNAME[o]() + (o === 'auto' ? `（${QNAME[autoLevel]()}）` : ''), right: o === qualityChoice ? '✔' : '' })), { width: 300, start: order.indexOf(qualityChoice), footer: L('會先幫你記錄，再重新載入。', 'The game is saved first, then reloads.') });
+      if (k >= 0 && order[k] !== qualityChoice) { if (ctx && S.members.length) { ctx.savePos(); save(); } setQuality(order[k]); return; }
+      continue;
+    }
     if (r === 3) vol.sfx = Math.round(vol.sfx * 10) >= 10 ? 0 : Math.min(1, Math.round(vol.sfx * 10 + 2) / 10);
     try { localStorage.setItem('prismwander-vol', JSON.stringify(vol)); } catch (e) { /* ignore */ }
   }

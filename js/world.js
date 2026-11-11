@@ -63,10 +63,18 @@ REGIONS.saltmere.c[0] = Math.round(shoreX(REGIONS.saltmere.c[1])) - 30;
 // a village is built from its old plan, moved to where its centre is now
 export const tw = (town) => { const r = REGIONS[town]; return (x, z) => [x + r.c[0] - r.c0[0], z + r.c[1] - r.c0[1]]; };
 const TOWNS = Object.keys(REGIONS).filter((k) => REGIONS[k].town);
-export function regionAt(x, z) {
-  let best = 'meadow', bd = Infinity;
-  for (const id in REGIONS) { const r = REGIONS[id], d = Math.hypot(x - r.c[0], z - r.c[1]) / r.r * (r.town ? 0.7 : 1); if (d < bd) { bd = d; best = id; } }
+const REG_IDS = Object.keys(REGIONS), REG_C = REG_IDS.map((id) => REGIONS[id]);
+function regionSlow(x, z) {
+  let best = 0, bd = Infinity;
+  for (let i = 0; i < REG_C.length; i++) { const r = REG_C[i], dx = x - r.c[0], dz = z - r.c[1], d = Math.sqrt(dx * dx + dz * dz) / r.r * (r.town ? 0.7 : 1); if (d < bd) { bd = d; best = i; } }
   return best;
+}
+// once the world is made, every column remembers its region
+const REG = new Uint8Array(WX * WZ); let regReady = false;
+export function regionAt(x, z) {
+  x = Math.floor(x); z = Math.floor(z);
+  if (regReady && x >= 0 && z >= 0 && x < WX && z < WZ) return REG_IDS[REG[z * WX + x]];
+  return REG_IDS[regionSlow(x, z)];
 }
 const near = (x, z, id) => { const r = REGIONS[id]; return Math.max(0, 1 - Math.hypot(x - r.c[0], z - r.c[1]) / r.r); };
 
@@ -74,8 +82,9 @@ const near = (x, z, id) => { const r = REGIONS[id]; return Math.max(0, 1 - Math.
 function columnHeight(x, z) {
   let h = 9 + (fbm(x / 110, z / 110, 1) - 0.5) * 10 + (fbm(x / 26, z / 26, 2) - 0.5) * 3;
   // the forests roll a little more
-  h += near(x, z, 'forest') * (fbm(x / 20, z / 20, 3) * 4);
-  h += near(x, z, 'sporewood') * (fbm(x / 16, z / 16, 6) * 3);
+  const fo = near(x, z, 'forest'), sw = near(x, z, 'sporewood');
+  if (fo > 0) h += fo * (fbm(x / 20, z / 20, 3) * 4);
+  if (sw > 0) h += sw * (fbm(x / 16, z / 16, 6) * 3);
   // mountains: ridges climbing toward snowy peaks
   const m = near(x, z, 'mountain');
   if (m > 0) h += Math.pow(m, 1.3) * 44 * (0.65 + fbm(x / 18, z / 18, 4) * 0.5);
@@ -177,17 +186,19 @@ const prop = (...ps) => { for (const p of ps) W.ents.push({ ...p, pos: [p.pos[0]
 export function generate() {
   const { data, height } = W;
   data.fill(0);
+  regReady = false; for (let z = 0; z < WZ; z++) for (let x = 0; x < WX; x++) REG[z * WX + x] = regionSlow(x, z); regReady = true;
   for (let z = 0; z < WZ; z++) for (let x = 0; x < WX; x++) height[z * WX + x] = columnHeight(x, z);
   for (let z = 0; z < WZ; z++) for (let x = 0; x < WX; x++) {
     const h = height[z * WX + x];
     let steep = 0; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const n = height[Math.min(WZ - 1, Math.max(0, z + dz)) * WX + Math.min(WX - 1, Math.max(0, x + dx))]; steep = Math.max(steep, h - n); }
     const top = topBlock(x, z, h, steep >= 3), reg = regionAt(x, z);
+    const base = (z * WX + x) * WY, under = top === B.redsand || top === B.redstone ? B.redstone : top === B.sand ? B.sand : top === B.cobble || top === B.gravel ? B.stone : B.dirt;
     for (let y = 0; y < h; y++) {
-      let id = y === h - 1 ? top : y > h - 4 ? (top === B.redsand || top === B.redstone ? B.redstone : top === B.sand ? B.sand : top === B.cobble || top === B.gravel ? B.stone : B.dirt) : B.stone;
+      let id = y === h - 1 ? top : y > h - 4 ? under : B.stone;
       if (reg === 'mesa' && y < h - 1 && y % 3 === 0) id = B.redsand;
-      set(x, y, z, id);
+      data[base + y] = id;
     }
-    for (let y = h; y <= SEA; y++) set(x, y, z, B.water);
+    for (let y = h; y <= SEA; y++) data[base + y] = B.water;
     if (top === B.snow && h > 36 && rand(x, z, 9) > 0.7) set(x, h - 1, z, B.ice);
     // frozen ponds on the plain
     if (reg === 'rimefield' && fbm(x / 10, z / 10, 33) > 0.64) set(x, h - 1, z, B.ice);
@@ -529,29 +540,39 @@ const DIRS = [
   { n: [0, 0, 1], c: [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]], f: 1, shade: 0.88 },
   { n: [0, 0, -1], c: [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]], f: 1, shade: 0.66 },
 ];
+for (const d of DIRS) {
+  d.ao = d.c.map(([a, b2, c]) => {
+    const ax = d.n.map((v) => (v ? 0 : 1)), off = [a, b2, c].map((v, i) => (ax[i] ? (v ? 1 : -1) : 0)), axes = [0, 1, 2].filter((i) => ax[i]);
+    const u = [0, 0, 0], v2 = [0, 0, 0]; u[axes[0]] = off[axes[0]]; v2[axes[1]] = off[axes[1]];
+    return [u, v2, [u[0] + v2[0], u[1] + v2[1], u[2] + v2[2]]];
+  });
+}
 export const CHUNK = 16;
 export function buildChunk(cx, cz) {
   const pos = [], uv = [], col = [], ind = [];
   const { size, cols, rows, faces } = atlasInfo, du = 1 / cols, dv = 1 / rows, pad = 0.5 / (size * cols);
   void rows;
+  // a fast look-up straight into the block array
+  const data = W.data, at = (x, y, z) => (x < 0 || z < 0 || x >= WX || z >= WZ || y < 0 ? B.stone : y >= WY ? 0 : data[(z * WX + x) * WY + y]);
+  const op = (x, y, z) => { const id = at(x, y, z); return id !== 0 && id !== B.water && id !== B.post; };
   for (let x = cx * CHUNK; x < Math.min(WX, cx * CHUNK + CHUNK); x++) for (let z = cz * CHUNK; z < Math.min(WZ, cz * CHUNK + CHUNK); z++) {
-    // nothing is built above the tallest thing in this column and its neighbours
-    let ymax = 0; for (let y = WY - 1; y >= 0; y--) if (get(x, y, z) !== B.air) { ymax = y; break; }
+    // nothing is built above the tallest thing in this column
+    const cb = (z * WX + x) * WY;
+    let ymax = 0; for (let y = WY - 1; y >= 0; y--) if (data[cb + y] !== 0) { ymax = y; break; }
     for (let y = 0; y <= ymax; y++) {
-      const id = get(x, y, z);
+      const id = data[cb + y];
       if (!opaque(id)) continue;
       for (const d of DIRS) {
-        const nb = get(x + d.n[0], y + d.n[1], z + d.n[2]);
+        const nb = at(x + d.n[0], y + d.n[1], z + d.n[2]);
         if (opaque(nb) && !(seeThrough(nb) && !seeThrough(id))) continue;
         if (y + d.n[1] < 0) continue;
         const fi = faces[FACES[id][d.f]], u0 = (fi % cols) * du + pad, v0 = 1 - (Math.floor(fi / cols) + 1) * dv + pad, u1 = u0 + du - pad * 2, v1 = v0 + dv - pad * 2;
         const base = pos.length / 3;
         // ambient occlusion: each corner darkens with the blocks crowding it from the layer in front of the face
-        const s = (id === B.lava ? 1.5 : d.shade) * (0.95 + rand(x, z, y) * 0.05), ax = d.n.map((v) => (v ? 0 : 1)), ox = x + d.n[0], oy = y + d.n[1], oz = z + d.n[2];
-        for (const [a, b2, c] of d.c) {
-          const off = [a, b2, c].map((v, i) => (ax[i] ? (v ? 1 : -1) : 0)), axes = [0, 1, 2].filter((i) => ax[i]);
-          const u = [0, 0, 0], v2 = [0, 0, 0]; u[axes[0]] = off[axes[0]]; v2[axes[1]] = off[axes[1]];
-          const s1 = opaque(get(ox + u[0], oy + u[1], oz + u[2])) ? 1 : 0, s2 = opaque(get(ox + v2[0], oy + v2[1], oz + v2[2])) ? 1 : 0, cr = opaque(get(ox + u[0] + v2[0], oy + u[1] + v2[1], oz + u[2] + v2[2])) ? 1 : 0;
+        const s = (id === B.lava ? 1.5 : d.shade) * (0.95 + rand(x, z, y) * 0.05), ox = x + d.n[0], oy = y + d.n[1], oz = z + d.n[2];
+        for (let ci = 0; ci < 4; ci++) {
+          const [a, b2, c] = d.c[ci], [u, v2, w] = d.ao[ci];
+          const s1 = op(ox + u[0], oy + u[1], oz + u[2]) ? 1 : 0, s2 = op(ox + v2[0], oy + v2[1], oz + v2[2]) ? 1 : 0, cr = op(ox + w[0], oy + w[1], oz + w[2]) ? 1 : 0;
           const ao = s1 && s2 ? 0 : 3 - (s1 + s2 + cr), k = s * [0.5, 0.68, 0.84, 1][ao];
           pos.push(x + a, y + b2, z + c); col.push(k, k, k);
         }

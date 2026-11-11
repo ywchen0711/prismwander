@@ -12,6 +12,7 @@ import { startBattle, battleRender, battleTick, inBattle, setBattleAtlas } from 
 import { fieldMenu, loadSettings, homeName, MAPCOL } from './menu.js';
 import { SCRIPTS } from './story.js';
 import { L, LANG, setLang, onLang } from './i18n.js';
+import { Q } from './quality.js';
 
 const $ = (id) => document.getElementById(id);
 loadSettings();
@@ -19,22 +20,22 @@ document.documentElement.lang = LANG === 'en' ? 'en' : 'zh-Hant';
 
 // ---------- renderer and the world scene ----------
 const canvas = $('view');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
-renderer.setPixelRatio(Math.min(1.5, devicePixelRatio || 1));
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(Q.pr, devicePixelRatio || 1));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled = Q.shadow > 0; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
-const VIEW = 150;                       // how far the land is drawn
+const VIEW = Q.view;                    // how far the land is drawn
 scene.background = new THREE.Color(0x9ad4f8);
-scene.fog = new THREE.Fog(0x9ad4f8, 60, VIEW);
+scene.fog = new THREE.Fog(0x9ad4f8, VIEW * 0.4, VIEW);
 const hemi = new THREE.HemisphereLight(0xdcefff, 0x6a5a48, 1.25); scene.add(hemi);
 // a warm sun (a cool moon at night) whose shadow box follows the player
-const sun = new THREE.DirectionalLight(0xfff0d8, 2.4); sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, near: 1, far: 200 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.04;
+const sun = new THREE.DirectionalLight(0xfff0d8, 2.4); sun.castShadow = Q.shadow > 0;
+sun.shadow.mapSize.set(Q.shadow || 512, Q.shadow || 512); Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, near: 1, far: 200 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.04;
 scene.add(sun); scene.add(sun.target);
 // a lantern the party carries; it only shows at night
-const lantern = new THREE.PointLight(0xffc880, 0, 13, 1.4); scene.add(lantern);
+const lantern = new THREE.PointLight(0xffc880, 0, 13, 1.4); if (Q.lights) scene.add(lantern);
 // the sky: a dome with a gradient from overhead to the horizon, following the camera
 const skyMat = new THREE.ShaderMaterial({
   uniforms: { top: { value: new THREE.Color() }, horizon: { value: new THREE.Color() } }, side: THREE.BackSide, depthWrite: false, fog: false,
@@ -65,20 +66,24 @@ const unlockMouse = () => { if (document.pointerLockElement) document.exitPointe
 const DAY = 480;
 let daylight = 1;
 const isNight = () => daylight < 0.35;
+let skyT = 1;
+const sunOff = new THREE.Vector3(-30, 60, 22);
 function updateSky(dt) {
   if (mode === 'field') S.clock = (S.clock + dt / DAY) % 1;
+  sun.target.position.set(P.x, P.y, P.z); sun.position.set(P.x + sunOff.x, P.y + sunOff.y, P.z + sunOff.z); lantern.position.set(P.x, P.y + 2.4, P.z);
+  if ((skyT += dt) < 0.25) return; skyT = 0;
   const c = mode === 'title' ? 0.42 : S.clock, a = (c - 0.25) * Math.PI * 2, h = Math.sin(a);
   daylight = Math.min(1, Math.max(0, (h + 0.18) / 0.4)); daylight = daylight * daylight * (3 - 2 * daylight);
   const [t, hz] = SKIES[skyKind] || SKIES.default, dusk = Math.max(0, 1 - Math.abs(h) / 0.32) * 0.55;
   const top = NIGHT_TOP.clone().lerp(C(t), daylight), hor = NIGHT_HOR.clone().lerp(C(hz), daylight).lerp(DUSK, dusk);
   skyMat.uniforms.top.value.copy(top); skyMat.uniforms.horizon.value.copy(hor);
   scene.fog.color.copy(hor); scene.background.copy(hor);
-  hemi.intensity = 0.42 + 0.83 * daylight; sun.intensity = 0.4 + 2.0 * daylight;
+  hemi.intensity = (Q.lights ? 0.42 : 0.62) + (Q.lights ? 0.83 : 0.63) * daylight; sun.intensity = 0.4 + 2.0 * daylight;
   sun.color.copy(C('#8ea6ff').lerp(C('#fff0d8'), daylight).lerp(C('#ffb070'), dusk * 0.6));
   // the sun crosses the sky by day; at night the moon stands opposite
   const s = h >= 0 ? 1 : -1;
-  sun.position.set(P.x - Math.cos(a) * 45 * s, P.y + 22 + Math.abs(h) * 48, P.z + 22); sun.target.position.set(P.x, P.y, P.z);
-  lantern.intensity = (1 - daylight) * 2.2; lantern.position.set(P.x, P.y + 2.4, P.z);
+  sunOff.set(-Math.cos(a) * 45 * s, 22 + Math.abs(h) * 48, 22);
+  lantern.intensity = (1 - daylight) * 2.2;
   if (G.water) G.water.material.color.copy(C('#123a78').lerp(C('#2f7fd8'), daylight));
   S.flags.night = isNight();
 }
@@ -86,23 +91,26 @@ function updateSky(dt) {
 // ---------- the land, built in chunks around you ----------
 let blockMat = null;
 const chunks = new Map();
+let sweep = 0;
 const NCX = Math.ceil(WX / CHUNK), NCZ = Math.ceil(WZ / CHUNK), CR = Math.ceil(VIEW / CHUNK) + 1;
 // the chunks around you, nearest first
 const OFFS = []; for (let dz = -CR; dz <= CR; dz++) for (let dx = -CR; dx <= CR; dx++) if (Math.hypot(dx, dz) <= CR) OFFS.push([dx, dz]); OFFS.sort((a, b) => Math.hypot(...a) - Math.hypot(...b));
-function updateChunks(fx, fz, budgetMs = 6) {
+// once the graphics card has a chunk's vertices, the copy in memory is not needed
+function freeAfterUpload(g) { for (const a of [...Object.values(g.attributes), g.index]) if (a) a.onUpload(function () { this.array = null; }); return g; }
+function updateChunks(fx, fz, budgetMs = Q.budget) {
   const pcx = Math.floor(fx / CHUNK), pcz = Math.floor(fz / CHUNK), t0 = performance.now();
   for (const [dx, dz] of OFFS) {
     const cx = pcx + dx, cz = pcz + dz;
     if (cx < 0 || cz < 0 || cx >= NCX || cz >= NCZ) continue;
     const k = cx + ',' + cz;
     if (chunks.has(k)) continue;
-    const m = new THREE.Mesh(buildChunk(cx, cz), blockMat); m.userData.chunk = [cx, cz]; m.castShadow = true; m.receiveShadow = true; scene.add(m); chunks.set(k, m);
+    const m = new THREE.Mesh(freeAfterUpload(buildChunk(cx, cz)), blockMat); m.userData.chunk = [cx, cz]; m.castShadow = m.receiveShadow = Q.shadow > 0; scene.add(m); chunks.set(k, m);
     if (performance.now() - t0 > budgetMs) break;
   }
   // let go of chunks well behind you
-  for (const [k, m] of chunks) { const [cx, cz] = m.userData.chunk; if (Math.hypot(cx - pcx, cz - pcz) > CR + 2) { scene.remove(m); m.geometry.dispose(); chunks.delete(k); } }
+  if (++sweep % 30 === 0) for (const [k, m] of chunks) { const [cx, cz] = m.userData.chunk; if (Math.hypot(cx - pcx, cz - pcz) > CR + 2) { scene.remove(m); m.geometry.dispose(); chunks.delete(k); } }
 }
-function rebuildChunkAt(x, z) { const k = Math.floor(x / CHUNK) + ',' + Math.floor(z / CHUNK), m = chunks.get(k); if (m) { m.geometry.dispose(); m.geometry = buildChunk(...m.userData.chunk); } }
+function rebuildChunkAt(x, z) { const k = Math.floor(x / CHUNK) + ',' + Math.floor(z / CHUNK), m = chunks.get(k); if (m) { m.geometry.dispose(); m.geometry = freeAfterUpload(buildChunk(...m.userData.chunk)); } }
 // trees, rocks and props: one instanced mesh per model per patch of land, shown when near
 const DECOR_CELL = 72, decorCells = [];
 function buildDecor() {
@@ -165,7 +173,7 @@ function buildEnts() {
   { const inst = make('kaykit/Rogue').fit(1.75); einEnt = add('ein', inst, { id: 'ein', talk: 'ein' }, [...W.ein[0]]); }
   for (const sp of W.spawns) ents.push({ kind: 'monster', inst: null, data: sp, pos: [...sp.pos], home: [...sp.pos], vel: [0, 0], t: Math.random() * 5, stun: 0 });
   // clouds drifting high over the land
-  for (let k = 0; k < 150; k++) { const c = make(k % 3 ? 'hex/cloud_small.gltf' : 'hex/cloud_big.gltf'); c.fit(3 + (k % 4)); c.obj.scale.multiplyScalar(2.4); c.obj.position.set(rnd(k, 7) * WX, 80 + rnd(k, 8) * 10, rnd(k, 9) * WZ); c.obj.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; o.material.emissive = new THREE.Color(0x8890a0); o.material.fog = false; } }); scene.add(c.obj); clouds.push(c.obj); }
+  for (let k = 0; k < Q.clouds; k++) { const c = make(k % 3 ? 'hex/cloud_small.gltf' : 'hex/cloud_big.gltf'); c.fit(3 + (k % 4)); c.obj.scale.multiplyScalar(2.4); c.obj.position.set(rnd(k, 7) * WX, 80 + rnd(k, 8) * 10, rnd(k, 9) * WZ); c.obj.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; o.material.emissive = new THREE.Color(0x8890a0); o.material.fog = false; } }); scene.add(c.obj); clouds.push(c.obj); }
 }
 const clouds = [];
 const rnd = (a, b) => ((Math.sin(a * 12.9898 + b * 78.233) * 43758.5453) % 1 + 1) % 1;
@@ -324,7 +332,7 @@ const ctx = {
 // ---------- monsters on the field ----------
 function updateMonster(e, dt, far) {
   const nightOnly = NIGHT.has(e.data.monster);
-  if (far > 95 || beatenNow(e.data) || (nightOnly && !isNight())) { if (e.inst) e.inst.obj.visible = false; return; }
+  if (far > Math.min(95, VIEW * 0.7) || beatenNow(e.data) || (nightOnly && !isNight())) { if (e.inst) e.inst.obj.visible = false; return; }
   const inst = monsterInst(e);
   inst.obj.visible = true;
   inst.update(dt, S.time);
@@ -393,7 +401,9 @@ function buildColourMap() {
 }
 const miniCanvas = document.createElement('canvas'); miniCanvas.width = WX; miniCanvas.height = WZ;
 const DOT = { monster: '#ff5060', npc: '#ffffff', ein: '#d8a0ff', chest: '#ffe27a', home: '#7ab8ff', crystal: '#9ff0ff', boss: '#ff2030', shard: '#ff9ad8', fish: '#a8e0ff', herb: '#a0ffb0' };
+let lastHud = '', miniTick = 0;
 function drawMinimap() {
+  if (++miniTick % Q.mini) return;
   if (!colourMap) { buildColourMap(); miniCanvas.getContext('2d').putImageData(colourMap, 0, 0); }
   const s = 2.2, R = 60;
   mini.save(); mini.fillStyle = '#0a1020'; mini.fillRect(0, 0, 120, 120);
@@ -417,7 +427,8 @@ function drawMinimap() {
   mini.restore();
   mini.fillStyle = '#ff3050'; mini.beginPath(); mini.moveTo(60, 53); mini.lineTo(55, 65); mini.lineTo(65, 65); mini.fill();
   const hh = Math.floor(S.clock * 24), mm = Math.floor((S.clock * 24 - hh) * 60);
-  $('crystals').innerHTML = `◆ ${S.crystals.length} / 8<br><span style="color:#ff9ad8">✦ ${S.shards.length} / 24</span><br><span style="color:#b8c8e8">${isNight() ? '☾' : '☀'} ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}</span>`;
+  const hud = `◆ ${S.crystals.length} / 8<br><span style="color:#ff9ad8">✦ ${S.shards.length} / 24</span><br><span style="color:#b8c8e8">${isNight() ? '☾' : '☀'} ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}</span>`;
+  if (hud !== lastHud) { $('crystals').innerHTML = hud; lastHud = hud; }
 }
 function updateRegion() {
   const r = regionAt(P.x, P.z);
@@ -428,7 +439,7 @@ function updateRegion() {
 }
 // far things fade from view: decoration patches and the world's little objects
 function cullFar() {
-  for (const g of decorCells) g.visible = Math.hypot(g.userData.c[0] - P.x, g.userData.c[1] - P.z) < VIEW + DECOR_CELL * 0.75;
+  for (const g of decorCells) g.visible = Math.hypot(g.userData.c[0] - P.x, g.userData.c[1] - P.z) < VIEW * Q.decor + DECOR_CELL * 0.75;
 }
 
 // ---------- title, opening, ending ----------

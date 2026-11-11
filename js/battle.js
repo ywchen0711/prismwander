@@ -8,6 +8,7 @@ import { input } from './input.js';
 import { sfx, playMusic, jingle } from './audio.js';
 import { L } from './i18n.js';
 import { UI, list } from './ui.js';
+import { Q } from './quality.js';
 
 const $ = (id) => document.getElementById(id);
 let B = null, tex = null;
@@ -37,11 +38,11 @@ function buildStage(kind) {
   scene.background = new THREE.Color(SKY[kind] || SKY.grass);
   scene.fog = new THREE.Fog(scene.background, 16, 34);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.6));
-  const sun = new THREE.DirectionalLight(0xfff0d8, 2.2); sun.position.set(-4, 10, 6); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10 }); scene.add(sun);
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 26), floorMaterial(kind)); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+  const sun = new THREE.DirectionalLight(0xfff0d8, 2.2); sun.position.set(-4, 10, 6); sun.castShadow = Q.shadow > 0; sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10 }); scene.add(sun);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 26), floorMaterial(kind)); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; floor.userData.own = true; scene.add(floor);
   // the land you were standing on, behind the fight: trees, pines or rocks
   const back = { grass: TREES, forest: TREES, marsh: TREES, spore: ['grave/pumpkin'], snow: ['grave/pine', 'grave/pine-crooked'], stone: ROCKS, crystal: ROCKS, sand: ROCKS, redsand: ROCKS, ember: ROCKS }[kind] || TREES;
-  for (let k = 0; k < 14; k++) {
+  for (let k = 0; k < (Q.shadow ? 14 : 9); k++) {
     const path = back[k % back.length], tree = back === TREES || path.includes('pine'), inst = make(path);
     inst.fit(tree ? 3 + (k * 7 % 5) * 0.5 : path.includes('pumpkin') ? 0.9 : 0.8 + (k % 3) * 0.4);
     inst.obj.position.set(-13 + k * 2 + Math.sin(k * 3.1) * 0.8, 0, -5.5 - (k % 3) * 2.2); inst.obj.rotation.y = k * 1.7; scene.add(inst.obj);
@@ -212,9 +213,17 @@ async function victory() {
   end('win');
 }
 function waitKey() { return new Promise((r) => { const t0 = performance.now(); const off = onTick(() => { if ((performance.now() - t0 > 250 && (input.pressed('a') || input.pressed('b'))) || performance.now() - t0 > 2600) { off(); r(); } }); }); }
+function disposeStage(scene) {
+  scene.traverse((o) => {
+    if (o.isLight && o.shadow && o.shadow.map) o.shadow.map.dispose();
+    // the floor and the sparkles are the stage's own; the models share theirs with the field and stay
+    if (o.isMesh && o.userData.own) { o.geometry.dispose(); if (o.material.map) o.material.map.dispose(); o.material.dispose(); }
+  });
+}
 function end(result) {
   for (const m of S.members) { m.buffs = {}; m.defending = false; m.taunt = 0; m.charge = false; for (const k of ['sleep', 'stun', 'slow', 'blind', 'regen']) delete m.status[k]; }
   $('battleui').classList.remove('on'); $('battleui').innerHTML = '';
+  disposeStage(B.scene);
   const r = B.resolve; B = null; r(result);
 }
 
@@ -352,7 +361,7 @@ function sparkle(t, col) {
   for (let k = 0; k < 10; k++) {
     const g = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), new THREE.MeshBasicMaterial({ color: col, transparent: true }));
     g.position.set(o.x + rnd(-0.6, 0.6), rnd(0.2, 1.8), o.z + rnd(-0.6, 0.6)); B.scene.add(g);
-    let life = 0; const t2 = setInterval(() => { life++; g.position.y += 0.04; g.material.opacity = 1 - life / 20; if (life > 20) { clearInterval(t2); B && B.scene.remove(g); } }, 30);
+    let life = 0; const t2 = setInterval(() => { life++; g.position.y += 0.04; g.material.opacity = 1 - life / 20; if (life > 20) { clearInterval(t2); if (B) B.scene.remove(g); g.geometry.dispose(); g.material.dispose(); } }, 30);
   }
 }
 const EL_COL = { fire: 0xff7030, ice: 0x90e0ff, bolt: 0xfff070, holy: 0xfff8d0, water: 0x60a0ff, none: 0xd0a0ff };

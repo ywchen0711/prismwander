@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
+import { Q } from './quality.js';
 
 const loader = new GLTFLoader();
 const cache = new Map();
@@ -11,7 +12,7 @@ export function preload(paths) {
     if (cache.has(p)) { res(); return; }
     loader.load(p.endsWith('.gltf') ? `assets/models/${p}` : `assets/models/${p}.glb`, (g) => {
       hideSpares(p, g.scene);
-      g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.material && o.material.map) { o.material.map.magFilter = THREE.NearestFilter; o.material.map.colorSpace = THREE.SRGBColorSpace; } } });
+      g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = o.receiveShadow = Q.shadow > 0; if (o.material && o.material.map) { o.material.map.magFilter = THREE.NearestFilter; o.material.map.colorSpace = THREE.SRGBColorSpace; } } });
       cache.set(p, g); res();
     }, undefined, () => { console.warn('missing model', p); cache.set(p, null); res(); });
   })));
@@ -126,7 +127,7 @@ export function crystalMesh(color = 0x8ae8ff) {
   m.position.y = 0.9; g.add(m);
   const ring = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.04, 6, 24), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
   ring.rotation.x = Math.PI / 2; ring.position.y = 0.3; g.add(ring);
-  const light = new THREE.PointLight(color, 1.4, 7); light.position.y = 1; g.add(light);
+  if (Q.lights) { const light = new THREE.PointLight(color, 1.4, 7); light.position.y = 1; g.add(light); } else m.material.emissive.multiplyScalar(1.5);
   return { obj: g, update(dt, t) { m.rotation.y += dt; m.position.y = 0.9 + Math.sin(t * 2) * 0.12; ring.scale.setScalar(1 + Math.sin(t * 3) * 0.08); } };
 }
 // the home stones: a blue obelisk of light
@@ -149,7 +150,7 @@ export function instanced(path, list) {
     if (!o.isMesh || !o.visible) return;
     const im = new THREE.InstancedMesh(o.geometry, o.material, list.length);
     list.forEach((d, i) => { const k = d.h / g.userData.h; q.setFromAxisAngle(up, d.rot || 0); T.compose(v.set(...d.pos), q, sc.set(k, k, k)); T.multiply(o.matrixWorld); im.setMatrixAt(i, T); });
-    im.castShadow = !list[0].flat; im.receiveShadow = true; im.computeBoundingSphere();
+    im.castShadow = !list[0].flat && Q.shadow > 0; im.receiveShadow = Q.shadow > 0; im.computeBoundingSphere();
     out.add(im);
   });
   return out;
