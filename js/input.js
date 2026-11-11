@@ -2,7 +2,7 @@
 const held = new Set(), down = new Set();
 const KEYS = {
   ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
-  Space: 'jump', KeyZ: 'a', Enter: 'a', KeyE: 'a', KeyX: 'b', Escape: 'menu', Backspace: 'b', KeyQ: 'turnL', KeyR: 'turnR', KeyT: 'lookUp', KeyG: 'lookDown', Tab: 'map', ShiftLeft: 'run',
+  Space: 'jump', KeyZ: 'a', Enter: 'a', KeyE: 'a', KeyX: 'b', Escape: 'menu', Backspace: 'b', KeyQ: 'turnL', KeyR: 'turnR', KeyT: 'lookUp', KeyG: 'lookDown', KeyC: 'view', Tab: 'map', ShiftLeft: 'run',
 };
 addEventListener('keydown', (e) => { const k = KEYS[e.code]; if (!k) return; if (!held.has(k)) down.add(k); held.add(k); e.preventDefault(); });
 addEventListener('keyup', (e) => { const k = KEYS[e.code]; if (k) held.delete(k); });

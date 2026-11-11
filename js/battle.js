@@ -29,7 +29,7 @@ function floorMaterial(kind) {
   const { t, info } = tex, fi = info.faces[FLOOR[kind] || 'grass_top'], cols = info.cols, rows = info.rows;
   const c = document.createElement('canvas'); c.width = c.height = info.size;
   c.getContext('2d').drawImage(t.image, (fi % cols) * info.size, Math.floor(fi / cols) * info.size, info.size, info.size, 0, 0, info.size, info.size);
-  const ct = new THREE.CanvasTexture(c); ct.magFilter = THREE.NearestFilter; ct.wrapS = ct.wrapT = THREE.RepeatWrapping; ct.repeat.set(14, 10); ct.colorSpace = THREE.SRGBColorSpace;
+  const ct = new THREE.CanvasTexture(c); ct.magFilter = THREE.NearestFilter; ct.wrapS = ct.wrapT = THREE.RepeatWrapping; ct.repeat.set(24, 24); ct.colorSpace = THREE.SRGBColorSpace;
   void rows;
   return new THREE.MeshLambertMaterial({ map: ct });
 }
@@ -39,7 +39,7 @@ function buildStage(kind) {
   scene.fog = new THREE.Fog(scene.background, 16, 34);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.6));
   const sun = new THREE.DirectionalLight(0xfff0d8, 2.2); sun.position.set(-4, 10, 6); sun.castShadow = Q.shadow > 0; sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10 }); scene.add(sun);
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 26), floorMaterial(kind)); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; floor.userData.own = true; scene.add(floor);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(70, 70), floorMaterial(kind)); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; floor.userData.own = true; scene.add(floor);
   // the land you were standing on, behind the fight: trees, pines or rocks
   const back = { grass: TREES, forest: TREES, marsh: TREES, spore: ['grave/pumpkin'], snow: ['grave/pine', 'grave/pine-crooked'], stone: ROCKS, crystal: ROCKS, sand: ROCKS, redsand: ROCKS, ember: ROCKS }[kind] || TREES;
   for (let k = 0; k < (Q.shadow ? 14 : 9); k++) {
@@ -47,9 +47,26 @@ function buildStage(kind) {
     inst.fit(tree ? 3 + (k * 7 % 5) * 0.5 : path.includes('pumpkin') ? 0.9 : 0.8 + (k % 3) * 0.4);
     inst.obj.position.set(-13 + k * 2 + Math.sin(k * 3.1) * 0.8, 0, -5.5 - (k % 3) * 2.2); inst.obj.rotation.y = k * 1.7; scene.add(inst.obj);
   }
+  // and all the way round, so the view is never empty when the camera swings about
+  const ring = Q.shadow ? 22 : 12;
+  for (let k = 0; k < ring; k++) {
+    const a = k / ring * Math.PI * 2 + 0.3, r = 19 + (k * 5 % 3) * 1.6, path = back[(k + 2) % back.length], tree = back === TREES || path.includes('pine'), inst = make(path);
+    if (Math.cos(a) * r + 1.1 < -4 && Math.abs(Math.sin(a) * r) < 14) continue;
+    inst.fit(tree ? 3.2 + (k * 7 % 5) * 0.5 : path.includes('pumpkin') ? 1.1 : 1.0 + (k % 3) * 0.5);
+    inst.obj.position.set(1 + Math.sin(a) * r, 0, 1.1 + Math.cos(a) * r); inst.obj.rotation.y = k * 2.3; scene.add(inst.obj);
+  }
   const cam = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 80);
-  cam.position.set(1.0, 12.6, 11.8); cam.lookAt(1.0, 0.4, 1.1);
   return { scene, cam };
+}
+// the battle camera circles the middle of the field: drag to swing it round and tilt it, the wheel to come closer, C to set it back
+const VIEW0 = { yaw: 0, pitch: 0.85, dist: 16.2 };
+const view = { ...VIEW0 };
+function placeCamera(cam) {
+  view.yaw += input.look; view.pitch = Math.max(0.12, Math.min(1.45, view.pitch + input.lookY)); view.dist = Math.max(6, Math.min(17, view.dist + input.zoom * 0.9));
+  if (input.pressed('view')) Object.assign(view, VIEW0);
+  const cp = Math.cos(view.pitch), tx = 1.0, ty = 0.4, tz = 1.1;
+  cam.position.set(tx + Math.sin(view.yaw) * cp * view.dist, ty + Math.sin(view.pitch) * view.dist, tz + Math.cos(view.yaw) * cp * view.dist);
+  cam.lookAt(tx, ty + 0.4, tz);
 }
 
 // ---------- start ----------
@@ -111,7 +128,9 @@ export function startBattle(ids, { boss = false, bg = 'grass', canFlee = true } 
     // how tall each one really stands, for the arrow and the numbers
     for (const o of [...foes, ...party]) { const bb = new THREE.Box3().setFromObject(o.inst.obj); o.h = Math.max(0.6, bb.max.y - bb.min.y); }
     B = { ...st, foes, party, boss, canFlee: canFlee && !boss, resolve, round: 0, pops: [], over: false, t: 0, drops: [] };
-    $('battleui').innerHTML = '<div id="bmsg" class="panel"></div><div id="bparty" class="panel"></div><div id="bcmd" class="panel"></div><div id="bfx"></div>';
+    $('battleui').innerHTML = '<div id="bmsg" class="panel"></div><div id="bparty" class="panel"></div><div id="bcmd" class="panel"></div><div id="bfx"></div>'
+      + `<div id="bview"><span>${L('拖曳轉動視角・滾輪拉近拉遠', 'Drag to turn the view · wheel to zoom')}</span><button id="bviewReset">${L('視角回正 (C)', 'Reset view (C)')}</button></div>`;
+    $('bviewReset').addEventListener('click', (e) => { e.stopPropagation(); Object.assign(view, VIEW0); sfx('cursor'); });
     $('battleui').classList.add('on');
     playMusic(boss ? 'boss' : 'battle');
     drawParty();
@@ -123,7 +142,7 @@ export function battleRender(renderer, dt) {
   B.t += dt;
   for (const f of B.foes) f.inst.update(dt);
   for (const p of B.party) p.inst.update(dt);
-  B.cam.aspect = innerWidth / innerHeight; B.cam.updateProjectionMatrix();
+  B.cam.aspect = innerWidth / innerHeight; B.cam.updateProjectionMatrix(); placeCamera(B.cam);
   renderer.render(B.scene, B.cam);
   // keep popups and the target arrow over their models
   for (const el of document.querySelectorAll('#bfx [data-x]')) { const p = screenOf(+el.dataset.x, +el.dataset.y, +el.dataset.z); el.style.left = p[0] + 'px'; el.style.top = p[1] + 'px'; }
