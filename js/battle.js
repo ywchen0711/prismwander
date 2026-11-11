@@ -48,13 +48,15 @@ function buildStage(kind) {
     inst.obj.position.set(-13 + k * 2 + Math.sin(k * 3.1) * 0.8, 0, -5.5 - (k % 3) * 2.2); inst.obj.rotation.y = k * 1.7; scene.add(inst.obj);
   }
   const cam = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 80);
-  cam.position.set(1.0, 5.4, 12.6); cam.lookAt(1.0, 1.0, 0.0);
+  cam.position.set(1.0, 12.6, 11.8); cam.lookAt(1.0, 0.4, 1.1);
   return { scene, cam };
 }
 
 // ---------- start ----------
-// the back row stands a step further from the monsters
-const heroSpot = (i, m) => [0.9 + i * 1.15 + (m.row === 'back' ? 0.45 : 0), m.row === 'back' ? 0.3 : 1.9];
+// the two sides stand in lines facing each other across the field; each line slants a little so no one hides another,
+// and the back row stands a step further from the monsters
+const lineZ = (i, n) => 0.9 + (i - (n - 1) / 2) * 1.7;
+const heroSpot = (i, m) => [2.7 + i * 0.35 + (m.row === 'back' ? 0.9 : 0), lineZ(i, S.members.length)];
 const ELC = { fire: '#ff9050', ice: '#a0e8ff', bolt: '#fff080', water: '#70b0ff', holy: '#fff8d0', earth: '#d0a060' };
 const elName = (el) => (EL_NAME[el] ? L(EL_NAME[el][0], EL_NAME[el][1]) : '');
 // how hard an element lands on a monster, and a word to show when it matters
@@ -88,26 +90,24 @@ export function startBattle(ids, { boss = false, bg = 'grass', canFlee = true } 
     const st = buildStage(bg);
     const foes = ids.map((id, i) => {
       const m = MONSTERS[id], s = monsterStats(id), inst = make(m.model, { color: m.color });
-      // the monsters stand on the left in two staggered rows, so none hides another
-      const n = ids.length, x = boss ? -3.2 : n === 1 ? -2.8 : -1.9 - i * 1.25, z = boss ? 0.2 : n === 1 ? 1.2 : i % 2 ? 0.2 : 1.9;
+      // the monsters stand in a line on the left, facing the party
+      const n = ids.length, x = boss ? -3.4 : -2.7 - i * 0.35, z = boss ? 0.9 : lineZ(i, n);
       inst.obj.position.set(x, 0, z);
       if (m.model.startsWith('vox:')) inst.obj.scale.setScalar(m.boss ? 1.6 : 1.2); else inst.fit(m.boss ? 3.6 : m.model.startsWith('pets/') ? 1.4 : 2.0);
       st.scene.add(inst.obj); inst.play('idle');
       return { id, kind: 'foe', name: m.name + (ids.filter((t) => t === id).length > 1 ? 'ABCD'[ids.slice(0, i).filter((t) => t === id).length] : ''), ...s, maxhp: s.hp, inst, home: [x, z], status: {}, buffs: {}, h: m.boss ? 3.6 : 1.8 };
     });
     const party = S.members.map((m, i) => {
-      // the party stands on the right in two staggered rows, mirroring the monsters
+      // the party stands in a line on the right, mirroring the monsters
       const inst = make(HEROES[m.id].model).fit(1.9); const [x, z] = heroSpot(i, m);
       inst.obj.position.set(x, 0, z);
       st.scene.add(inst.obj); inst.play(m.hp > 0 ? 'idle' : 'die', { once: m.hp <= 0 });
       m.buffs = {}; m.defending = false; delete m.status.sleep; delete m.status.stun; m.taunt = 0; m.charge = false;
       return { m, inst, home: [x, z], h: 1.9 };
     });
-    // everyone turns to face the middle of the other side
-    const mid = (l) => [l.reduce((a, o) => a + o.home[0], 0) / l.length, l.reduce((a, o) => a + o.home[1], 0) / l.length];
-    const fm = mid(foes), pm = mid(party);
-    for (const f of foes) { f.face = Math.atan2(pm[0] - f.home[0], pm[1] - f.home[1]); f.inst.obj.rotation.y = f.face; }
-    for (const p of party) { p.face = Math.atan2(fm[0] - p.home[0], fm[1] - p.home[1]); p.inst.obj.rotation.y = p.face; }
+    // everyone looks straight across at the other line
+    for (const f of foes) { f.face = Math.PI / 2; f.inst.obj.rotation.y = f.face; }
+    for (const p of party) { p.face = -Math.PI / 2; p.inst.obj.rotation.y = p.face; }
     // how tall each one really stands, for the arrow and the numbers
     for (const o of [...foes, ...party]) { const bb = new THREE.Box3().setFromObject(o.inst.obj); o.h = Math.max(0.6, bb.max.y - bb.min.y); }
     B = { ...st, foes, party, boss, canFlee: canFlee && !boss, resolve, round: 0, pops: [], over: false, t: 0, drops: [] };
