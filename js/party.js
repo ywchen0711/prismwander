@@ -88,7 +88,7 @@ export const count = (id) => S.inv[id] || 0;
 export function fullHeal() { for (const m of S.members) { const s = stats(m); m.hp = s.maxhp; m.mp = s.maxmp; m.status = {}; m.buffs = {}; } }
 
 const KEY = 'prismwander-save';
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 export function save() { try { localStorage.setItem(KEY, JSON.stringify({ ...S, v: SAVE_VERSION, savedAt: Date.now() })); return true; } catch (e) { return false; } }
 export function hasSave() { try { return !!localStorage.getItem(KEY); } catch (e) { return false; } }
 export function load() {

@@ -1,7 +1,7 @@
 // 晶境漫遊 Prismwander: boot, the 3D world streamed in chunks around you, day and night, walking and jumping,
 // the camera, everything you can touch, roaming monsters, the minimap, the title, the opening and the ending.
 import * as THREE from 'three';
-import { generate, buildChunk, setAtlas, W, WX, WZ, WY, SEA, CHUNK, get, solid, seeThrough, B, regionAt, REGIONS, ground, SPIRE, NIGHT, EIN_STEPS } from './world.js';
+import { generate, buildChunk, setAtlas, W, WX, WZ, WY, SEA, CHUNK, get, solid, seeThrough, B, regionAt, REGIONS, ground, SPIRE, NIGHT, EIN_STEPS, tw, sc } from './world.js';
 import { preload, make, crystalMesh, homeMesh, instanced, shardMesh, signMesh, herbMesh, rippleMesh } from './models.js';
 import { input, setupInput, pollInput, endInput } from './input.js';
 import { initAudio, playMusic, sfx, jingle, music, setMusic } from './audio.js';
@@ -121,6 +121,7 @@ async function boot() {
   const tex = await new THREE.TextureLoader().loadAsync('assets/tex/blocks.png');
   tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.colorSpace = THREE.SRGBColorSpace; tex.generateMipmaps = false;
   setAtlas(info); setBattleAtlas(tex, info);
+  $('loading').textContent = L('正在生成世界……', 'Building the world...'); await new Promise((r) => setTimeout(r, 30)); G.t0 = performance.now();
   generate();
   blockMat = new THREE.MeshLambertMaterial({ map: tex, vertexColors: true });
   const water = new THREE.Mesh(new THREE.PlaneGeometry(WX * 3, WZ * 3), new THREE.MeshPhongMaterial({ color: 0x2f7fd8, specular: 0x9fd8ff, shininess: 60, transparent: true, opacity: 0.78 }));
@@ -134,8 +135,8 @@ async function boot() {
   models.add('dungeon/chest');
   await preload([...models]);
   buildEnts(); buildDecor();
-  updateChunks(216, 330, Infinity);
-  $('loading').style.display = 'none';
+  updateChunks(...TITLE_AT, Infinity);
+  $('loading').style.display = 'none'; G.genMs = Math.round(performance.now() - G.t0);
   showTitle();
   requestAnimationFrame(frame);
   window.READY = 1;
@@ -164,7 +165,7 @@ function buildEnts() {
   { const inst = make('kaykit/Rogue').fit(1.75); einEnt = add('ein', inst, { id: 'ein', talk: 'ein' }, [...W.ein[0]]); }
   for (const sp of W.spawns) ents.push({ kind: 'monster', inst: null, data: sp, pos: [...sp.pos], home: [...sp.pos], vel: [0, 0], t: Math.random() * 5, stun: 0 });
   // clouds drifting high over the land
-  for (let k = 0; k < 70; k++) { const c = make(k % 3 ? 'hex/cloud_small.gltf' : 'hex/cloud_big.gltf'); c.fit(3 + (k % 4)); c.obj.scale.multiplyScalar(2.4); c.obj.position.set(rnd(k, 7) * WX, 80 + rnd(k, 8) * 10, rnd(k, 9) * WZ); c.obj.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; o.material.emissive = new THREE.Color(0x8890a0); o.material.fog = false; } }); scene.add(c.obj); clouds.push(c.obj); }
+  for (let k = 0; k < 150; k++) { const c = make(k % 3 ? 'hex/cloud_small.gltf' : 'hex/cloud_big.gltf'); c.fit(3 + (k % 4)); c.obj.scale.multiplyScalar(2.4); c.obj.position.set(rnd(k, 7) * WX, 80 + rnd(k, 8) * 10, rnd(k, 9) * WZ); c.obj.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; o.material.emissive = new THREE.Color(0x8890a0); o.material.fog = false; } }); scene.add(c.obj); clouds.push(c.obj); }
 }
 const clouds = [];
 const rnd = (a, b) => ((Math.sin(a * 12.9898 + b * 78.233) * 43758.5453) % 1 + 1) % 1;
@@ -177,7 +178,7 @@ function monsterInst(e) {
   return inst;
 }
 function einStep() {
-  if (S.flags.cleared) return { pos: [212.5, 9, 380.5] };
+  if (S.flags.cleared) { const [x, z] = tw('hearth')(212, 380); return { pos: [x + 0.5, 9, z + 0.5] }; }
   const k = S.flags.ein || 0;
   if (k >= EIN_STEPS.length) return S.crystals.length >= 8 ? { pos: W.ein[W.ein.length - 1] } : null;
   return S.crystals.length >= EIN_STEPS[k] ? { pos: W.ein[k] } : null;
@@ -226,7 +227,7 @@ function gateBlocks(bx, by, bz) {
 }
 function jumpSpeed() { return S.inv.boots ? 12.1 : 10.0; }
 function movePlayer(dt) {
-  const sp = (input.held('run') ? 7.4 : 5.2) * dt;
+  const sp = (input.held('run') ? 9.5 : 5.6) * dt;
   // stick and keys move relative to the camera
   const mx = input.move.x, mz = input.move.z;
   const sin = Math.sin(cam.yaw), cos = Math.cos(cam.yaw);
@@ -431,7 +432,9 @@ function cullFar() {
 }
 
 // ---------- title, opening, ending ----------
-const TITLE_AT = [216, 300];
+const TITLE_AT = [sc(216), sc(300)];
+// where a new journey starts: by the elder in Hearthvale
+const START = () => { const [x, z] = tw('hearth')(216, 378); return [x + 0.5, ground(x, z), z + 0.5]; };
 function showTitle() {
   mode = 'title'; $('hud').style.visibility = 'hidden';
   P.x = TITLE_AT[0]; P.z = TITLE_AT[1]; P.y = ground(...TITLE_AT) + 6;
@@ -460,7 +463,7 @@ async function newGame() {
   await fade(true);
   newParty(); makePlayer();
   // start by the elder, the camera to the north looking down into the village square
-  P.x = 216.5; P.z = 378.5; P.y = ground(216, 378); cam.yaw = Math.PI; P.yaw = 0; cam.dist = 12.5;
+  [P.x, P.y, P.z] = START(); cam.yaw = Math.PI; P.yaw = 0; cam.dist = 12.5;
   await enterField();
   await fade(false);
   await run(() => SCRIPTS.intro());
@@ -470,7 +473,7 @@ async function continueGame() {
   await fade(true);
   if (!load()) { await fade(false); showTitle(); return; }
   makePlayer();
-  [P.x, P.y, P.z] = S.pos || [216.5, ground(216, 378), 378.5]; cam.yaw = S.pos ? S.yaw || 0 : Math.PI;
+  [P.x, P.y, P.z] = S.pos || START(); cam.yaw = S.pos ? S.yaw || 0 : Math.PI;
   await enterField();
   await fade(false);
 }

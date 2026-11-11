@@ -154,9 +154,9 @@ async function mapMenu(ctx) {
     img.data.set([...col, 255], i);
   }
   g.putImageData(img, 0, 0);
-  g.fillStyle = '#7ab8ff'; for (const h of W.homes) if (S.homes.includes(h.id)) g.fillRect(h.pos[0] - 3, h.pos[2] - 3, 6, 6);
-  g.fillStyle = '#ff4060'; const p = ctx.playerPos(); g.beginPath(); g.arc(p[0], p[2], 5, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#ffe27a'; for (const cr of W.crystals) if (S.crystals.includes(cr.job)) { g.fillRect(cr.pos[0] - 3, cr.pos[2] - 3, 6, 6); }
+  g.fillStyle = '#7ab8ff'; for (const h of W.homes) if (S.homes.includes(h.id)) g.fillRect(h.pos[0] - 6, h.pos[2] - 6, 12, 12);
+  g.fillStyle = '#ff4060'; const p = ctx.playerPos(); g.beginPath(); g.arc(p[0], p[2], 10, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#ffe27a'; for (const cr of W.crystals) if (S.crystals.includes(cr.job)) { g.fillRect(cr.pos[0] - 6, cr.pos[2] - 6, 12, 12); }
   const labels = Object.values(REGIONS).filter((r) => !r.town || true).map((r) => `<div class="small" style="position:absolute;left:${r.c[0] / WX * 100}%;top:${r.c[1] / WZ * 100}%;transform:translate(-50%,-50%);text-shadow:0 1px 0 #000;white-space:nowrap">${r.name[LANG === 'en' ? 1 : 0]}</div>`).join('');
   await list(L('地圖', 'Map'), [], { side: `<div style="position:relative;width:min(70vh,80vw);aspect-ratio:1"><img src="${c.toDataURL()}" style="width:100%;height:100%;image-rendering:pixelated;border-radius:6px">${labels}</div>`, width: 180, footer: L('紅點是你，藍點是到過的家石，金點是找到的水晶。', 'Red is you, blue are home stones you have touched, gold are crystals you have found.') });
 }
@@ -167,7 +167,7 @@ async function warpMenu(ctx) {
   await ctx.warp(homes[r].pos);
   return true;
 }
-export const homeName = (id) => ({ h_hearth: L('爐心村', 'Hearthvale'), h_fen: L('芬邊村', 'Fenside'), h_forest: L('低語林', 'Whisperwood'), h_salt: L('鹽灣港', 'Saltmere'), h_dune: L('沙泉鎮', 'Dunewell'), h_frost: L('霜門村', 'Frostgate'), h_spore: L('孢子林', 'Sporewood'), h_ruins: L('古都遺跡', 'Old Lumera'), h_peak: L('灰脊山腰', 'Greyridge Slopes'), h_rime: L('霜原', 'Rimefield'), h_ember: L('熔岩峰山腳', 'Foot of Emberpeak'), h_spire: L('尖塔之下', 'Below the Spire') }[id] || id);
+export const homeName = (id) => ({ h_hearth: L('爐心村', 'Hearthvale'), h_fen: L('芬邊村', 'Fenside'), h_forest: L('低語林', 'Whisperwood'), h_salt: L('鹽灣港', 'Saltmere'), h_dune: L('沙泉鎮', 'Dunewell'), h_frost: L('霜門村', 'Frostgate'), h_spore: L('孢子林', 'Sporewood'), h_ruins: L('古都遺跡', 'Old Lumera'), h_peak: L('灰脊山腰', 'Greyridge Slopes'), h_rime: L('霜原', 'Rimefield'), h_ember: L('熔岩峰山腳', 'Foot of Emberpeak'), h_spire: L('尖塔之下', 'Below the Spire'), h_meadow: L('晨風原', 'Dawnbreeze Fields'), h_lake: L('鏡湖南岸', 'Mirror Lake shore'), h_coast: L('白貝海岸', 'Shellshore'), h_mesa: L('台地南麓', 'Below the Mesa'), h_mist: L('霧沼', 'Mistfen'), h_wood: L('低語林深處', 'Deep Whisperwood'), h_mtn: L('灰脊山麓', 'Greyridge foothills') }[id] || id);
 async function settings() {
   for (;;) {
     const r = await list(L('設定', 'Settings'), [

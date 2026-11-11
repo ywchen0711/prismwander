@@ -13,7 +13,7 @@ Long ago the Prism that crowned the Spire shattered into eight crystals, each ho
 - **Go anywhere.**
   - You walk up one-block steps on your own and jump two blocks.
   - The Spring Boots let you jump three blocks, and the Glide Cape lets you float down from heights.
-  - The world is 432 by 432 blocks: a meadow, a forest, a misty marsh, a grove of giant mushrooms, a coast with a port, a lake with stepping stones, a terraced red mesa, a volcano with a lava crater, the ruins of an old capital, snowy mountains, a frozen plain and the Spire.
+  - The world is 966 by 966 blocks (about 25 times the first version): a meadow, a forest, a misty marsh, a grove of giant mushrooms, a coast with a port, a lake with stepping stones, a terraced red mesa, a volcano with a lava crater, the ruins of an old capital, snowy mountains, a frozen plain and the Spire.
   - Six villages: Hearthvale, Fenside, Saltmere, Dunewell, Frostgate and a hermit's hut.
   - All of it is generated from fixed seeds, so everyone gets the same world. The land is built in chunks around you as you walk.
 - **Day and night.** A day lasts eight minutes. Nights are dark but the party carries a lantern; ghosts and wisps only come out after dark, and one rare fish only bites at night. Resting at an inn brings the morning.
@@ -33,7 +33,7 @@ Long ago the Prism that crowned the Spire shattered into eight crystals, each ho
   - Breaks (attack down, defence down) work even on guardians; blindness, regen, charge, sentinel; monsters that harden or roar.
   - Gear with effects: elemental weapons, armour that resists an element, charms against poison, sleep or blindness, a Ribbon against all of them, regen, MP thrift, acting first, counters.
 - **Turn-based battles** on a little 3D stage with the party's models in two staggered rows facing the monsters, with the land you were standing on behind them. Commands are Attack, Abilities, Items, Guard and Run. Battles include poison, sleep, stun, slow, buffs, and passives such as counter, cover and pharmacy.
-- **Home stones** heal and save the game, and let you warp between any of them you have touched. The Crystal Compass shows the nearest crystal still to find.
+- **Home stones** heal and save the game, and let you warp between any of them you have touched. There are nineteen across the land, and supply caches are scattered everywhere. The Crystal Compass shows the nearest crystal still to find.
 
 ## Controls
 
@@ -49,7 +49,7 @@ Long ago the Prism that crowned the Spire shattered into eight crystals, each ho
 
 ## Files
 
-- `js/world.js` generates the 432 x 432 world: regions, villages, the ruins, the Spire, crystals, chests, spawns, memory shards, signs, herbs and fishing spots, and builds chunk meshes.
+- `js/world.js` generates the 966 x 966 world: regions, villages, the ruins, the Spire, crystals, chests, spawns, memory shards, signs, herbs and fishing spots, and builds chunk meshes.
 - `js/main.js` streams chunks in around you and covers day and night, walking, jumping, the camera, interaction, roaming monsters, the minimap, the title and the ending.
 - `js/battle.js` runs the battles.
 - `js/party.js` covers levels, main and sub jobs, JP and saving.

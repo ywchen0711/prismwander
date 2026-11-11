@@ -1,10 +1,13 @@
-// The world: one continent of blocks, 432 x 432 columns and 64 high, generated from fixed seeds so it is the
+// The world: one continent of blocks, 966 x 966 columns and 64 high, generated from fixed seeds so it is the
 // same for everyone. Regions shape the ground (meadow, forests, a marsh, a mushroom grove, the coast, the lake,
 // the mesa, a volcano, the old capital's ruins, mountains, a frozen plain, the spire); villages, ruins and the
 // spire are built on top, and the whole thing is turned into chunk meshes for three.js as you walk.
 import * as THREE from 'three';
 
-export const WX = 432, WZ = 432, WY = 64, SEA = 6;
+// the land was first laid out on a 432-block map; every place is scaled up by K so the area is five times larger
+export const K = 966 / 432;
+export const WX = 966, WZ = 966, WY = 64, SEA = 6;
+export const sc = (v) => Math.round(v * K);
 // block ids; the atlas faces are [top, side, bottom]
 export const B = { post: 21, air: 0, grass: 1, dirt: 2, stone: 3, sand: 4, snow: 5, ice: 6, wood: 7, leaves: 8, redsand: 9, redstone: 10, brick: 11, gravel: 12, crystal: 13, cobble: 14, orange: 15, birch: 16, plank: 17, lava: 18, mushroom: 19, water: 20, cactus: 22, moss: 23, mud: 24 };
 const FACES = {
@@ -52,6 +55,13 @@ export const REGIONS = {
   frostgate:{ name: ['霜門村', 'Frostgate'], c: [138, 178], r: 10, music: 'village', bg: 'snow', town: true, base: 14 },
   rimefield:{ name: ['霜原', 'Rimefield'], c: [58, 32], r: 48, music: 'mountain', bg: 'snow' },
 };
+// the east coast: the shore runs north to south and bends out to sea north of the coast
+const shoreX = (z) => 404 * K + Math.sin(z / (23 * K)) * 5 * K + Math.max(0, 196 * K - z) * 1.6;
+for (const r of Object.values(REGIONS)) { r.c0 = r.c; r.c = r.c.map(sc); if (!r.town) r.r = Math.round(r.r * K); }
+// the port sits right by the water so its pier reaches the sea
+REGIONS.saltmere.c[0] = Math.round(shoreX(REGIONS.saltmere.c[1])) - 30;
+// a village is built from its old plan, moved to where its centre is now
+export const tw = (town) => { const r = REGIONS[town]; return (x, z) => [x + r.c[0] - r.c0[0], z + r.c[1] - r.c0[1]]; };
 const TOWNS = Object.keys(REGIONS).filter((k) => REGIONS[k].town);
 export function regionAt(x, z) {
   let best = 'meadow', bd = Infinity;
@@ -59,12 +69,10 @@ export function regionAt(x, z) {
   return best;
 }
 const near = (x, z, id) => { const r = REGIONS[id]; return Math.max(0, 1 - Math.hypot(x - r.c[0], z - r.c[1]) / r.r); };
-// the east coast: the shore runs north to south and bends out to sea north of the coast
-const shoreX = (z) => 404 + Math.sin(z / 23) * 5 + Math.max(0, 196 - z) * 1.6;
 
 // ---------- the ground ----------
 function columnHeight(x, z) {
-  let h = 9 + (fbm(x / 70, z / 70, 1) - 0.5) * 10 + (fbm(x / 22, z / 22, 2) - 0.5) * 3;
+  let h = 9 + (fbm(x / 110, z / 110, 1) - 0.5) * 10 + (fbm(x / 26, z / 26, 2) - 0.5) * 3;
   // the forests roll a little more
   h += near(x, z, 'forest') * (fbm(x / 20, z / 20, 3) * 4);
   h += near(x, z, 'sporewood') * (fbm(x / 16, z / 16, 6) * 3);
@@ -119,13 +127,15 @@ function topBlock(x, z, h, steep) {
 // ---------- the world grid ----------
 export const W = { data: new Uint8Array(WX * WY * WZ), height: new Int16Array(WX * WZ), ents: [], crystals: [], homes: [], chests: [], spawns: [], decor: [], shards: [], signs: [], herbs: [], fish: [], ein: [] };
 const idx = (x, y, z) => (z * WX + x) * WY + y;
-export function get(x, y, z) { if (x < 0 || z < 0 || x >= WX || z >= WZ || y < 0) return B.stone; if (y >= WY) return B.air; return W.data[idx(x, y, z)]; }
-export function set(x, y, z, id) { if (x < 0 || z < 0 || x >= WX || z >= WZ || y < 0 || y >= WY) return; W.data[idx(x, y, z)] = id; }
+let OX = 0, OZ = 0;
+const building = (town) => { if (town) { const r = REGIONS[town]; OX = r.c[0] - r.c0[0]; OZ = r.c[1] - r.c0[1]; } else OX = OZ = 0; };
+export function get(x, y, z) { x += OX; z += OZ; if (x < 0 || z < 0 || x >= WX || z >= WZ || y < 0) return B.stone; if (y >= WY) return B.air; return W.data[idx(x, y, z)]; }
+export function set(x, y, z, id) { x += OX; z += OZ; if (x < 0 || z < 0 || x >= WX || z >= WZ || y < 0 || y >= WY) return; W.data[idx(x, y, z)] = id; }
 export const ground = (x, z) => { x = Math.max(0, Math.min(WX - 1, Math.floor(x))); z = Math.max(0, Math.min(WZ - 1, Math.floor(z))); for (let y = WY - 1; y > 0; y--) if (solid(get(x, y, z))) return y + 1; return 1; };
 // standing ground that is dry: not sea, lake, marsh pool or lava
 const dry = (x, z) => { const g = ground(x, z), here = get(Math.floor(x), g, Math.floor(z)), top = get(Math.floor(x), g - 1, Math.floor(z)); return g > SEA + 1 && here !== B.water && here !== B.lava && !seeThrough(top) && top !== B.wood && top !== B.birch && top !== B.post && top !== B.cactus; };
 // the nearest dry ground to (x0, z0), searching outward in rings
-function dryNear(x0, z0, maxR = 24) {
+function dryNear(x0, z0, maxR = 70) {
   for (let r = 0; r <= maxR; r++) for (let a = 0; a < Math.max(1, r * 8); a++) {
     const x = Math.round(x0 + Math.cos(a / Math.max(1, r * 8) * Math.PI * 2) * r), z = Math.round(z0 + Math.sin(a / Math.max(1, r * 8) * Math.PI * 2) * r);
     if (x > 6 && z > 6 && x < WX - 7 && z < WZ - 7 && dry(x, z) && !solid(get(x, ground(x, z), z)) && !solid(get(x, ground(x, z) + 1, z))) return [x, z];
@@ -160,7 +170,8 @@ function house(x, y, z, w = 5, d = 5, wall = B.plank, roof = B.brick) {
   for (let r = 0; r <= (w >> 1) + 1; r++) for (let j = -1; j <= d; j++) { set(x - 1 + r, y + 3 + r, z + j, roof); set(x + w - r, y + 3 + r, z + j, roof); }
   return [x + (w >> 1) + 0.5, y, z + d + 0.5];
 }
-const npc = (id, model, pos, talk, extra = {}) => W.ents.push({ type: 'npc', id, model: 'chars/' + model, pos, face: 0, talk, ...extra });
+const npc = (id, model, pos, talk, extra = {}) => W.ents.push({ type: 'npc', id, model: 'chars/' + model, pos: [pos[0] + OX, pos[1], pos[2] + OZ], face: 0, talk, ...extra });
+const prop = (...ps) => { for (const p of ps) W.ents.push({ ...p, pos: [p.pos[0] + OX, p.pos[1], p.pos[2] + OZ] }); };
 
 // key places other modules look up: villages' people, crystals, chests, home stones, monster spawns and the rest
 export function generate() {
@@ -195,15 +206,16 @@ export function generate() {
     if (r < p) tree(x, h, z, reg === 'lake' ? 'birch' : reg === 'forest' && rand(x, z, 12) > 0.8 ? 'autumn' : 'oak');
   }
   W.ents = []; W.crystals = []; W.homes = []; W.chests = []; W.spawns = []; W.decor = []; W.shards = []; W.signs = []; W.herbs = []; W.fish = []; W.ein = [];
-  buildHearthvale(); buildFenside(); buildSaltmere(); buildDunewell(); buildFrostgate(); buildHermit(); buildRuins(); buildSpire();
+  for (const [town, f] of [['hearth', buildHearthvale], ['fenside', buildFenside], ['saltmere', buildSaltmere], ['dunewell', buildDunewell], ['frostgate', buildFrostgate]]) { building(town); f(); building(null); }
+  buildHermit(); buildRuins(); buildSpire();
   placeCrystals(); placeChests(); placeHomes(); placeSpawns(); placeShards(); placeSigns(); placeHerbs(); placeFishing(); placeEin(); placeDecor();
   return W;
 }
 // villages, the ruins' heart and the spire keep their ground free of trees
 function isClear(x, z) {
   for (const t of TOWNS) if (near(x, z, t) > 0) return true;
-  if (Math.hypot(x - 336, z - 392) < 7) return true;
-  return Math.hypot(x - SPIRE.x, z - SPIRE.z) < 30 || Math.hypot(x - 218, z - 132) < 12;
+  if (Math.hypot(x - REGIONS.sporewood.c[0], z - REGIONS.sporewood.c[1]) < 7) return true;
+  return Math.hypot(x - SPIRE.x, z - SPIRE.z) < sc(30) || Math.hypot(x - REGIONS.ruins.c[0], z - REGIONS.ruins.c[1]) < 12;
 }
 
 // ---------- villages ----------
@@ -220,10 +232,10 @@ function buildHearthvale() {
   npc('farmer1', 'character-c', [227.5, y, 389.5], 'hv_farmer', { face: 2 });
   npc('sage1', 'character-p', [doorC[0], y, doorC[2] + 1], 'hv_sage');
   npc('mom1', 'character-k', [210.5, y, 384.5], 'hv_mom', { face: 3 });
-  W.ents.push({ type: 'prop', model: 'grave/lightpost-single', pos: [213.5, y, 381.5] }, { type: 'prop', model: 'grave/lightpost-single', pos: [219.5, y, 381.5] },
+  prop({ type: 'prop', model: 'grave/lightpost-single', pos: [213.5, y, 381.5] }, { type: 'prop', model: 'grave/lightpost-single', pos: [219.5, y, 381.5] },
     { type: 'prop', model: 'grave/hay-bale', pos: [231.5, y, 385.5] }, { type: 'prop', model: 'dungeon/barrel', pos: [209.5, y, 382.5] });
   // a road north out of the village
-  for (let z = 330; z < 376; z++) for (let w = -1; w <= 1; w++) { const x = 216 + w + Math.round(Math.sin(z / 9) * 2), g = ground(x, z); if (get(x, g - 1, z) === B.grass) set(x, g - 1, z, B.gravel); }
+  for (let z = 236; z < 376; z++) for (let w = -1; w <= 1; w++) { const x = 216 + w + Math.round(Math.sin(z / 9) * 2), g = ground(x, z); if (get(x, g - 1, z) === B.grass) set(x, g - 1, z, B.gravel); }
 }
 function buildFenside() {
   const y = 8;
@@ -232,7 +244,7 @@ function buildFenside() {
   npc('granny', 'character-a', [b[0], y, b[2] + 1], 'fs_granny');
   npc('fenkid', 'character-d', [139.5, y, 376.5], 'fs_kid', { face: 2 });
   npc('shop4', 'character-g', [146.5, y, 377.5], 'fs_shop', { shop: 'fenside' });
-  W.ents.push({ type: 'prop', model: 'grave/lantern-candle', pos: [137.5, y, 371.5] }, { type: 'prop', model: 'grave/bench', pos: [141.5, y, 372.5] });
+  prop({ type: 'prop', model: 'grave/lantern-candle', pos: [137.5, y, 371.5] }, { type: 'prop', model: 'grave/bench', pos: [141.5, y, 372.5] });
 }
 function buildSaltmere() {
   const y = 8;
@@ -244,7 +256,7 @@ function buildSaltmere() {
   npc('fisher', 'character-r', [419.5, y, 337.5], 'sm_fisher', { face: 1 });
   npc('sister', 'character-h', [c[0], y, c[2] + 1], 'sm_sister');
   npc('sailor', 'character-e', [388.5, y, 333.5], 'sm_sailor', { face: 1 });
-  W.ents.push({ type: 'prop', model: 'dungeon/barrel', pos: [386.5, y, 337.5] }, { type: 'prop', model: 'dungeon/barrel', pos: [387.5, y, 338.5] }, { type: 'prop', model: 'grave/lightpost-single', pos: [384.5, y, 334.5] });
+  prop({ type: 'prop', model: 'dungeon/barrel', pos: [386.5, y, 337.5] }, { type: 'prop', model: 'dungeon/barrel', pos: [387.5, y, 338.5] }, { type: 'prop', model: 'grave/lightpost-single', pos: [384.5, y, 334.5] });
 }
 function buildDunewell() {
   const y = 13;
@@ -264,18 +276,18 @@ function buildFrostgate() {
   npc('inn3', 'character-o', [fB[0], y, fB[2] + 1], 'fg_inn', { inn: true });
   npc('climber', 'character-b', [138.5, y, 185.5], 'fg_climber');
   npc('guard', 'character-d', [133.5, y, 183.5], 'fg_guard', { face: 3 });
-  W.ents.push({ type: 'prop', model: 'grave/fire-basket', pos: [138.5, y, 180.5] });
+  prop({ type: 'prop', model: 'grave/fire-basket', pos: [138.5, y, 180.5] });
 }
 // a hermit's hut in the middle of the mushroom grove
 function buildHermit() {
-  const x = 334, z = 388, y = ground(336, 392);
+  const [cx, cz] = REGIONS.sporewood.c, x = cx - 2, z = cz - 4, y = ground(cx, cz);
   fill(x - 3, y - 1, z - 3, x + 7, y - 1, z + 9, B.grass);
   const d = house(x, y, z, 5, 5, B.birch, B.mushroom);
   npc('hermit', 'character-a', [d[0], y, d[2] + 1], 'sw_hermit');
 }
 // the old capital: broken walls on a grid of streets, a toppled gate and a ruined tower at its heart
 function buildRuins() {
-  const cx = 218, cz = 132, y = 14;
+  const [cx, cz] = REGIONS.ruins.c, y = 14;
   for (let gx = -4; gx <= 4; gx++) for (let gz = -4; gz <= 4; gz++) {
     const x0 = cx + gx * 8, z0 = cz + gz * 8;
     if (Math.hypot(gx, gz) < 1.2 || Math.hypot(gx, gz) > 4.3 || rand(gx, gz, 61) < 0.25) continue;
@@ -295,7 +307,7 @@ function buildRuins() {
   W.ents.push({ type: 'prop', model: 'grave/pillar-obelisk', pos: [cx - 6.5, y, cz + 8.5] }, { type: 'prop', model: 'grave/pillar-obelisk', pos: [cx + 7.5, y, cz + 8.5] });
 }
 // the spire: a ring of stone climbing in a spiral to a platform where the last guardian waits
-export const SPIRE = { x: 218, z: 40, base: 24, top: 54 };
+export const SPIRE = { x: sc(218), z: sc(40), base: 24, top: 54 };
 function buildSpire() {
   const { x: cx, z: cz, base, top } = SPIRE;
   for (let y = base; y <= top; y++) for (let dx = -7; dx <= 7; dx++) for (let dz = -7; dz <= 7; dz++) {
@@ -327,7 +339,8 @@ export const CRYSTALS = [
   { job: 'dancer', pos: [322, 374], how: 'treetops' },
   { job: 'astro', pos: [90, 122], how: 'summit' },
 ];
-let summit = [90, 122];
+for (const c of CRYSTALS) c.pos = c.pos.map(sc);
+let summit = [0, 0];
 function placeCrystals() {
   for (const c of CRYSTALS) {
     let [x, z] = c.pos;
@@ -339,10 +352,10 @@ function placeCrystals() {
     if (c.how === 'seastack') { y = column(x, z, SEA + 6, B.stone); hops(x, z, -1, 0, SEA + 6, B.stone); }
     if (c.how === 'island') { for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) column(x + dx, z + dz, SEA + 2, B.sand); y = SEA + 2; hops(x, z, 0, 1, SEA + 3, B.stone, 1, 2); tree(x + 1, y, z + 1, 'birch'); }
     // the tops of mushroom stems, rising one block each, with gaps to jump
-    if (c.how === 'treetops') { const g0 = ground(x, z); y = column(x, z, g0 + 9, B.birch); hops(x, z, -1, 0, g0 + 8, B.birch, 1); for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) if (dx || dz) set(x + dx, y - 1, z + dz, B.mushroom); }
+    if (c.how === 'treetops') { for (let dx = -26; dx <= 3; dx++) for (let dz = -4; dz <= 4; dz++) for (let yy = 8; yy < 40; yy++) { const id = get(x + dx, yy, z + dz); if (id === B.mushroom || id === B.birch) set(x + dx, yy, z + dz, B.air); } const g0 = ground(x, z); y = column(x, z, g0 + 9, B.birch); hops(x, z, -1, 0, g0 + 8, B.birch, 1); for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) if (dx || dz) set(x + dx, y - 1, z + dz, B.mushroom); }
     if (c.how === 'tower') y = 25;
     // the highest point of the mountain
-    if (c.how === 'summit') { let best = 0; for (let dx = -16; dx <= 16; dx++) for (let dz = -16; dz <= 16; dz++) { const g = ground(x + dx, z + dz); if (g > best) { best = g; summit = [x + dx, z + dz]; } } [x, z] = summit; y = ground(x, z); }
+    if (c.how === 'summit') { let best = 0; for (let dx = -36; dx <= 36; dx++) for (let dz = -36; dz <= 36; dz++) { const g = ground(x + dx, z + dz); if (g > best) { best = g; summit = [x + dx, z + dz]; } } [x, z] = summit; y = ground(x, z); }
     W.crystals.push({ job: c.job, pos: [x + 0.5, y + 0.8, z + 0.5] });
   }
 }
@@ -355,7 +368,7 @@ function stairs(x, z, dx, dz, step, id) {
 }
 // posts with a one-block gap between them, each `drop` lower than the last, until one reaches dry ground
 function hops(x, z, dx, dz, h, id, drop = 1, k0 = 1) {
-  for (let k = k0; k < 30; k++) { const sx = x + dx * k * 2, sz = z + dz * k * 2; h -= drop; const g = ground(sx, sz); if (g > SEA + 1 && h <= g + 1) break; column(sx, sz, Math.max(SEA + 2, h), id); }
+  for (let k = k0; k < 70; k++) { const sx = x + dx * k * 2, sz = z + dz * k * 2; h -= drop; const g = ground(sx, sz); if (g > SEA + 1 && h <= g + 1) break; column(sx, sz, Math.max(SEA + 2, h), id); }
 }
 
 // ---------- chests and home stones ----------
@@ -384,13 +397,32 @@ function placeChests() {
   ];
   for (const [x0, z0, item, n = 1] of L) {
     // a chest that would land in the water moves to the nearest dry ground
-    W.chests.push({ id: `c${x0}_${z0}`, item, n, pos: spot(x0, z0) });
+    W.chests.push({ id: `c${x0}_${z0}`, item, n, pos: spot(sc(x0), sc(z0)) });
+  }
+  // supply caches all over the wider land: what is inside depends on how dangerous the place is
+  const LOOT = {
+    low: [['potion', 3], ['ether', 1], ['antidote', 3], ['eyedrops', 2], ['lens', 2], ['tent', 1], ['potion', 2]],
+    mid: [['hipotion', 1], ['ether', 2], ['phoenix', 1], ['lens', 3], ['tent', 1], ['eyedrops', 3], ['goggles', 1], ['stargazer', 1]],
+    high: [['hipotion', 2], ['phoenix', 2], ['ether', 3], ['hipotion', 3], ['salamander', 1], ['snowcoat', 1], ['icebrand', 1], ['quickcharm', 1]],
+  };
+  const TIER = { meadow: 'low', forest: 'low', lake: 'low', mistfen: 'low', coast: 'mid', sporewood: 'mid', mesa: 'mid', ruins: 'mid', mountain: 'high', rimefield: 'high', ember: 'high', spire: 'high' };
+  let k = 0;
+  for (let gz = 0; gz < 9; gz++) for (let gx = 0; gx < 9; gx++) {
+    const x0 = Math.round((gx + 0.2 + rand(gx, gz, 80) * 0.6) * WX / 9), z0 = Math.round((gz + 0.2 + rand(gx, gz, 81) * 0.6) * WZ / 9), reg = regionAt(x0, z0), tier = TIER[reg];
+    if (!tier || W.chests.some((c) => Math.hypot(c.pos[0] - x0, c.pos[2] - z0) < 30)) continue;
+    const list = LOOT[tier], [item, n] = list[Math.floor(rand(gx, gz, 82) * list.length)];
+    W.chests.push({ id: `cache${gx}_${gz}`, item, n, pos: spot(x0, z0) }); k++;
   }
 }
 // stones that heal, save and let you warp between the ones you have touched
-export const HOMES = [['h_hearth', 218, 380], ['h_fen', 142, 370], ['h_forest', 92, 292], ['h_salt', 382, 330], ['h_dune', 320, 236], ['h_frost', 136, 182], ['h_spore', 330, 398],
-  ['h_ruins', 218, 160], ['h_peak', 92, 150], ['h_rime', 70, 48], ['h_ember', 376, 84], ['h_spire', 230, 50]];
-function placeHomes() { for (const [id, x, z] of HOMES) W.homes.push({ id, pos: spot(x, z) }); }
+export const HOMES = [['h_fen', 142, 370], ['h_forest', 92, 292], ['h_dune', 320, 236], ['h_frost', 136, 182], ['h_spore', 330, 398],
+  ['h_ruins', 218, 160], ['h_peak', 92, 150], ['h_rime', 70, 48], ['h_ember', 376, 84], ['h_spire', 230, 50],
+  // waystones out in the wider land
+  ['h_meadow', 216, 318], ['h_lake', 244, 262], ['h_coast', 392, 262], ['h_mesa', 304, 176], ['h_mist', 92, 396], ['h_wood', 52, 250], ['h_mtn', 60, 176]];
+function placeHomes() {
+  W.homes.push({ id: 'h_hearth', pos: spot(...tw('hearth')(218, 380)) }, { id: 'h_salt', pos: spot(...tw('saltmere')(382, 330)) });
+  for (const [id, x, z] of HOMES) W.homes.push({ id, pos: spot(sc(x), sc(z)) });
+}
 
 // ---------- monsters ----------
 const SPAWN = {
@@ -411,26 +443,26 @@ function placeSpawns() {
     W.spawns.push({ id: 's' + (k++), monster: list[Math.floor(rand(x, z, 22) * list.length)], pos: [x + 0.5, ground(x, z), z + 0.5] });
   }
   // the guardians of the lands
-  const boss = (id, monster, x, z) => { const p = spot(x, z); W.spawns.push({ id, monster, boss: true, pos: p }); };
+  const boss = (id, monster, x, z, raw = false) => { const p = raw ? spot(x, z) : spot(sc(x), sc(z)); W.spawns.push({ id, monster, boss: true, pos: p }); };
   boss('b_treant', 'treant', 66, 286);
   boss('b_bog', 'bogkeeper', 62, 404);
   boss('b_myco', 'sporelord', 346, 404);
   boss('b_mesa', 'mesaking', 366, 118);
-  boss('b_ruin', 'fallenknight', 218, 142);
-  boss('b_wyrm', 'frostwyrm', summit[0] + 4, summit[1] + 5);
+  boss('b_ruin', 'fallenknight', REGIONS.ruins.c[0], REGIONS.ruins.c[1] + 10, true);
+  boss('b_wyrm', 'frostwyrm', summit[0] + 4, summit[1] + 5, true);
   boss('b_ember', 'emberdrake', 386, 52);
 }
 
 // ---------- memory shards, signs, herbs, fishing spots, the traveller ----------
 const SHARD_AT = [[180, 320], [262, 300], [240, 412], [126, 358], [50, 410], [92, 380], [36, 366], [58, 258], [122, 304], [80, 334], [252, 252], [398, 268], [410, 320],
   [318, 410], [358, 368], [298, 252], [300, 110], [352, 172], [402, 38], [198, 118], [240, 146], [60, 142], [38, 26], [202, 28]];
-function placeShards() { SHARD_AT.forEach(([x, z], i) => W.shards.push({ id: i, pos: spot(x, z, 0) })); }
+function placeShards() { SHARD_AT.forEach(([x, z], i) => W.shards.push({ id: i, pos: spot(sc(x), sc(z), 0) })); }
 const SIGN_AT = { s_hearth: [219, 360], s_fen: [160, 372], s_lake: [216, 282], s_salt: [360, 334], s_dune: [302, 238], s_ember: [372, 88], s_ruins: [222, 172], s_frost: [150, 196], s_rime: [80, 62], s_spire: [222, 76], s_spore: [314, 368], s_forest: [122, 288], s_mist: [102, 388], s_mtn: [112, 170] };
-function placeSigns() { for (const [id, [x, z]] of Object.entries(SIGN_AT)) W.signs.push({ id, pos: spot(x, z), rot: rand(x, z, 70) * 6.28 }); }
+function placeSigns() { for (const [id, [x, z]] of Object.entries(SIGN_AT)) W.signs.push({ id, pos: spot(sc(x), sc(z)), rot: rand(x, z, 70) * 6.28 }); }
 function placeHerbs() {
-  for (const [kind, reg, n, s] of [['moonherb', 'mistfen', 8, 80], ['glowcap', 'sporewood', 6, 90]]) {
+  for (const [kind, reg, n, s] of [['moonherb', 'mistfen', 12, 80], ['glowcap', 'sporewood', 10, 90]]) {
     let got = 0;
-    for (let k = 0; got < n && k < 400; k++) {
+    for (let k = 0; got < n && k < 900; k++) {
       const r = REGIONS[reg], a = rand(k, s, 1) * Math.PI * 2, d = rand(k, s, 2) * r.r * 0.85, x = Math.round(r.c[0] + Math.cos(a) * d), z = Math.round(r.c[1] + Math.sin(a) * d);
       if (regionAt(x, z) !== reg || !dry(x, z) || solid(get(x, ground(x, z), z)) || W.herbs.some((h) => Math.hypot(h.pos[0] - x, h.pos[2] - z) < 9)) continue;
       W.herbs.push({ id: kind + got, kind, pos: [x + 0.5, ground(x, z), z + 0.5] }); got++;
@@ -439,7 +471,7 @@ function placeHerbs() {
 }
 // a dry block beside the water to cast from
 function shoreSpot(x0, z0, kind) {
-  for (let r = 0; r < 30; r++) for (let a = 0; a < Math.max(1, r * 8); a++) {
+  for (let r = 0; r < 60; r++) for (let a = 0; a < Math.max(1, r * 8); a++) {
     const x = Math.round(x0 + Math.cos(a / Math.max(1, r * 8) * Math.PI * 2) * r), z = Math.round(z0 + Math.sin(a / Math.max(1, r * 8) * Math.PI * 2) * r);
     if (!dry(x, z) || solid(get(x, ground(x, z), z))) continue;
     const g = ground(x, z);
@@ -447,11 +479,13 @@ function shoreSpot(x0, z0, kind) {
   }
 }
 function placeFishing() {
-  shoreSpot(216, 268, 'lake'); shoreSpot(216, 196, 'lake'); W.fish.push({ id: 'pier', kind: 'sea', pos: [421.5, 8, 336.5], water: [423.5, 336.5] }); shoreSpot(398, 262, 'sea'); shoreSpot(84, 400, 'marsh'); shoreSpot(318, 226, 'oasis');
+  const pier = tw('saltmere')(421, 336);
+  shoreSpot(sc(216), sc(268), 'lake'); shoreSpot(sc(216), sc(196), 'lake'); W.fish.push({ id: 'pier', kind: 'sea', pos: [pier[0] + 0.5, 8, pier[1] + 0.5], water: [pier[0] + 2.5, pier[1] + 0.5] }); shoreSpot(sc(398), sc(262), 'sea'); shoreSpot(sc(84), sc(400), 'marsh'); shoreSpot(...REGIONS.dunewell.c, 'oasis');
+  shoreSpot(sc(250), sc(330), 'lake'); shoreSpot(sc(40), sc(410), 'marsh'); shoreSpot(sc(400), sc(380), 'sea');
 }
 // where the cloaked traveller is seen, and how many crystals you need before each meeting
 export const EIN_STEPS = [0, 1, 2, 4, 6, 8];
-function placeEin() { for (const [x, z] of [[216, 352], [204, 268], [328, 236], [222, 168], [146, 188], [234, 56]]) W.ein.push(spot(x, z)); }
+function placeEin() { W.ein.push(spot(...tw('hearth')(216, 352))); for (const [x, z] of [[204, 268], [328, 236], [222, 168], [146, 188], [234, 56]]) W.ein.push(spot(sc(x), sc(z))); }
 
 // KayKit trees, rocks and props scattered over the open ground; trees get an invisible post to bump into
 function placeDecor() {
@@ -474,12 +508,12 @@ function placeDecor() {
     else if (r > 0.92 && reg !== 'spire') add(pick(ROCKS), x, y, z, 0.5 + rand(x, z, 46) * 0.5);
   }
   // a lived-in village: crates, barrels, a weapon rack, flags
-  const y = 9;
-  for (const [m, x, z, h] of [['hex/barrel.gltf', 210, 382, 0.9], ['hex/crate_A_small.gltf', 211, 383, 0.8], ['hex/sack.gltf', 221, 383, 0.6], ['hex/weaponrack.gltf', 220, 378, 1.2], ['hex/flag_blue.gltf', 214, 378, 1.7], ['hex/flag_blue.gltf', 219, 378, 1.7], ['hex/wheelbarrow.gltf', 230, 384, 0.9], ['hex/bucket_water.gltf', 217, 383, 0.5], ['hex/resource_lumber.gltf', 205, 384, 0.8]]) W.decor.push({ model: m, pos: [x + 0.5, y, z + 0.5], h, rot: rand(x, z, 3) * 6.28 });
-  for (const [x, z] of [[302, 230], [332, 232], [128, 186], [372, 346], [150, 360]]) W.decor.push({ model: 'hex/tent.gltf', pos: [x + 0.5, ground(x, z), z + 0.5], h: 2.2, rot: rand(x, z, 4) * 6.28 });
+  const y = 9, hv = tw('hearth');
+  for (const [m, x0, z0, h] of [['hex/barrel.gltf', 210, 382, 0.9], ['hex/crate_A_small.gltf', 211, 383, 0.8], ['hex/sack.gltf', 221, 383, 0.6], ['hex/weaponrack.gltf', 220, 378, 1.2], ['hex/flag_blue.gltf', 214, 378, 1.7], ['hex/flag_blue.gltf', 219, 378, 1.7], ['hex/wheelbarrow.gltf', 230, 384, 0.9], ['hex/bucket_water.gltf', 217, 383, 0.5], ['hex/resource_lumber.gltf', 205, 384, 0.8]]) { const [x, z] = hv(x0, z0); W.decor.push({ model: m, pos: [x + 0.5, y, z + 0.5], h, rot: rand(x, z, 3) * 6.28 }); }
+  for (const [x, z] of [tw('dunewell')(302, 230), tw('dunewell')(332, 232), tw('frostgate')(128, 186), tw('saltmere')(372, 346), tw('fenside')(150, 360)]) W.decor.push({ model: 'hex/tent.gltf', pos: [x + 0.5, ground(x, z), z + 0.5], h: 2.2, rot: rand(x, z, 4) * 6.28 });
   // lily pads on the lake and the marsh pools
-  for (let k = 0; k < 60; k++) {
-    const lake = k < 30, a = rand(k, 1, 50) * 6.28, d = lake ? 8 + rand(k, 2, 51) * 20 : rand(k, 2, 51) * 40, x = Math.floor((lake ? 216 : 70) + Math.cos(a) * d), z = Math.floor((lake ? 232 : 398) + Math.sin(a) * d);
+  for (let k = 0; k < 200; k++) {
+    const lake = k < 80, c = REGIONS[lake ? 'lake' : 'mistfen'].c, a = rand(k, 1, 50) * 6.28, d = lake ? sc(8) + rand(k, 2, 51) * sc(20) : rand(k, 2, 51) * sc(40), x = Math.floor(c[0] + Math.cos(a) * d), z = Math.floor(c[1] + Math.sin(a) * d);
     if (get(x, SEA, z) === B.water && get(x, SEA + 1, z) === B.air) W.decor.push({ model: 'hex/waterlily_A.gltf', pos: [x + 0.5, SEA + 0.85, z + 0.5], h: 0.12, rot: a, flat: true });
   }
 }
