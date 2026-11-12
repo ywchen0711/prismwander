@@ -29,7 +29,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const SKY = { grass: 0x8cc8f0, forest: 0x305a3a, sand: 0x9ad0f0, redsand: 0xe8a070, stone: 0x8890a8, snow: 0xc8d8f0, crystal: 0x40306a, marsh: 0x5a6e62, spore: 0x5a3e7a, ember: 0x6a2a1a,
   sea: 0x5aa8e0, sky: 0xb8e0ff, vael: 0x1f5a6a, clock: 0x4a3c30, deep: 0x1c3424, abyss: 0x160c24, noon: 0xe0c070, arena: 0x8cc8f0 };
 const FLOOR = { grass: 'grass_top', forest: 'grass_top', sand: 'sand', redsand: 'redsand', stone: 'greystone', snow: 'snow', crystal: 'stone_diamond', marsh: 'mossstone', spore: 'grass_top', ember: 'redstone',
-  sea: 'sand', sky: 'cotton_blue', vael: 'cotton_tan', clock: 'track_straight', deep: 'mossstone', abyss: 'greystone_ruby', noon: 'stone_gold', arena: 'sand' };
+  sea: 'sand', sky: 'cotton_blue', vael: 'cotton_tan', clock: 'brass', deep: 'mossstone', abyss: 'greystone_ruby', noon: 'stone_gold', arena: 'sand' };
 // the ground decides a geomancer's element
 const TERRAIN_EL = { grass: 'wind', forest: 'earth', marsh: 'water', spore: 'earth', sand: 'water', redsand: 'earth', stone: 'earth', snow: 'ice', crystal: 'holy', ember: 'fire', sea: 'water', sky: 'wind', vael: 'water', clock: 'bolt', deep: 'earth', abyss: 'dark', noon: 'holy', arena: 'earth' };
 export function setBattleAtlas(t, info) { tex = { t, info }; }

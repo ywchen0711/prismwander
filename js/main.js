@@ -368,13 +368,16 @@ function updateCamera(dt, instant = false) {
   cam.pitch = Math.max(-0.35, Math.min(1.45, cam.pitch + input.lookY));
   const pitch = cam.pitch;
   const tx = P.x, ty = P.y + 1.4, tz = P.z;
-  let d = cam.dist, cx, cy, cz;
-  // pull in if the camera would end up inside the land, a roof or a wall
-  for (; d > 1.2; d -= 0.4) {
-    cx = tx - Math.sin(cam.yaw) * Math.cos(pitch) * d; cz = tz - Math.cos(cam.yaw) * Math.cos(pitch) * d; cy = ty + Math.sin(pitch) * d;
+  let cx, cy, cz;
+  // pull in if the camera would end up inside the land, a roof or a wall, or with one between it and you
+  const at = (d) => { cx = tx - Math.sin(cam.yaw) * Math.cos(pitch) * d; cz = tz - Math.cos(cam.yaw) * Math.cos(pitch) * d; cy = ty + Math.sin(pitch) * d; };
+  const clear = () => {
     const cb = get(Math.floor(cx), Math.floor(cy), Math.floor(cz)), below = get(Math.floor(cx), Math.floor(cy - 0.3), Math.floor(cz));
-    if ((!solid(cb) || seeThrough(cb)) && (!solid(below) || seeThrough(below)) && (caveDark < 1 || cy > ground(cx, cz) + 0.3 || standAt(cx, cy, cz, 2) > 0 || cy > P.y + 2)) break;
-  }
+    return (!solid(cb) || seeThrough(cb)) && (!solid(below) || seeThrough(below)) && (caveDark < 1 || cy > ground(cx, cz) + 0.3 || standAt(cx, cy, cz, 2) > 0 || cy > P.y + 2);
+  };
+  let d = 1.2;
+  for (let s = 1.2 + 0.4; s <= cam.dist + 1e-6; s += 0.4) { at(s); if (!clear()) break; d = s; }
+  at(d);
   const k = instant ? 1 : Math.min(1, dt * 8);
   camera.position.x += (cx - camera.position.x) * k; camera.position.y += (cy - camera.position.y) * k; camera.position.z += (cz - camera.position.z) * k;
   camera.lookAt(tx, ty, tz);
@@ -578,12 +581,17 @@ const SKY_OF = { forest: 'forest', mesa: 'mesa', dunewell: 'mesa', mountain: 'mo
   eastsea: 'sea', coral: 'sea', tidehaven: 'sea', cloud: 'sky', vael: 'vael', deep: 'cave', delvers: 'cave', abyss: 'abyss', noonhall: 'noon', clocktower: 'clock', clock: 'sea', cogwick: 'sea', deepholm: 'default' };
 function updateRegion() {
   const r = regionAt3(P.x, P.y, P.z);
-  const dark = REGIONS[r].cave ? (r === 'noonhall' ? 0.8 : r === 'clocktower' ? 0.75 : 0.5) : 1;
+  // the tower's roof is open to the sky
+  const roof = r === 'clocktower' && P.y > 56.5;
+  const dark = REGIONS[r].cave && !roof ? (r === 'noonhall' ? 0.8 : r === 'clocktower' ? 0.75 : 0.5) : 1;
+  // the sea plane would cut through the halls dug below sea level
+  if (G.water) G.water.visible = r !== 'noonhall' && r !== 'abyss';
   if (dark !== caveDark) { caveDark = dark; skyT = 1; }
   if (r !== P.region) {
     P.region = r; areaName(REGIONS[r].name[LANG === 'en' ? 1 : 0]); if (!P.boat) playMusic(REGIONS[r].music);
-    skyKind = SKY_OF[r] || 'default'; skyT = 1;
   }
+  const sk = roof ? 'sea' : SKY_OF[r] || 'default';
+  if (sk !== skyKind) { skyKind = sk; skyT = 1; }
 }
 function cullFar() {
   for (const g of decorCells) g.visible = Math.hypot(g.userData.c[0] - P.x, g.userData.c[1] - P.z) < VIEW * Q.decor + DECOR_CELL * 0.75;

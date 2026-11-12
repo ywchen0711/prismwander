@@ -24,7 +24,7 @@ By [Quaternius](https://quaternius.com), released under CC0 1.0:
 - **Ultimate Monsters** and other Quaternius packs (animated monsters, robots, dinosaurs and the Mech): most monsters of the Eastern Sea, the summoned spirits, Unit 7 and the bird folk and Delvers. Each model was downloaded from its Poly Pizza page by Quaternius, licence CC0; the list of files with their source pages is in `assets/models/quat/License.txt`. https://quaternius.com/packs/ultimatemonsters.html · https://poly.pizza/u/Quaternius
 - Many of them are recoloured in code for this game.
 
-More tiles from the Kenney **Voxel Pack** (coral, sandstone, sky stone, gold, iron, ruby, planks, brass track, glass frames) were added to the block atlas.
+More tiles from the Kenney **Voxel Pack** (coral, sandstone, sky stone, gold, iron, ruby, planks, brass track, glass frames) were added to the block atlas. The brass plates (the pack's stone bricks recoloured), the glazed window (the pack's glass frame with its clear middle filled in) and the pond-water surface (the pack's ice recoloured) in the atlas's last row were made from those for this game.
 
 Each pack's own licence file sits next to its models in `assets/models/` and `assets/tex/`. The slimes, crabs, golems, wisps, scorpions, the treants, the drakes and the Prism Heart are built from boxes in code for this game, and so are the memory shards, signposts, herbs and ripples.
 

@@ -12,7 +12,9 @@ export function preload(paths) {
     if (cache.has(p)) { res(); return; }
     loader.load(p.endsWith('.gltf') ? `assets/models/${p}` : `assets/models/${p}.glb`, (g) => {
       hideSpares(p, g.scene);
-      g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = o.receiveShadow = Q.shadow > 0; if (o.material && o.material.map) { o.material.map.magFilter = THREE.NearestFilter; o.material.map.colorSpace = THREE.SRGBColorSpace; } } });
+      // Quaternius marks everything 40% metal; with no reflections to show, metal only comes out dark and muddy
+      const flat = p.startsWith('quat/');
+      g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = o.receiveShadow = Q.shadow > 0; if (flat) for (const m of [].concat(o.material)) if (m && m.metalness !== undefined) m.metalness = 0; if (o.material && o.material.map) { o.material.map.magFilter = THREE.NearestFilter; o.material.map.colorSpace = THREE.SRGBColorSpace; } } });
       cache.set(p, g); res();
     }, undefined, () => { console.warn('missing model', p); cache.set(p, null); res(); });
   })));
@@ -51,10 +53,25 @@ function tintMaterial(mat, tint, all) {
   const key = mat.uuid + tint;
   if (tinted.has(key)) return tinted.get(key);
   const m = mat.clone(), c = new THREE.Color(tint), n = mat.name || '';
-  if (all || /main|atlas|diffuse|^material/i.test(n)) { if (m.map) m.color.copy(c); else m.color.copy(c); }
+  if (m.map && m.map.image && /atlas/i.test(n)) m.map = recolour(m.map, c);
+  else if (all || /main|atlas|diffuse|^material/i.test(n)) m.color.copy(c);
   else if (/secondary|belly|light|horn|claws|wings|ears|hair|stripe|beak|flaps/i.test(n)) { m.color.lerp(c.clone().multiplyScalar(0.7), 0.6); }
   tinted.set(key, m);
   return m;
+}
+// a colour-swatch texture (Quaternius' atlases) recoloured toward the tint by brightness, so a brass machine reads
+// as brass; multiplying the swatches by the tint would only turn them all a muddy olive
+function recolour(map, c) {
+  const img = map.image, w = img.width, h = img.height, cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const g = cv.getContext('2d'); g.drawImage(img, 0, 0);
+  const d = g.getImageData(0, 0, w, h), p = d.data, tc = c.clone().convertLinearToSRGB(), tr = tc.r * 255, tg = tc.g * 255, tb = tc.b * 255;
+  for (let i = 0; i < p.length; i += 4) {
+    const l = (0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2]) / 255, k = 0.5 + l * 0.8;
+    p[i] = p[i] * 0.25 + Math.min(255, tr * k) * 0.75; p[i + 1] = p[i + 1] * 0.25 + Math.min(255, tg * k) * 0.75; p[i + 2] = p[i + 2] * 0.25 + Math.min(255, tb * k) * 0.75;
+  }
+  g.putImageData(d, 0, 0);
+  const t = map.clone(); t.source = new THREE.Source(cv); t.needsUpdate = true;
+  return t;
 }
 function applyTint(obj, tint) {
   const mats = []; obj.traverse((o) => { if (o.isMesh) for (const mm of [].concat(o.material)) mats.push(mm); });

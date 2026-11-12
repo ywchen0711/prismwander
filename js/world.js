@@ -21,7 +21,7 @@ const FACES = {
   19: ['mushcap', 'mushcap', 'mushcap'], 22: ['cactus_top', 'cactus_side', 'cactus_top'], 23: ['mossstone', 'stone_grass', 'greystone'], 24: ['dirt', 'dirt', 'dirt'],
   25: ['cotton_red', 'cotton_red', 'cotton_red'], 26: ['cotton_tan', 'cotton_tan', 'cotton_tan'], 27: ['cotton_blue', 'cotton_blue', 'cotton_blue'], 28: ['stone_gold', 'stone_gold', 'stone_gold'],
   29: ['stone_iron', 'stone_iron', 'stone_iron'], 30: ['stone_silver', 'stone_silver', 'stone_silver'], 31: ['greystone_ruby', 'greystone_ruby', 'greystone_ruby'], 32: ['redstone_emerald', 'redstone_emerald', 'redstone_emerald'],
-  33: ['wood', 'wood', 'wood'], 34: ['wood_red', 'wood_red', 'wood_red'], 35: ['track_straight', 'stone_iron', 'stone_iron'], 36: ['stone_coal', 'stone_coal', 'stone_coal'], 37: ['glass_frame', 'glass_frame', 'glass_frame'], 38: ['cotton_green', 'cotton_green', 'cotton_green'],
+  33: ['wood', 'wood', 'wood'], 34: ['wood_red', 'wood_red', 'wood_red'], 35: ['brass', 'brass', 'brass'], 36: ['stone_coal', 'stone_coal', 'stone_coal'], 37: ['window', 'window', 'window'], 38: ['cotton_green', 'cotton_green', 'cotton_green'],
 };
 // water and lava are not solid: you cannot stand in them, and the player treats both as walls
 export const solid = (id) => id !== 0 && id !== B.water && id !== B.lava;
@@ -171,7 +171,10 @@ export function get(x, y, z) { x += OX; z += OZ; if (x < 0 || z < 0 || x >= WX |
 export function set(x, y, z, id) { x += OX; z += OZ; if (x < 0 || z < 0 || x >= WX || z >= WZ || y < 0 || y >= WY) return; W.data[idx(x, y, z)] = id; }
 export const ground = (x, z) => { x = Math.max(0, Math.min(WX - 1, Math.floor(x))); z = Math.max(0, Math.min(WZ - 1, Math.floor(z))); for (let y = WY - 1; y > 0; y--) if (solid(get(x, y, z))) return y + 1; return 1; };
 // standing ground that is dry: not sea, lake, marsh pool or lava
-const dry = (x, z) => { const g = ground(x, z), here = get(Math.floor(x), g, Math.floor(z)), top = get(Math.floor(x), g - 1, Math.floor(z)); return g > SEA + 1 && here !== B.water && here !== B.lava && !seeThrough(top) && top !== B.wood && top !== B.birch && top !== B.post && top !== B.cactus; };
+// the columns under a house's roof: nothing is set down up there
+const ROOF = new Uint8Array(WX * WZ);
+const underRoof = (x, z) => { x = Math.floor(x) + OX; z = Math.floor(z) + OZ; return x >= 0 && z >= 0 && x < WX && z < WZ && ROOF[z * WX + x] === 1; };
+const dry = (x, z) => { if (underRoof(x, z)) return false; const g = ground(x, z), here = get(Math.floor(x), g, Math.floor(z)), top = get(Math.floor(x), g - 1, Math.floor(z)); return g > SEA + 1 && here !== B.water && here !== B.lava && !seeThrough(top) && top !== B.wood && top !== B.birch && top !== B.post && top !== B.cactus; };
 // the nearest dry ground to (x0, z0), searching outward in rings
 function dryNear(x0, z0, maxR = 70) {
   for (let r = 0; r <= maxR; r++) for (let a = 0; a < Math.max(1, r * 8); a++) {
@@ -206,6 +209,16 @@ function house(x, y, z, w = 5, d = 5, wall = B.plank, roof = B.brick) {
   for (let k = 0; k < 3; k++) for (let i = 0; i < w; i++) for (let j = 0; j < d; j++) { if (i === 0 || j === 0 || i === w - 1 || j === d - 1) set(x + i, y + k, z + j, wall); }
   set(x + (w >> 1), y, z + d - 1, B.air); set(x + (w >> 1), y + 1, z + d - 1, B.air);
   for (let r = 0; r <= (w >> 1) + 1; r++) for (let j = -1; j <= d; j++) { set(x - 1 + r, y + 3 + r, z + j, roof); set(x + w - r, y + 3 + r, z + j, roof); }
+  for (let i = x - 1; i <= x + w; i++) for (let j = z - 1; j <= z + d; j++) { const ax = i + OX, az = j + OZ; if (ax >= 0 && az >= 0 && ax < WX && az < WZ) ROOF[az * WX + ax] = 1; }
+  // a house set on lower ground stands on a stone footing, with steps down from its door to the ground
+  for (let i = x - 1; i <= x + w; i++) for (let j = z - 1; j <= z + d; j++) for (let yy = y - 2; yy > 0 && !solid(get(i, yy, j)); yy--) set(i, yy, j, B.cobble);
+  const dx = x + (w >> 1);
+  for (let k = 1; k <= 10; k++) {
+    const j = z + d + k; let low = false;
+    for (let i = dx - 1; i <= dx + 1; i++) { let s = y - 1; while (s > 0 && !solid(get(i, s, j))) s--; if (s + 1 < y - k) low = true; }
+    if (!low) break;
+    for (let i = dx - 1; i <= dx + 1; i++) for (let yy = y - k - 1; yy > 0 && !solid(get(i, yy, j)); yy--) set(i, yy, j, B.cobble);
+  }
   return [x + (w >> 1) + 0.5, y, z + d + 0.5];
 }
 const npc = (id, model, pos, talk, extra = {}) => W.ents.push({ type: 'npc', id, model: 'chars/' + model, pos: [pos[0] + OX, pos[1], pos[2] + OZ], face: 0, talk, ...extra });
@@ -214,7 +227,7 @@ const prop = (...ps) => { for (const p of ps) W.ents.push({ ...p, pos: [p.pos[0]
 // key places other modules look up: villages' people, crystals, chests, home stones, monster spawns and the rest
 export function generate() {
   const { data, height } = W;
-  data.fill(0);
+  data.fill(0); ROOF.fill(0);
   regReady = false; for (let z = 0; z < WZ; z++) for (let x = 0; x < WX; x++) REG[z * WX + x] = regionSlow(x, z); regReady = true;
   for (let z = 0; z < WZ; z++) for (let x = 0; x < WX; x++) height[z * WX + x] = columnHeight(x, z);
   for (let z = 0; z < WZ; z++) for (let x = 0; x < WX; x++) {
@@ -253,7 +266,17 @@ export function generate() {
   buildEast(); buildAbyss(); buildNoonHalls(); buildOldExtras();
   placeCrystals(); placeChests(); placeHomes(); placeSpawns(); placeShards(); placeSigns(); placeHerbs(); placeFishing(); placeEin(); placeDecor();
   placeEast();
+  // villagers, props and decorations set at a village's level stand on the ground actually under them
+  for (const e of W.ents) if (e.type === 'npc' || e.type === 'prop') settle(e);
+  for (const d of W.decor) if (!d.flat) settle(d);
   return W;
+}
+function settle(e) {
+  const x = Math.floor(e.pos[0]), z = Math.floor(e.pos[2]), y = Math.round(e.pos[1]);
+  if (Math.abs(e.pos[1] - y) > 0.01) return;
+  const ok = (yy) => solid(get(x, yy - 1, z)) && (!solid(get(x, yy, z)) || get(x, yy, z) === B.post);
+  if (ok(y)) return;
+  for (const d of [1, -1, 2, -2]) if (ok(y + d)) { e.pos[1] = y + d; return; }
 }
 // villages, the ruins' heart and the spire keep their ground free of trees
 function isClear(x, z) {
@@ -913,7 +936,7 @@ function placeEast() {
   boss('b_umbra', 'umbra', [SPIRE.x + 0.5, 4, SPIRE.z + 0.5]);
   // crystals of the lost faces
   W.crystals.push({ job: 'dragoon', pos: [SKY[6][0] + 0.5, SKY[6][2] + 0.8, SKY[6][1] + 0.5], east: true, lost: true });
-  W.crystals.push({ job: 'summoner', pos: [VAEL.c[0] + 0.5, 3.8, VAEL.c[1] - 3.5], east: true, lost: true, need: 'b_morwen' });
+  W.crystals.push({ job: 'summoner', pos: [VAEL.c[0] + 0.5, 2.8, VAEL.c[1] - 3.5], east: true, lost: true, need: 'b_morwen' });
   W.crystals.push({ job: 'machinist', pos: [TOWER.x + 0.5 - 4, 39.8, TOWER.z + 0.5], east: true, lost: true });
   // chests of the east: [x, z, item, n, floor height for places under a roof]
   const EC = [
@@ -1031,6 +1054,13 @@ export function buildChunk(cx, cz) {
     let ymax = 0; for (let y = WY - 1; y >= 0; y--) if (data[cb + y] !== 0) { ymax = y; break; }
     for (let y = 0; y <= ymax; y++) {
       const id = data[cb + y];
+      // water above the sea (the oasis, the wells) is not under the sea plane: give it a surface of its own
+      if (id === B.water && y > SEA && at(x, y + 1, z) === 0) {
+        const fi = faces.water, u0 = (fi % cols) * du + pad, v0 = 1 - (Math.floor(fi / cols) + 1) * dv + pad, u1 = u0 + du - pad * 2, v1 = v0 + dv - pad * 2, base = pos.length / 3;
+        for (const [a, c] of [[0, 1], [1, 1], [1, 0], [0, 0]]) { pos.push(x + a, y + 0.82, z + c); col.push(1, 1, 1); }
+        uv.push(u0, v0, u1, v0, u1, v1, u0, v1); ind.push(base, base + 1, base + 2, base, base + 2, base + 3);
+        continue;
+      }
       if (!opaque(id)) continue;
       for (const d of DIRS) {
         const nb = at(x + d.n[0], y + d.n[1], z + d.n[2]);
