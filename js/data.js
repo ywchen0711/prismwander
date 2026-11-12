@@ -282,12 +282,21 @@ const KIND = {
   emberwisp: 'fire', magmagolem: 'fire', treant: 'plant', mesaking: 'sand', frostwyrm: 'ice', bogkeeper: 'undead', sporelord: 'plant', fallenknight: 'undead', emberdrake: 'fire', prismheart: 'heart',
 };
 export const affinity = (id) => AFF[KIND[id]] || { weak: [], res: [] };
+// later lands add their own monsters and kinds
+export function extendAffinity(kinds, affs) { Object.assign(KIND, kinds); Object.assign(AFF, affs); }
+export const kindOf = (id) => KIND[id];
 export const EL_NAME = { fire: ['火', 'Fire'], ice: ['冰', 'Ice'], bolt: ['雷', 'Bolt'], water: ['水', 'Water'], holy: ['聖', 'Holy'], earth: ['土', 'Earth'] };
 // the jobs that are not found in crystals, and who teaches them
 export const JOB_GIFTS = { sporelord: 'druid', fallenknight: 'paladin', emberdrake: 'samurai' };
 // stats of a monster of level lv
 export function monsterStats(id) {
   const m = MONSTERS[id], lv = m.lv;
+  // the eastern lands use a gentler hit-point curve so long fights stay quick, but hit harder
+  if (m.v2) return {
+    lv, hp: Math.round((260 + lv * 26 + lv * lv * 0.42) * (m.hp || 1)), atk: Math.round((10 + lv * 3.6) * (m.atk || 1)), def: Math.round((6 + lv * 2.0) * (m.def || 1)),
+    mag: Math.round((8 + lv * 3.1) * (m.mag || 1)), agi: Math.round((6 + lv * 1.6) * (m.agi || 1)),
+    exp: Math.round((6 + lv * 5 + lv * lv * 0.6) * (m.boss ? 6 : 1)), jp: Math.round((3 + lv * 1.2) * (m.boss ? 4 : 1)), gold: Math.round((4 + lv * 3.5) * (m.boss ? 5 : 1)),
+  };
   return {
     lv, hp: Math.round((24 + lv * 20 + lv * lv * 1.2) * (m.hp || 1)), atk: Math.round((8 + lv * 3.4) * (m.atk || 1)), def: Math.round((4 + lv * 2.2) * (m.def || 1)),
     mag: Math.round((6 + lv * 3.0) * (m.mag || 1)), agi: Math.round((6 + lv * 1.6) * (m.agi || 1)),

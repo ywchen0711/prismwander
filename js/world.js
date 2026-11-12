@@ -6,16 +6,22 @@ import * as THREE from 'three';
 
 // the land was first laid out on a 432-block map; every place is scaled up by K so the area is five times larger
 export const K = 966 / 432;
-export const WX = 966, WZ = 966, WY = 64, SEA = 6;
+// the old continent is 966 wide; the Eastern Sea and its islands lie beyond it, out to 1290
+export const OLD_W = 966;
+export const WX = 1290, WZ = 966, WY = 64, SEA = 6;
 export const sc = (v) => Math.round(v * K);
 // block ids; the atlas faces are [top, side, bottom]
-export const B = { post: 21, air: 0, grass: 1, dirt: 2, stone: 3, sand: 4, snow: 5, ice: 6, wood: 7, leaves: 8, redsand: 9, redstone: 10, brick: 11, gravel: 12, crystal: 13, cobble: 14, orange: 15, birch: 16, plank: 17, lava: 18, mushroom: 19, water: 20, cactus: 22, moss: 23, mud: 24 };
+export const B = { post: 21, air: 0, grass: 1, dirt: 2, stone: 3, sand: 4, snow: 5, ice: 6, wood: 7, leaves: 8, redsand: 9, redstone: 10, brick: 11, gravel: 12, crystal: 13, cobble: 14, orange: 15, birch: 16, plank: 17, lava: 18, mushroom: 19, water: 20, cactus: 22, moss: 23, mud: 24,
+  coral: 25, sandstone: 26, skystone: 27, gold: 28, iron: 29, silver: 30, ruby: 31, emerald: 32, plank2: 33, redwood: 34, brass: 35, coal: 36, frame: 37, hedge: 38 };
 const FACES = {
   1: ['grass_top', 'dirt_grass', 'dirt'], 2: ['dirt', 'dirt', 'dirt'], 3: ['greystone', 'greystone', 'greystone'], 4: ['sand', 'sand', 'sand'], 5: ['snow', 'dirt_snow', 'dirt'],
   6: ['ice', 'ice', 'ice'], 7: ['trunk_top', 'trunk_side', 'trunk_top'], 8: ['leaves', 'leaves', 'leaves'], 9: ['redsand', 'redsand', 'redsand'], 10: ['redstone', 'redstone', 'redstone'],
   11: ['brick_grey', 'brick_grey', 'brick_grey'], 12: ['gravel_stone', 'gravel_stone', 'gravel_stone'], 13: ['stone_diamond', 'stone_diamond', 'stone_diamond'], 14: ['stone', 'stone', 'stone'],
   15: ['leaves_orange', 'leaves_orange', 'leaves_orange'], 16: ['trunk_top', 'trunk_white_side', 'trunk_top'], 17: ['table', 'brick_red', 'table'], 18: ['lava', 'lava', 'lava'],
   19: ['mushcap', 'mushcap', 'mushcap'], 22: ['cactus_top', 'cactus_side', 'cactus_top'], 23: ['mossstone', 'stone_grass', 'greystone'], 24: ['dirt', 'dirt', 'dirt'],
+  25: ['cotton_red', 'cotton_red', 'cotton_red'], 26: ['cotton_tan', 'cotton_tan', 'cotton_tan'], 27: ['cotton_blue', 'cotton_blue', 'cotton_blue'], 28: ['stone_gold', 'stone_gold', 'stone_gold'],
+  29: ['stone_iron', 'stone_iron', 'stone_iron'], 30: ['stone_silver', 'stone_silver', 'stone_silver'], 31: ['greystone_ruby', 'greystone_ruby', 'greystone_ruby'], 32: ['redstone_emerald', 'redstone_emerald', 'redstone_emerald'],
+  33: ['wood', 'wood', 'wood'], 34: ['wood_red', 'wood_red', 'wood_red'], 35: ['track_straight', 'stone_iron', 'stone_iron'], 36: ['stone_coal', 'stone_coal', 'stone_coal'], 37: ['glass_frame', 'glass_frame', 'glass_frame'], 38: ['cotton_green', 'cotton_green', 'cotton_green'],
 };
 // water and lava are not solid: you cannot stand in them, and the player treats both as walls
 export const solid = (id) => id !== 0 && id !== B.water && id !== B.lava;
@@ -60,13 +66,34 @@ const shoreX = (z) => 404 * K + Math.sin(z / (23 * K)) * 5 * K + Math.max(0, 196
 for (const r of Object.values(REGIONS)) { r.c0 = r.c; r.c = r.c.map(sc); if (!r.town) r.r = Math.round(r.r * K); }
 // the port sits right by the water so its pier reaches the sea
 REGIONS.saltmere.c[0] = Math.round(shoreX(REGIONS.saltmere.c[1])) - 30;
+// the Eastern Sea, laid out straight in world blocks; 'cave' places are found by height as well (see regionAt3)
+const EAST_REGIONS = {
+  eastsea:  { name: ['東方之海', 'The Eastern Sea'], c: [1130, 520], r: 900, music: 'boat', bg: 'sea' },
+  tidehaven:{ name: ['潮汐港', 'Tidehaven'], c: [1040, 640], r: 12, music: 'harbor', bg: 'sand', town: true, base: 9 },
+  coral:    { name: ['珊瑚群島', 'The Coral Isles'], c: [1062, 672], r: 70, music: 'coral', bg: 'sand' },
+  vael:     { name: ['沉沒之都 薇爾', 'Vael, the Drowned City'], c: [1180, 830], r: 62, music: 'aquatic', bg: 'vael' },
+  cogwick:  { name: ['齒輪村', 'Cogwick'], c: [1180, 440], r: 9, music: 'village', bg: 'grass', town: true, base: 12 },
+  clock:    { name: ['機關島', 'Clockwork Isle'], c: [1205, 410], r: 62, music: 'temple', bg: 'grass' },
+  cloud:    { name: ['雲上群島', 'Cloudreach'], c: [1052, 330], r: 82, music: 'sky', bg: 'sky' },
+  deepholm: { name: ['深岩島', 'Deepholm'], c: [1150, 140], r: 92, music: 'mountain', bg: 'grass' },
+  deep:     { name: ['幽深地底', 'Hollowdeep'], c: [1150, 140], r: 52, music: 'deep', bg: 'deep', cave: true },
+  delvers:  { name: ['掘地人之窟', "Delvers' Hollow"], c: [1150, 116], r: 11, music: 'delve', bg: 'deep', cave: true, town: true },
+  clocktower:{ name: ['機關塔', 'The Clockwork Tower'], c: [1215, 405], r: 12, music: 'tension', bg: 'clock', cave: true },
+  abyss:    { name: ['稜晶深淵', 'The Prism Abyss'], c: [sc(218), sc(40)], r: 40, music: 'abyss', bg: 'abyss', cave: true },
+  noonhall: { name: ['正午宮殿', 'The Noon Halls'], c: [sc(218), sc(132) - 40], r: 24, music: 'noon', bg: 'noon', cave: true },
+};
+for (const [k, r] of Object.entries(EAST_REGIONS)) { r.c0 = r.c; r.east = true; REGIONS[k] = r; }
 // a village is built from its old plan, moved to where its centre is now
 export const tw = (town) => { const r = REGIONS[town]; return (x, z) => [x + r.c[0] - r.c0[0], z + r.c[1] - r.c0[1]]; };
-const TOWNS = Object.keys(REGIONS).filter((k) => REGIONS[k].town);
+const TOWNS = Object.keys(REGIONS).filter((k) => REGIONS[k].town && !REGIONS[k].cave);
 const REG_IDS = Object.keys(REGIONS), REG_C = REG_IDS.map((id) => REGIONS[id]);
+// the old continent only knows its own places, and the east only its own, so neither changes the other
+const OLD_IDX = REG_IDS.map((k, i) => i).filter((i) => !REG_C[i].east), EAST_IDX = REG_IDS.map((k, i) => i).filter((i) => REG_C[i].east && !REG_C[i].cave);
 function regionSlow(x, z) {
   let best = 0, bd = Infinity;
-  for (let i = 0; i < REG_C.length; i++) { const r = REG_C[i], dx = x - r.c[0], dz = z - r.c[1], d = Math.sqrt(dx * dx + dz * dz) / r.r * (r.town ? 0.7 : 1); if (d < bd) { bd = d; best = i; } }
+  for (const i of x >= OLD_W ? EAST_IDX : OLD_IDX) { const r = REG_C[i]; if (r === EAST_REGIONS.eastsea) continue; const dx = x - r.c[0], dz = z - r.c[1], d = Math.sqrt(dx * dx + dz * dz) / r.r * (r.town ? 0.7 : 1); if (d < bd) { bd = d; best = i; } }
+  // out in the east, whatever lies beyond every island's reach is open sea
+  if (x >= OLD_W && bd > 1) return REG_IDS.indexOf('eastsea');
   return best;
 }
 // once the world is made, every column remembers its region
@@ -76,10 +103,11 @@ export function regionAt(x, z) {
   if (regReady && x >= 0 && z >= 0 && x < WX && z < WZ) return REG_IDS[REG[z * WX + x]];
   return REG_IDS[regionSlow(x, z)];
 }
-const near = (x, z, id) => { const r = REGIONS[id]; return Math.max(0, 1 - Math.hypot(x - r.c[0], z - r.c[1]) / r.r); };
+const near = (x, z, id) => { const r = REGIONS[id], dx = x - r.c[0], dz = z - r.c[1]; if (dx > r.r || dx < -r.r || dz > r.r || dz < -r.r) return 0; return Math.max(0, 1 - Math.sqrt(dx * dx + dz * dz) / r.r); };
 
 // ---------- the ground ----------
 function columnHeight(x, z) {
+  if (x >= OLD_W) return eastHeight(x, z);
   let h = 9 + (fbm(x / 110, z / 110, 1) - 0.5) * 10 + (fbm(x / 26, z / 26, 2) - 0.5) * 3;
   // the forests roll a little more
   const fo = near(x, z, 'forest'), sw = near(x, z, 'sporewood');
@@ -114,14 +142,15 @@ function columnHeight(x, z) {
   // villages sit on flat ground
   for (const t of TOWNS) { const k = near(x, z, t); if (k > 0) h = h + (REGIONS[t].base - h) * Math.min(1, k * 2.5); }
   // the edge of the world: cliffs, and deep water to the east
-  const east = shoreX(z) > WX - 12 ? WX - 1 - x : 99;
+  const east = shoreX(z) > OLD_W - 12 ? OLD_W - 1 - x : 99;
   const edge = Math.min(x, z, WZ - 1 - z, east);
   if (edge < 6) h = Math.max(h, 26 - edge * 2);
-  if (x > WX - 10 && shoreX(z) < WX - 12) h = Math.min(h, SEA - 3);
+  if (x > OLD_W - 10 && shoreX(z) < OLD_W - 12) h = Math.min(h, SEA - 3);
   return Math.max(1, Math.min(WY - 6, Math.round(h)));
 }
 function topBlock(x, z, h, steep) {
   const reg = regionAt(x, z), r = rand(x, z, 5);
+  if (x >= OLD_W) return eastTop(x, z, h, steep, reg, r);
   if (h <= SEA + 1 && (reg === 'coast' || reg === 'saltmere' || x > shoreX(z) - 14 || near(x, z, 'lake') > 0.15)) return B.sand;
   if (reg === 'mesa' || reg === 'dunewell') return steep ? B.redstone : B.redsand;
   if (reg === 'ember') return steep ? B.redstone : r < 0.35 ? B.gravel : B.redstone;
@@ -134,7 +163,7 @@ function topBlock(x, z, h, steep) {
 }
 
 // ---------- the world grid ----------
-export const W = { data: new Uint8Array(WX * WY * WZ), height: new Int16Array(WX * WZ), ents: [], crystals: [], homes: [], chests: [], spawns: [], decor: [], shards: [], signs: [], herbs: [], fish: [], ein: [] };
+export const W = { data: new Uint8Array(WX * WY * WZ), height: new Int16Array(WX * WZ), ents: [], crystals: [], homes: [], chests: [], spawns: [], decor: [], shards: [], signs: [], herbs: [], fish: [], ein: [], ein2: [], levers: [], valves: [], vents: [], docks: [], ores: [], digs: [], picks: [], echoes: [] };
 const idx = (x, y, z) => (z * WX + x) * WY + y;
 let OX = 0, OZ = 0;
 const building = (town) => { if (town) { const r = REGIONS[town]; OX = r.c[0] - r.c0[0]; OZ = r.c[1] - r.c0[1]; } else OX = OZ = 0; };
@@ -213,19 +242,24 @@ export function generate() {
     if (reg === 'sporewood' && top === B.grass) { if (r < 0.012) mushroom(x, h, z); continue; }
     if (reg === 'mesa' || reg === 'dunewell') { if (top === B.redsand && r < 0.004) { const k = 2 + Math.floor(rand(x, z, 14) * 2); for (let y = 0; y < k; y++) set(x, h + y, z, B.cactus); } continue; }
     if (top !== B.grass) continue;
-    const p = reg === 'forest' ? 0.03 : reg === 'lake' ? 0.008 : reg === 'mountain' ? 0.012 : reg === 'mistfen' ? 0.014 : 0;
+    const p = reg === 'forest' ? 0.03 : reg === 'lake' ? 0.008 : reg === 'mountain' ? 0.012 : reg === 'mistfen' ? 0.014 : reg === 'deepholm' && h > 40 ? 0.012 : 0;
     if (r < p) tree(x, h, z, reg === 'lake' ? 'birch' : reg === 'forest' && rand(x, z, 12) > 0.8 ? 'autumn' : 'oak');
   }
   W.ents = []; W.crystals = []; W.homes = []; W.chests = []; W.spawns = []; W.decor = []; W.shards = []; W.signs = []; W.herbs = []; W.fish = []; W.ein = [];
+  W.ein2 = []; W.levers = []; W.valves = []; W.vents = []; W.docks = []; W.ores = []; W.digs = []; W.picks = []; W.echoes = []; GATES.length = 0;
   for (const [town, f] of [['hearth', buildHearthvale], ['fenside', buildFenside], ['saltmere', buildSaltmere], ['dunewell', buildDunewell], ['frostgate', buildFrostgate]]) { building(town); f(); building(null); }
   buildHermit(); buildRuins(); buildSpire();
+  // the east, and what lies under the old land
+  buildEast(); buildAbyss(); buildNoonHalls(); buildOldExtras();
   placeCrystals(); placeChests(); placeHomes(); placeSpawns(); placeShards(); placeSigns(); placeHerbs(); placeFishing(); placeEin(); placeDecor();
+  placeEast();
   return W;
 }
 // villages, the ruins' heart and the spire keep their ground free of trees
 function isClear(x, z) {
   for (const t of TOWNS) if (near(x, z, t) > 0) return true;
   if (Math.hypot(x - REGIONS.sporewood.c[0], z - REGIONS.sporewood.c[1]) < 7) return true;
+  if (x >= OLD_W) return Math.hypot(x - VAEL.c[0], z - VAEL.c[1]) < 40 || (Math.abs(x - TOWER.x) < 16 && Math.abs(z - TOWER.z) < 16);
   return Math.hypot(x - SPIRE.x, z - SPIRE.z) < sc(30) || Math.hypot(x - REGIONS.ruins.c[0], z - REGIONS.ruins.c[1]) < 12;
 }
 
@@ -419,7 +453,7 @@ function placeChests() {
   const TIER = { meadow: 'low', forest: 'low', lake: 'low', mistfen: 'low', coast: 'mid', sporewood: 'mid', mesa: 'mid', ruins: 'mid', mountain: 'high', rimefield: 'high', ember: 'high', spire: 'high' };
   let k = 0;
   for (let gz = 0; gz < 9; gz++) for (let gx = 0; gx < 9; gx++) {
-    const x0 = Math.round((gx + 0.2 + rand(gx, gz, 80) * 0.6) * WX / 9), z0 = Math.round((gz + 0.2 + rand(gx, gz, 81) * 0.6) * WZ / 9), reg = regionAt(x0, z0), tier = TIER[reg];
+    const x0 = Math.round((gx + 0.2 + rand(gx, gz, 80) * 0.6) * OLD_W / 9), z0 = Math.round((gz + 0.2 + rand(gx, gz, 81) * 0.6) * WZ / 9), reg = regionAt(x0, z0), tier = TIER[reg];
     if (!tier || W.chests.some((c) => Math.hypot(c.pos[0] - x0, c.pos[2] - z0) < 30)) continue;
     const list = LOOT[tier], [item, n] = list[Math.floor(rand(gx, gz, 82) * list.length)];
     W.chests.push({ id: `cache${gx}_${gz}`, item, n, pos: spot(x0, z0) }); k++;
@@ -436,25 +470,31 @@ function placeHomes() {
 }
 
 // ---------- monsters ----------
-const SPAWN = {
-  meadow: ['slime', 'bunny', 'chick', 'hog'], forest: ['caterpillar', 'monkey', 'orc', 'bluejelly'], coast: ['crab', 'fish', 'parrot', 'bluejelly'], lake: ['wisp', 'fish', 'ghost', 'minion'],
-  mistfen: ['bogslime', 'minion', 'ghost', 'caterpillar'], sporewood: ['sporeling', 'sporetreant', 'monkey', 'bluejelly'],
-  mesa: ['lion', 'scorpion', 'tiger'], ember: ['magmaslime', 'emberwisp', 'magmagolem'], ruins: ['skeleton', 'skelmage', 'zombie', 'ruinguard'],
-  mountain: ['skeleton', 'skelmage', 'golem', 'yeti'], rimefield: ['yeti', 'frostjelly', 'icewisp', 'golem'], spire: ['vampire', 'crysgolem', 'skelrogue', 'ghost'],
+export const SPAWN = {
+  meadow: ['slime', 'bunny', 'chick', 'hog', 'dewdrop', 'nightshade'], forest: ['caterpillar', 'monkey', 'orc', 'bluejelly', 'woodogre'], coast: ['crab', 'fish', 'parrot', 'bluejelly'], lake: ['wisp', 'fish', 'ghost', 'minion', 'piranha'],
+  mistfen: ['bogslime', 'minion', 'ghost', 'caterpillar', 'bogfrog'], sporewood: ['sporeling', 'sporetreant', 'monkey', 'bluejelly', 'mushnub'],
+  mesa: ['lion', 'scorpion', 'tiger', 'cactoro'], ember: ['magmaslime', 'emberwisp', 'magmagolem', 'emberimp'], ruins: ['skeleton', 'skelmage', 'zombie', 'ruinguard', 'ruingoblin'],
+  mountain: ['skeleton', 'skelmage', 'golem', 'yeti', 'ridgeogre'], rimefield: ['yeti', 'frostjelly', 'icewisp', 'golem', 'rimeyeti'], spire: ['vampire', 'crysgolem', 'skelrogue', 'ghost', 'spiredemon'],
+  // the east
+  coral: ['coraltoad', 'coralcrab', 'mongoose', 'reefmask', 'coraljelly'], cloud: ['galebirb', 'skywasp', 'cloudalpaca', 'whirlwisp', 'skystone', 'wyvernling'],
+  clock: ['cogling', 'geardrone', 'gearmech'], clocktower: ['cogling', 'gearmech', 'steamgolem', 'geardrone', 'brassgiant'], deepholm: ['dinoling', 'moonhare', 'raptor'],
+  vael: ['drownedwraith', 'tidespecter', 'drownedguard', 'coralskel', 'abyssglub', 'inkhorror'], deep: ['raptor', 'behemoth', 'crusher', 'glowshroom', 'spikecap', 'thornblob', 'cavefrog', 'fungallord'],
+  abyss: ['abyssfiend', 'voiddrake', 'voidspecter', 'obsidiangolem', 'umbralogre', 'echomask', 'voidwalker'], noonhall: ['courtier', 'sunknight', 'gildedsentinel', 'solarwisp'],
+  eastsea: ['glubfin', 'gloomfish', 'ironcatfish', 'squidling', 'razorfin'],
 };
 // monsters that only walk at night
-export const NIGHT = new Set(['ghost', 'wisp']);
+export const NIGHT = new Set(['ghost', 'wisp', 'nightshade']);
 function placeSpawns() {
   let k = 0;
-  for (let z = 8; z < WZ - 8; z += 10) for (let x = 8; x < WX - 8; x += 10) {
+  for (let z = 8; z < WZ - 8; z += 10) for (let x = 8; x < OLD_W - 8; x += 10) {
     const reg = regionAt(x, z), list = SPAWN[reg];
     if (!list || REGIONS[reg].town || isClear(x, z)) continue;
     if (rand(x, z, 21) > 0.42) continue;
     if (!dry(x, z)) continue;
-    W.spawns.push({ id: 's' + (k++), monster: list[Math.floor(rand(x, z, 22) * list.length)], pos: [x + 0.5, ground(x, z), z + 0.5] });
+    W.spawns.push({ id: 's' + (k++), reg, monster: list[Math.floor(rand(x, z, 22) * list.length)], pos: [x + 0.5, ground(x, z), z + 0.5] });
   }
   // the guardians of the lands
-  const boss = (id, monster, x, z, raw = false) => { const p = raw ? spot(x, z) : spot(sc(x), sc(z)); W.spawns.push({ id, monster, boss: true, pos: p }); };
+  const boss = (id, monster, x, z, raw = false) => { const p = raw ? spot(x, z) : spot(sc(x), sc(z)); W.spawns.push({ id, monster, boss: true, reg: regionAt(p[0], p[2]), pos: p }); };
   boss('b_treant', 'treant', 66, 286);
   boss('b_bog', 'bogkeeper', 62, 404);
   boss('b_myco', 'sporelord', 346, 404);
@@ -504,6 +544,7 @@ function placeDecor() {
   const ROCKS = ['hex/rock_single_A.gltf', 'hex/rock_single_B.gltf', 'hex/rock_single_C.gltf', 'hex/rock_single_D.gltf', 'hex/rock_single_E.gltf'];
   const PINES = ['grave/pine', 'grave/pine-crooked', 'grave/pine-fall'];
   const GRAVES = ['grave/gravestone-cross', 'grave/gravestone-round', 'grave/urn-round', 'grave/rocks-tall'];
+  const PALMS = ['pirate/palm-straight', 'pirate/palm-bend', 'pirate/palm-detailed-straight'];
   const add = (model, x, y, z, h, post = false) => { W.decor.push({ model, pos: [x + 0.5, y, z + 0.5], h, rot: rand(x, z, 44) * 6.28 }); if (post) { set(x, y, z, B.post); set(x, y + 1, z, B.post); } };
   for (let z = 6; z < WZ - 6; z += 3) for (let x = 6; x < WX - 6; x += 3) {
     const reg = regionAt(x, z), r = rand(x, z, 41);
@@ -516,6 +557,8 @@ function placeDecor() {
     else if (reg === 'mistfen' && r > 0.96) add(pick(GRAVES), x, y, z, 0.9 + rand(x, z, 46) * 0.4);
     else if (reg === 'ruins' && r > 0.9) add(r > 0.97 ? 'dungeon/column' : pick(GRAVES), x, y, z, r > 0.97 ? 2.6 : 0.9);
     else if (reg === 'sporewood' && r > 0.93) add('grave/pumpkin', x, y, z, 0.6 + rand(x, z, 46) * 0.4);
+    else if (x >= OLD_W && ['coral', 'clock', 'cloud', 'deepholm'].includes(reg) && (top === B.grass || top === B.sand) && r < (reg === 'coral' ? 0.06 : 0.035)) add(reg === 'coral' || top === B.sand ? pick(PALMS) : pick(TREES), x, y, z, 3.4 + rand(x, z, 43) * 1.8, true);
+    else if (x >= OLD_W && (reg === 'eastsea' || reg === 'vael')) { /* nothing grows on the sea */ }
     else if (r > 0.92 && reg !== 'spire') add(pick(ROCKS), x, y, z, 0.5 + rand(x, z, 46) * 0.5);
   }
   // a lived-in village: crates, barrels, a weapon rack, flags
@@ -527,6 +570,433 @@ function placeDecor() {
     const lake = k < 80, c = REGIONS[lake ? 'lake' : 'mistfen'].c, a = rand(k, 1, 50) * 6.28, d = lake ? sc(8) + rand(k, 2, 51) * sc(20) : rand(k, 2, 51) * sc(40), x = Math.floor(c[0] + Math.cos(a) * d), z = Math.floor(c[1] + Math.sin(a) * d);
     if (get(x, SEA, z) === B.water && get(x, SEA + 1, z) === B.air) W.decor.push({ model: 'hex/waterlily_A.gltf', pos: [x + 0.5, SEA + 0.85, z + 0.5], h: 0.12, rot: a, flat: true });
   }
+}
+
+// ---------- the Eastern Sea and the places under the old land ----------
+// coral isles and a harbour village, the drowned city of Vael inside a ring of coral, the clockwork tower on its
+// island, islands floating in the sky, Deepholm and the cave world inside it, and under the old continent the
+// Noon Halls beneath Old Lumera and the Prism Abyss beneath the Spire
+export const VAEL = { c: [1180, 830], r: 32 };
+export const TOWER = { x: 1215, z: 405, x0: 1205, x1: 1225, z0: 395, z1: 415, base: 12 };
+export const DEEP = { c: [1150, 140], r: 52, ceil: 36 };
+export const DELVE = { c: [1150, 116], r: 11 };
+const NEST = [1122, 110];
+export const NOON = { x: sc(218), z: sc(132) - 40, r: 24 };
+// the sky islands: [x, z, top, radius]
+export const SKY = [[1030, 378, 38, 8], [1052, 358, 40, 9], [1074, 336, 42, 9], [1050, 316, 44, 15], [1088, 296, 46, 11], [1022, 300, 42, 8], [1052, 296, 54, 5], [1096, 360, 40, 7]];
+// world gates: blocks that stand until something lets them go (see applyWorldFlags)
+export const GATES = [];
+// islands rising out of the sea: [x, z, radius, top]
+const ISLES = [
+  [1040, 650, 38, 9],
+  [1001, 700, 10, 9], [1085, 606, 9, 10], [1100, 700, 12, 10], [995, 598, 8, 9], [1060, 736, 9, 9], [1120, 652, 8, 11],
+  [1200, 420, 52, 12],
+  [1030, 394, 10, 10],
+  [1232, 830, 6, 10], [1154, 785, 6, 10], [1154, 875, 6, 10],
+];
+function eastHeight(x, z) {
+  let h = SEA - 3 + (fbm(x / 40, z / 40, 90) - 0.5) * 2;
+  for (const [cx, cz, r, top] of ISLES) {
+    if (Math.abs(x - cx) > r * 1.16 || Math.abs(z - cz) > r * 1.16) continue;
+    const d = Math.hypot(x - cx, z - cz) / (r * (0.85 + fbm(x / 14, z / 14, 91) * 0.3));
+    if (d < 1) h = Math.max(h, SEA + 1 + Math.min(1, (1 - d) * 3) * (top - SEA - 1));
+  }
+  // Deepholm: a high plateau with a beach round its foot
+  const dd = Math.hypot(x - DEEP.c[0], z - DEEP.c[1]);
+  if (dd < 78) h = Math.max(h, dd < 60 ? 46 + (fbm(x / 20, z / 20, 92) - 0.5) * 2 : dd < 68 ? 46 - (dd - 60) / 8 * 38 : SEA + 2 - (dd - 68) / 10 * 4);
+  // Vael: a basin below the sea inside a ring of coral
+  const dv = Math.hypot(x - VAEL.c[0], z - VAEL.c[1]);
+  if (dv < VAEL.r) h = 2; else if (dv < VAEL.r + 4.5) h = 10;
+  for (const t of TOWNS) { const k = near(x, z, t); if (k > 0) h = h + (REGIONS[t].base - h) * Math.min(1, k * 2.5); }
+  const edge = Math.min(z, WZ - 1 - z, WX - 1 - x);
+  if (edge < 6) h = Math.max(h, 26 - edge * 2);
+  return Math.max(1, Math.min(WY - 6, Math.round(h)));
+}
+function eastTop(x, z, h, steep, reg, r) {
+  const dv = Math.hypot(x - VAEL.c[0], z - VAEL.c[1]);
+  if (dv < VAEL.r) return r < 0.3 ? B.coral : B.sandstone;
+  if (dv < VAEL.r + 4.5) return B.coral;
+  if (h <= SEA) return r < 0.22 ? B.coral : B.sand;
+  if (h <= SEA + 2) return B.sand;
+  if (reg === 'clock' || reg === 'cogwick') return steep ? B.stone : r < 0.15 ? B.gravel : B.grass;
+  return steep ? B.stone : B.grass;
+}
+// where a body can stand near height y in column (x, z): the feet's height, or -1
+export function standAt(x, y, z, below = 5) {
+  x = Math.floor(x); z = Math.floor(z);
+  const y0 = Math.floor(y + 1.2);
+  for (let yy = y0; yy >= y0 - below; yy--) { const here = get(x, yy, z); if (solid(get(x, yy - 1, z)) && !solid(here) && !solid(get(x, yy + 1, z)) && here !== B.water && here !== B.lava) return yy; }
+  return -1;
+}
+// the nearest standing place to (x0, y, z0), for places under a roof or in the sky
+function spotAt(x0, y, z0, maxR = 20) {
+  for (let r = 0; r <= maxR; r++) for (let a = 0; a < Math.max(1, r * 8); a++) {
+    const x = Math.round(x0 + Math.cos(a / Math.max(1, r * 8) * Math.PI * 2) * r), z = Math.round(z0 + Math.sin(a / Math.max(1, r * 8) * Math.PI * 2) * r);
+    const s = standAt(x, y, z, 6);
+    if (s > 0 && Math.abs(s - y) <= 5 && get(x, s - 1, z) !== B.post) return [x + 0.5, s, z + 0.5];
+  }
+  return [x0 + 0.5, y, z0 + 0.5];
+}
+// which place you are in, counting the ones under a roof
+export function regionAt3(x, y, z) {
+  if (x >= OLD_W) {
+    if (x >= TOWER.x0 && x <= TOWER.x1 + 1 && z >= TOWER.z0 && z <= TOWER.z1 + 1 && y >= TOWER.base - 0.5) return 'clocktower';
+    const dd = Math.hypot(x - DEEP.c[0], z - DEEP.c[1]);
+    if (dd < DEEP.r + 3 && y < DEEP.ceil) return Math.hypot(x - DELVE.c[0], z - DELVE.c[1]) < DELVE.r + 2 ? 'delvers' : 'deep';
+  } else {
+    if (y < 22 && Math.hypot(x - SPIRE.x, z - SPIRE.z) < 42) return 'abyss';
+    if (y < 12.5 && Math.hypot(x - NOON.x, z - NOON.z) < NOON.r + 2) return 'noonhall';
+  }
+  return regionAt(x, z);
+}
+const npcm = (id, model, pos, talk, extra = {}) => W.ents.push({ type: 'npc', id, model, pos: [pos[0] + OX, pos[1], pos[2] + OZ], face: 0, talk, ...extra });
+const pushGate = (id, open, blocks) => { GATES.push({ id, open, blocks, isOpen: false }); for (const [x, y, z, b] of blocks) set(x, y, z, b); };
+
+function buildEast() { buildTidehaven(); buildCogwick(); buildSky(); buildVael(); buildTower(); buildDeep(); buildReef(); }
+// a harbour village on the biggest coral isle: inn, shop, forge, kitchen and a long pier west toward Saltmere
+function buildTidehaven() {
+  const y = 9, [cx, cz] = REGIONS.tidehaven.c;
+  const inn = house(cx - 12, y, cz - 11, 6, 5, B.plank2, B.coral), shp = house(cx + 5, y, cz - 11, 5, 5, B.sandstone, B.coral), forge = house(cx - 12, y, cz + 4, 5, 5, B.stone, B.brick), kit = house(cx + 6, y, cz + 4, 5, 5, B.plank2, B.redwood);
+  fill(cx - 3, y - 1, cz - 3, cx + 3, y - 1, cz + 3, B.cobble); set(cx, y - 1, cz, B.water);
+  for (let x = cx - 41; x <= cx - 14; x++) for (let z = cz - 1; z <= cz + 1; z++) if (ground(x, z) <= y) { set(x, y - 1, z, B.plank2); if (x % 4 === 0 && z !== cz) for (let yy = 1; yy < y - 1; yy++) if (!solid(get(x, yy, z))) set(x, yy, z, B.wood); }
+  npc('th_inn', 'character-o', [inn[0], y, inn[2] + 1], 'th_inn', { inn: true });
+  npc('th_shop', 'character-g', [shp[0], y, shp[2] + 1], 'th_shop', { shop: 'tidehaven' });
+  npc('th_smith', 'character-j', [forge[0], y, forge[2] + 1], 'th_smith');
+  npc('th_cook', 'character-k', [kit[0], y, kit[2] + 1], 'th_cook');
+  npc('th_cora', 'character-h', [cx - 16.5, y, cz + 2.5], 'th_cora', { face: 3 });
+  npc('th_marlo', 'character-n', [cx + 3.5, y, cz + 1.5], 'th_marlo', { face: 1 });
+  npc('th_gran', 'character-a', [cx - 4.5, y, cz - 2.5], 'th_gran', { face: 1 });
+  npc('th_iris', 'character-p', [cx + 2.5, y, cz - 4.5], 'th_iris');
+  prop({ type: 'prop', model: 'grave/lightpost-single', pos: [cx - 3.5, y, cz + 3.5] }, { type: 'prop', model: 'grave/lightpost-single', pos: [cx + 3.5, y, cz + 3.5] }, { type: 'prop', model: 'survival/workbench-anvil', pos: [forge[0] + 2, y, forge[2] + 1] }, { type: 'prop', model: 'survival/campfire-pit', pos: [kit[0] + 2.5, y, kit[2] + 1] });
+}
+// the workers' camp at the foot of the clockwork tower
+function buildCogwick() {
+  const y = 12, [cx, cz] = REGIONS.cogwick.c;
+  const inn = house(cx - 9, y, cz - 7, 5, 5, B.redwood, B.iron), shp = house(cx + 3, y, cz - 7, 5, 5, B.plank2, B.iron), ws = house(cx - 3, y, cz + 3, 6, 5, B.brick, B.brass);
+  npc('cg_inn', 'character-l', [inn[0], y, inn[2] + 1], 'cg_inn', { inn: true });
+  npc('cg_shop', 'character-i', [shp[0], y, shp[2] + 1], 'cg_shop', { shop: 'cogwick' });
+  npc('cg_ottla', 'character-f', [ws[0], y, ws[2] + 1], 'cg_ottla');
+  npcm('cg_unit7', 'quat/Mech', [cx + 6.5, y, cz + 4.5], 'cg_unit7', { face: 3, h: 1.9 });
+  npc('cg_worker', 'character-c', [cx - 6.5, y, cz + 3.5], 'cg_worker', { face: 1 });
+  prop({ type: 'prop', model: 'survival/workbench', pos: [ws[0] + 3, y, ws[2] + 1] }, { type: 'prop', model: 'pirate/barrel', pos: [cx + 1.5, y, cz - 1.5] }, { type: 'prop', model: 'pirate/crate', pos: [cx + 2.5, y, cz - 1.5] });
+}
+// islands floating over the northern sea, joined by plank bridges; Skyhaven of the bird folk sits on the largest
+function skyIsle(cx, cz, top, r) {
+  for (let dz = -r - 2; dz <= r + 2; dz++) for (let dx = -r - 2; dx <= r + 2; dx++) {
+    const x = cx + dx, z = cz + dz, d = Math.hypot(dx, dz), rr = r * (0.9 + fbm(x / 6, z / 6, 110) * 0.25);
+    if (d > rr) continue;
+    const depth = 3 + Math.round((rr - d) * 1.3 + rand(x, z, 111) * 2);
+    for (let y = top - depth; y < top; y++) set(x, y, z, y === top - 1 ? B.grass : y > top - 3 ? B.dirt : B.stone);
+  }
+}
+function bridge(a, b) {
+  const [ax, az, at, ar] = a, [bx, bz, bt, br] = b, L = Math.hypot(bx - ax, bz - az), ux = (bx - ax) / L, uz = (bz - az) / L;
+  const sx = ax + ux * (ar - 2), sz = az + uz * (ar - 2), ex = bx - ux * (br - 2), ez = bz - uz * (br - 2), n = Math.ceil(Math.hypot(ex - sx, ez - sz) * 2);
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, px = sx + (ex - sx) * t, pz = sz + (ez - sz) * t, y = Math.round(at + (bt - at) * t) - 1;
+    for (let w = -1; w <= 1; w++) { const x = Math.round(px - uz * w), z = Math.round(pz + ux * w); if (!solid(get(x, y, z))) set(x, y, z, B.plank2); for (let yy = y + 1; yy <= y + 3; yy++) if (get(x, yy, z) === B.plank2) set(x, yy, z, B.air); }
+  }
+}
+function buildSky() {
+  for (const s of SKY) skyIsle(s[0], s[1], s[2], s[3]);
+  const [A, Bi, Ci, D, E, F, , H] = SKY;
+  bridge(A, Bi); bridge(Bi, Ci); bridge(Ci, D); bridge(D, E); bridge(D, F); bridge(Ci, H);
+  // Skyhaven: round huts of sky-stone
+  const y = 44, [cx, cz] = [SKY[3][0], SKY[3][1]];
+  const a = house(cx - 9, y, cz - 6, 5, 5, B.skystone, B.birch), b = house(cx + 3, y, cz - 7, 5, 5, B.skystone, B.birch), c = house(cx - 4, y, cz + 3, 5, 4, B.birch, B.skystone);
+  npcm('sk_matron', 'quat/Birb', [a[0], y, a[2] + 1], 'sk_matron', { h: 1.2 });
+  npcm('sk_shop', 'quat/Birb', [b[0], y, b[2] + 1], 'sk_shop', { shop: 'skyhaven', h: 1.1, tint: '#ffd890' });
+  npcm('sk_fledge', 'quat/Birb', [cx + 5.5, y, cz + 4.5], 'sk_fledge', { face: 3, h: 0.8, tint: '#c8f0ff' });
+  npcm('sk_lark', 'quat/Birb', [c[0], y, c[2] + 1], 'sk_lark', { h: 1.15, tint: '#ffb0d0' });
+  // the updraughts: one from the Gale Isle up to the first island, one from Skyhaven to the high islet
+  W.vents.push({ id: 'v_gale', pos: [1030.5, standAt(1030, 14, 389, 8), 389.5], top: 41 }, { id: 'v_sky', pos: [cx + 0.5, y, cz - 12.5], top: 57 });
+}
+// the drowned city: streets of houses, a palace in the middle, a stair down the inside of the ring
+function buildVael() {
+  const [cx, cz] = VAEL.c, y = 2;
+  for (let gx = -2; gx <= 2; gx++) for (let gz = -2; gz <= 2; gz++) {
+    if ((gx === 0 && gz === 0) || Math.abs(gx) + Math.abs(gz) > 3 || (gx === 0 && gz === -2) || rand(gx, gz, 120) < 0.15) continue;
+    house(cx + gx * 11 - 2, y, cz + gz * 11 - 2, 5, 5, rand(gx, gz, 121) < 0.5 ? B.sandstone : B.coral, B.coral);
+  }
+  // the palace: coral walls, a roof that breaks the surface, a dais at the north end
+  for (let x = cx - 6; x <= cx + 6; x++) for (let z = cz - 5; z <= cz + 5; z++) for (let yy = y; yy <= 7; yy++) {
+    const wall = x === cx - 6 || x === cx + 6 || z === cz - 5 || z === cz + 5;
+    set(x, yy, z, yy === 7 ? B.coral : wall ? (yy === 5 ? B.gold : B.sandstone) : B.air);
+  }
+  for (let x = cx - 1; x <= cx + 1; x++) for (let yy = y; yy <= y + 2; yy++) set(x, yy, cz + 5, B.air);
+  fill(cx - 3, y - 1, cz - 4, cx + 3, y - 1, cz - 3, B.gold);
+  // a stair down from the ring wall on the north side
+  for (let k = 1; k <= 8; k++) for (let dx = -1; dx <= 1; dx++) { const z = cz - VAEL.r + k - 1; for (let yy = y; yy <= 10 - k - 1; yy++) set(cx + dx, yy, z, B.coral); for (let yy = 10 - k; yy <= 10; yy++) if (yy >= y) set(cx + dx, yy, z, B.air); }
+  // three tide valves on islets round the ring
+  W.valves.push({ id: 'valve1', pos: spot(1232, 830) }, { id: 'valve2', pos: spot(1154, 785) }, { id: 'valve3', pos: spot(1154, 875) });
+}
+// the clockwork tower: five floors of brass, a trapdoor to each floor above, the engine on the fifth, the roof on top
+function buildTower() {
+  const { x0, x1, z0, z1 } = TOWER, F = (L) => 12 + 9 * (L - 1);
+  for (let y = 11; y <= 58; y++) for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
+    const wall = x === x0 || x === x1 || z === z0 || z === z1;
+    if (wall) set(x, y, z, y > 56 && (x + z) % 2 ? B.air : (y - 11) % 9 === 0 ? B.brick : B.iron);
+    else set(x, y, z, (y - 11) % 9 === 0 ? B.brass : B.air);
+  }
+  for (let x = TOWER.x - 1; x <= TOWER.x + 1; x++) for (let y = 12; y <= 14; y++) set(x, y, z1, B.air);
+  for (let L = 1; L <= 5; L++) {
+    const f = F(L), west = L % 2 === 1;
+    // windows
+    for (let k = 3; k < 20; k += 4) for (let y = f + 2; y <= f + 3; y++) { set(x0 + k, y, z0, B.frame); set(x0 + k, y, z1, B.frame); if (k > 12) { set(x0, y, z0 + k, B.air); set(x1, y, z0 + k - 10, B.air); } }
+    // the stair up: nine steps along the west wall on odd floors, the east wall on even ones
+    for (let k = 0; k <= 8; k++) for (const x of west ? [x0 + 1, x0 + 2] : [x1 - 2, x1 - 1]) { const z = west ? z0 + 2 + k : z1 - 2 - k; for (let y = f; y <= f + k; y++) set(x, y, z, B.iron); }
+    // the trapdoor in the floor above
+    const blocks = [];
+    for (const x of west ? [x0 + 1, x0 + 2] : [x1 - 2, x1 - 1]) for (let k = 4; k <= 7; k++) blocks.push([x, f + 8, west ? z0 + 2 + k : z1 - 2 - k, B.brass]);
+    const open = [(s) => s.flags.tw1, (s) => s.flags.tw2, (s) => s.beaten.b_colossus, (s) => s.flags.tw4, (s) => (s.lost || []).length >= 4][L - 1];
+    pushGate('tw' + L, open, blocks);
+  }
+  // the engine on the fifth floor
+  for (let y = F(5); y <= F(5) + 5; y++) for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) set(TOWER.x + dx, y, TOWER.z + dz, y === F(5) + 5 ? B.crystal : Math.abs(dx) + Math.abs(dz) === 2 ? B.gold : B.brass);
+  // levers and their plaques
+  const lv = (id, x, L, z) => W.levers.push({ id, pos: [x + 0.5, F(L), z + 0.5] });
+  lv('l1a', 1212, 1, 411); lv('l1b', 1218, 1, 411);
+  lv('l2a', 1210, 2, 399); lv('l2b', 1214, 2, 399); lv('l2c', 1218, 2, 399);
+  lv('l4a', 1209, 4, 411); lv('l4b', 1213, 4, 411); lv('l4c', 1217, 4, 411); lv('l4d', 1221, 4, 411);
+  W.signs.push({ id: 'p_tw1', pos: [1215.5, F(1), 413.5], rot: 0 }, { id: 'p_tw2', pos: [1214.5, F(2), 401.5], rot: 0 }, { id: 'p_tw4', pos: [1215.5, F(4), 409.5], rot: 3.14 }, { id: 'p_tw5', pos: [1212.5, F(5), 398.5], rot: 1.57 });
+}
+// Deepholm: inside the plateau a whole world of moss and old beasts; the Delvers live in its north
+function buildDeep() {
+  const [cx, cz] = DEEP.c, R = DEEP.r;
+  for (let z = cz - R - 4; z <= cz + R + 4; z++) for (let x = cx - R - 4; x <= cx + R + 4; x++) {
+    const d = Math.hypot(x - cx, z - cz);
+    if (d > R * (0.9 + fbm(x / 11, z / 11, 94) * 0.15)) continue;
+    const village = Math.hypot(x - DELVE.c[0], z - DELVE.c[1]) < 13, road = Math.abs(x - cx) < 4 && z > cz;
+    const keep = village || road || Math.hypot(x - NEST[0], z - NEST[1]) < 10 || d < 12 || Math.hypot(x - 1180, z - 140) < 5 || Math.hypot(x - 1110, z - 160) < 16;
+    if (!keep && fbm(x / 6, z / 6, 97) > 0.73) continue;
+    const f = village || road ? 11 : 10 + Math.floor(fbm(x / 18, z / 18, 95) * 4), c = 33 + Math.floor(fbm(x / 15, z / 15, 96) * 4);
+    for (let y = f; y < c; y++) set(x, y, z, B.air);
+    const r = rand(x, z, 98);
+    set(x, f - 1, z, road ? B.cobble : r < 0.55 ? B.moss : r < 0.85 ? B.grass : B.mud);
+    if (rand(x, z, 99) > 0.982) set(x, c, z, B.crystal); else if (rand(x, z, 100) > 0.99) set(x, c, z, B.emerald);
+  }
+  // the mouth: a tunnel from the south beach
+  for (let z = cz + R - 8; z <= cz + 72; z++) { const t = Math.min(1, Math.max(0, (cz + 72 - z) / 24)), f = Math.round(8 + t * 3); for (let x = cx - 3; x <= cx + 3; x++) { for (let y = f; y < f + 5; y++) set(x, y, z, B.air); set(x, f - 1, z, B.cobble); } }
+  // a shaft up to the top of the plateau, with an updraught
+  for (let x = 1179; x <= 1181; x++) for (let z = 139; z <= 141; z++) for (let y = 14; y <= 47; y++) set(x, y, z, B.air);
+  W.vents.push({ id: 'v_deep', pos: [1180.5, standAt(1180, 14, 140, 6), 140.5], top: 49 });
+  // the Delvers' village
+  const y = 11, [vx, vz] = DELVE.c;
+  const a = house(vx - 9, y, vz - 7, 5, 5, B.plank2, B.redwood), b = house(vx + 4, y, vz - 7, 5, 5, B.plank2, B.redwood), c = house(vx - 9, y, vz + 3, 5, 4, B.stone, B.coal), d2 = house(vx + 4, y, vz + 3, 5, 4, B.stone, B.coal);
+  npcm('dv_chief', 'quat/Monkroose', [vx + 0.5, y, vz + 0.5], 'dv_chief', { h: 1.3 });
+  npcm('dv_shop', 'quat/Monkroose', [a[0], y, a[2] + 1], 'dv_shop', { shop: 'delvers', h: 1.2, tint: '#d8b080' });
+  npcm('dv_inn', 'quat/Monkroose', [b[0], y, b[2] + 1], 'dv_inn', { inn: true, h: 1.2, tint: '#b0c8d8' });
+  npcm('dv_smith', 'quat/Monkroose', [c[0], y, c[2] + 1], 'dv_smith', { h: 1.25, tint: '#a08870' });
+  npcm('dv_collector', 'quat/Monkroose', [d2[0], y, d2[2] + 1], 'dv_collector', { h: 1.1, tint: '#e8d0a0' });
+  prop({ type: 'prop', model: 'survival/workbench-anvil', pos: [c[0] + 2, y, c[2] + 1] }, { type: 'prop', model: 'survival/campfire-pit', pos: [vx + 3.5, y, vz + 0.5] });
+  // the geomancer's crystal on a pillar, with a stair round it
+  const px = 1110, pz = 160, top = 22;
+  for (let y2 = 8; y2 < top; y2++) for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) set(px + dx, y2, pz + dz, B.stone);
+  for (let k = 1; k <= 12; k++) { const sx = px + 1 + k, sz = pz; const h = top - k; const fl = standAt(sx, 13, sz, 6); if (fl > 0 && h <= fl) break; for (let y2 = 8; y2 < h; y2++) set(sx, y2, sz, B.stone); }
+  W.crystals.push({ job: 'geomancer', pos: [px + 0.5, top + 0.8, pz + 0.5], east: true, lost: true });
+}
+// a sea stack off the coral isles, with posts to hop up; the mimic's crystal glints on top
+function buildReef() {
+  const x = 1118, z = 630;
+  const y = column(x, z, SEA + 12, B.coral);
+  hops(x, z, 0, 1, SEA + 12, B.coral);
+  W.crystals.push({ job: 'mimic', pos: [x + 0.5, y + 0.8, z + 0.5], east: true });
+}
+// under the Spire: a pit of rings stepping down into the dark
+function buildAbyss() {
+  const cx = SPIRE.x, cz = SPIRE.z;
+  const floorAt = (d) => (d >= 30 ? 16 : d >= 20 ? 12 : d >= 10 ? 8 : 4);
+  for (let z = cz - 41; z <= cz + 41; z++) for (let x = cx - 41; x <= cx + 41; x++) {
+    const d = Math.hypot(x - cx, z - cz);
+    if (d > 40) continue;
+    const roof = Math.min(21, W.height[z * WX + x] - 3), f = floorAt(d);
+    for (let y = f; y <= roof; y++) set(x, y, z, B.air);
+    set(x, f - 1, z, rand(x, z, 130) < 0.2 ? B.ruby : B.coal);
+    if (rand(x, z, 131) > 0.985 && roof > f + 4) set(x, roof + 1, z, B.crystal);
+  }
+  // ramps between the rings: north from ring 1 to 2, east from 2 to 3, south from 3 to the floor
+  const ramp = (ux, uz, r0, f0) => { for (let k = 0; k <= 4; k++) for (let w = -1; w <= 1; w++) { const d = r0 - 1 - k, x = Math.round(cx + ux * d - uz * w), z = Math.round(cz + uz * d + ux * w), top = f0 - 1 - k; for (let y = 1; y <= top; y++) set(x, y, z, B.coal); for (let y = top + 1; y <= top + 4; y++) set(x, y, z, B.air); } };
+  ramp(0, -1, 30, 16); ramp(1, 0, 20, 12); ramp(0, 1, 10, 8);
+  // the way down from the plateau: a stair on the south side, sealed until the time comes
+  const blocks = [];
+  for (let k = 0; k <= 8; k++) for (let x = cx - 1; x <= cx + 1; x++) { const z = cz + 27 + k; for (let y = 24 - k; y <= 27; y++) set(x, y, z, B.air); set(x, 23 - k, z, B.ruby); }
+  for (let z = cz + 26; z <= cz + 36; z++) for (let x = cx - 2; x <= cx + 2; x++) if (Math.abs(x - cx) === 2 || z === cz + 36) for (let y = 24; y <= 25; y++) set(x, y, z, B.ruby);
+  for (let x = cx - 1; x <= cx + 1; x++) for (let y = 24; y <= 26; y++) blocks.push([x, y, cz + 26, B.ruby]);
+  pushGate('abyss', (s) => s.flags.abyssOpen, blocks);
+}
+// beneath Old Lumera: the golden halls where the king kept his court of noon
+function buildNoonHalls() {
+  const { x: cx, z: cz, r } = NOON;
+  for (let z = cz - r; z <= cz + r; z++) for (let x = cx - r; x <= cx + r; x++) {
+    const d = Math.hypot(x - cx, z - cz);
+    if (d > r) continue;
+    for (let y = 4; y <= 11; y++) set(x, y, z, B.air);
+    set(x, 3, z, (x + z) % 2 ? B.gold : B.sandstone);
+    if ((x - cx) % 6 === 0 && (z - cz) % 6 === 0 && d > 4 && d < r - 2) for (let y = 4; y <= 11; y++) set(x, y, z, y % 3 ? B.sandstone : B.gold);
+  }
+  // the throne dais at the north end
+  fill(cx - 3, 4, cz - r + 2, cx + 3, 4, cz - r + 5, B.gold);
+  // the stair down from the ruins, sealed with gold until the noon comes
+  const blocks = [];
+  for (let k = 0; k <= 10; k++) for (let x = cx - 1; x <= cx + 1; x++) { const z = cz + 35 - k; for (let y = 14 - k; y <= 17; y++) set(x, y, z, B.air); set(x, 13 - k, z, B.sandstone); for (const s of [-2, 2]) for (let y = 14 - k; y <= 17; y++) if (y < 14) set(cx + s, y, z, B.gold); }
+  for (let z = cz + 24; z <= cz + 36; z++) for (let x = cx - 2; x <= cx + 2; x++) if (Math.abs(x - cx) === 2 || z === cz + 24) for (let y = 14; y <= 15; y++) set(x, y, z, B.gold);
+  for (let z = cz - r; z <= cz + r; z++) for (let x = cx - r; x <= cx + r; x++) if (Math.hypot(x - cx, z - cz) <= r) for (let y = 12; y <= 13; y++) if (!solid(get(x, y, z))) set(x, y, z, B.sandstone);
+  for (let x = cx - 1; x <= cx + 1; x++) for (let y = 14; y <= 16; y++) blocks.push([x, y, cz + 36, B.gold]);
+  pushGate('noon', (s) => s.flags.noonOpen, blocks);
+  // the old captain's spirit waits just inside
+  npcm('nh_captain', 'kaykit/Skeleton_Warrior', [cx + 3.5, 4, cz + 18.5], 'nh_captain', { face: 2, tint: '#a8d8ff' });
+}
+// new folk in the old villages: masters of the crafts, a smith, a cook, the arena keeper, and the ship's dock
+function buildOldExtras() {
+  // each stands on the ground where they are (ground() follows the village's offset while building)
+  const at = (x, z) => [x, ground(x, z), z];
+  building('hearth'); npc('hv_master', 'character-e', at(205.5, 389.5), 'hv_master', { face: 1 }); building(null);
+  building('saltmere');
+  npc('sm_arena', 'character-d', at(362.5, 333.5), 'sm_arena', { face: 1 }); npc('sm_cook', 'character-k', at(374.5, 333.5), 'sm_cook');
+  npc('sm_pell', 'character-q', at(376.5, 346.5), 'sm_pell'); npc('sm_hawk', 'character-b', at(378.5, 336.5), 'sm_hawk', { face: 1 });
+  prop({ type: 'prop', model: 'pirate/flag-high', pos: at(360.5, 330.5) }, { type: 'prop', model: 'survival/campfire-pit', pos: at(374.5, 331.5) });
+  building(null);
+  building('dunewell'); npc('dw_smith', 'character-j', at(326.5, 233.5), 'dw_smith', { face: 3 }); npc('dw_shade', 'character-m', at(308.5, 233.5), 'dw_shade', { face: 1 }); prop({ type: 'prop', model: 'survival/workbench-anvil', pos: at(328.5, 233.5) }); building(null);
+  building('frostgate'); npc('fg_brannoc', 'character-d', at(146.5, 184.5), 'fg_brannoc', { face: 3 }); npc('fg_tsu', 'character-r', at(127.5, 180.5), 'fg_tsu', { face: 1 }); building(null);
+  building('fenside'); npc('fs_lumi', 'character-h', at(150.5, 372.5), 'fs_lumi', { face: 3 }); building(null);
+  { const [hx, hz] = REGIONS.sporewood.c, g = ground(hx + 6, hz + 3); npc('sw_moss', 'character-c', [hx + 6.5, g, hz + 3.5], 'sw_moss', { face: 3 }); }
+}
+
+// ---------- what is placed in the east once the land is made ----------
+function dockAt(id, x0, z0) {
+  for (let r = 0; r < 40; r++) for (let a = 0; a < Math.max(1, r * 8); a++) {
+    const x = Math.round(x0 + Math.cos(a / Math.max(1, r * 8) * Math.PI * 2) * r), z = Math.round(z0 + Math.sin(a / Math.max(1, r * 8) * Math.PI * 2) * r);
+    if (!dry(x, z) || solid(get(x, ground(x, z), z)) || ground(x, z) > SEA + 5) continue;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const wx = x + dx * 2, wz = z + dz * 2; if (get(wx, SEA, wz) === B.water && get(wx, SEA + 1, wz) === B.air && get(x + dx, SEA + 1, z + dz) === B.air) return W.docks.push({ id, pos: [x + 0.5, ground(x, z), z + 0.5], water: [wx + 0.5, wz + 0.5] }); }
+  }
+}
+function placeEast() {
+  const S2 = SPAWN;
+  const noLand = new Set(['eastsea', 'vael']);
+  // monsters on the open isles
+  let k = 0;
+  for (let z = 8; z < WZ - 8; z += 10) for (let x = OLD_W + 4; x < WX - 8; x += 10) {
+    const reg = regionAt(x, z), list = S2[reg];
+    if (!list || noLand.has(reg) || REGIONS[reg].town || isClear(x, z) || rand(x, z, 21) > 0.5 || !dry(x, z)) continue;
+    const g = ground(x, z);
+    if (reg === 'deepholm' && g < 40) continue;
+    if (Math.hypot(x - SKY[3][0], z - SKY[3][1]) < 18) continue;
+    W.spawns.push({ id: 'e' + (k++), reg, monster: list[Math.floor(rand(x, z, 22) * list.length)], pos: [x + 0.5, g, z + 0.5] });
+  }
+  // and under roofs: a grid over each place, standing on whatever floor is there
+  const under = (reg, cx, cz, r, y, step, p, test = () => true) => {
+    for (let z = cz - r; z <= cz + r; z += step) for (let x = cx - r; x <= cx + r; x += step) {
+      if (rand(x, z, 23) > p || !test(x, z)) continue;
+      const s = standAt(x, y, z, 8);
+      if (s < 0 || regionAt3(x + 0.5, s, z + 0.5) !== reg) continue;
+      const list = S2[reg];
+      W.spawns.push({ id: 'u' + (k++), reg, monster: list[Math.floor(rand(x, z, 24) * list.length)], pos: [x + 0.5, s, z + 0.5] });
+    }
+  };
+  under('deep', DEEP.c[0], DEEP.c[1], DEEP.r, 13, 9, 0.5, (x, z) => Math.hypot(x - DELVE.c[0], z - DELVE.c[1]) > 16);
+  under('vael', VAEL.c[0], VAEL.c[1], VAEL.r - 2, 3, 8, 0.6);
+  under('abyss', SPIRE.x, SPIRE.z, 38, 17, 8, 0.45);
+  under('noonhall', NOON.x, NOON.z, NOON.r - 2, 5, 7, 0.5, (x, z) => z > NOON.z - NOON.r + 8);
+  for (let L = 1; L <= 5; L++) for (const [dx, dz] of [[-4, 4], [5, -5], [0, 6]].slice(0, L === 3 ? 2 : 3)) W.spawns.push({ id: 'tw' + L + dx, reg: 'clocktower', monster: S2.clocktower[(L + dx + 9) % 5], pos: [TOWER.x + dx + 0.5, 12 + 9 * (L - 1), TOWER.z + dz + 0.5] });
+  // the guardians of the east and of the deep places
+  const boss = (id, monster, pos) => W.spawns.push({ id, monster, boss: true, reg: regionAt3(pos[0], pos[1], pos[2]), pos });
+  boss('b_kraken', 'kraken', spot(1100, 700));
+  boss('b_tempest', 'tempest', spotAt(SKY[4][0], SKY[4][2], SKY[4][1]));
+  boss('b_morwen', 'morwen', [VAEL.c[0] + 0.5, 2, VAEL.c[1] - 1.5]);
+  boss('b_colossus', 'colossus', [TOWER.x0 + 5.5, 30, TOWER.z0 + 5.5]);
+  boss('b_varek', 'varek', [TOWER.x + 0.5, 57, TOWER.z + 0.5]);
+  boss('b_tyrant', 'tyrant', spotAt(NEST[0], 11, NEST[1]));
+  boss('b_aurel', 'aurel', [NOON.x + 0.5, 5, NOON.z - NOON.r + 4.5]);
+  boss('b_echo1', 'echodrake', spotAt(SPIRE.x, 12, SPIRE.z - 25));
+  boss('b_echo2', 'echowyrm', spotAt(SPIRE.x + 15, 8, SPIRE.z));
+  boss('b_echo3', 'echoknight', spotAt(SPIRE.x - 15, 8, SPIRE.z));
+  boss('b_umbra', 'umbra', [SPIRE.x + 0.5, 4, SPIRE.z + 0.5]);
+  // crystals of the lost faces
+  W.crystals.push({ job: 'dragoon', pos: [SKY[6][0] + 0.5, SKY[6][2] + 0.8, SKY[6][1] + 0.5], east: true, lost: true });
+  W.crystals.push({ job: 'summoner', pos: [VAEL.c[0] + 0.5, 3.8, VAEL.c[1] - 3.5], east: true, lost: true, need: 'b_morwen' });
+  W.crystals.push({ job: 'machinist', pos: [TOWER.x + 0.5 - 4, 39.8, TOWER.z + 0.5], east: true, lost: true });
+  // chests of the east: [x, z, item, n, floor height for places under a roof]
+  const EC = [
+    [1001, 702, 'hiether', 2], [1085, 606, 'coralscale'], [1120, 654, 'tmap5'], [1060, 738, 'megapotion', 2], [995, 598, 'remedy', 3], [1040, 668, 'goldcharm'],
+    [1022, 300, 'skyrobe', 1, 42], [1096, 360, 'windring', 1, 40], [1052, 358, 'hiether', 2, 40], [1074, 336, 'tmap6', 1, 42], [1052, 296, 'xpotion', 2, 54],
+    [1165, 815, 'coralrod', 1, 2], [1196, 846, 'megalixir', 1, 2], [1196, 814, 'mythrilknife', 1, 2],
+    [1232, 440, 'gearrifle'], [1222, 398, 'elixir', 1, 21], [1209, 401, 'stormcannon', 1, 39], [1190, 462, 'hiether', 2], [1220, 412, 'mythrilmail', 1, 48],
+    [1130, 150, 'mythrilsword', 1, 11], [1172, 108, 'tmap7', 1, 11], [1180, 166, 'mythrilclaws', 1, 11], [1112, 130, 'elixir', 1, 11], [1160, 150, 'megapotion', 2, 46], [1188, 120, 'expcharm', 1, 46],
+    [SPIRE.x + 34, SPIRE.z - 6, 'megalixir', 1, 16], [SPIRE.x - 33, SPIRE.z + 8, 'abyssrod', 1, 16], [SPIRE.x + 6, SPIRE.z - 24, 'adamant', 2, 12], [SPIRE.x - 4, SPIRE.z + 15, 'darkward', 1, 8], [SPIRE.x + 3, SPIRE.z + 3, 'megalixir', 1, 4],
+    [NOON.x - 12, NOON.z + 10, 'elixir', 1, 4], [NOON.x + 14, NOON.z - 6, 'sagestaff', 1, 4], [NOON.x - 8, NOON.z - 14, 'sunshard', 3, 4],
+  ];
+  for (const [x, z, item, n = 1, y] of EC) W.chests.push({ id: `e${x}_${z}`, item, n, pos: y === undefined ? spot(x, z) : spotAt(x, y, z) });
+  // a few more on the old land
+  for (const [x, z, item, n = 1] of [[140, 380, 'tmap1'], [80, 240, 'tmap4'], [300, 130, 'tmap2'], [40, 80, 'tmap3'], [226, 120, 'tmap8'], [404, 312, 'ironspear'], [110, 300, 'remedy', 2]]) W.chests.push({ id: `n${x}_${z}`, item, n, pos: spot(sc(x), sc(z)) });
+  // home stones of the east
+  const H = [['h_tide', 1036, 636], ['h_cog', 1178, 440], ['h_gale', 1026, 398], ['h_sky', 1046, 318, 44], ['h_vael', VAEL.c[0] + 3, VAEL.c[1] - VAEL.r - 2], ['h_tower', TOWER.x + 3, TOWER.z1 + 4],
+    ['h_deepm', DEEP.c[0] + 6, DEEP.c[1] + 70], ['h_delve', DELVE.c[0] + 4, DELVE.c[1] + 5, 11], ['h_abyss', SPIRE.x + 4, SPIRE.z + 34, 16], ['h_noon', NOON.x + 3, NOON.z + 21, 4]];
+  for (const [id, x, z, y] of H) W.homes.push({ id, pos: y === undefined ? spot(x, z) : spotAt(x, y, z) });
+  // docks where the ship can be called
+  dockAt('d_salt', ...tw('saltmere')(414, 336)); dockAt('d_tide', 1000, 640); dockAt('d_cog', 1150, 452); dockAt('d_gale', 1030, 404); dockAt('d_deep', DEEP.c[0], DEEP.c[1] + 72); dockAt('d_vael', VAEL.c[0], VAEL.c[1] - VAEL.r - 3); dockAt('d_kraken', 1100, 688);
+  // ore veins: on the old land and in the deep places
+  const ORE = [[sc(70), sc(140)], [sc(110), sc(92)], [sc(60), sc(100)], [sc(350), sc(130)], [sc(320), sc(100)], [sc(380), sc(70)], [sc(410), sc(60)], [sc(50), sc(30)], [sc(80), sc(40)], [1160, 128, 46], [1134, 160, 46]];
+  ORE.forEach(([x, z, y], i) => W.ores.push({ id: 'o' + i, pos: y === undefined ? spot(x, z) : spotAt(x, y, z) }));
+  for (let i = 0; i < 9; i++) { const a = i / 9 * 6.28 + 0.4, d = 18 + (i % 3) * 9; W.ores.push({ id: 'od' + i, pos: spotAt(Math.round(DEEP.c[0] + Math.cos(a) * d), 12, Math.round(DEEP.c[1] + Math.sin(a) * d)) }); }
+  for (let i = 0; i < 4; i++) { const a = i / 4 * 6.28 + 0.8, d = [35, 25, 15, 33][i]; W.ores.push({ id: 'oa' + i, pos: spotAt(Math.round(SPIRE.x + Math.cos(a) * d), [16, 12, 8, 16][i], Math.round(SPIRE.z + Math.sin(a) * d)) }); }
+  for (const o of W.ores) o.reg = regionAt3(o.pos[0], o.pos[1], o.pos[2]);
+  // treasure: where each map's X is
+  const DIG = [[sc(48), sc(392)], [sc(350), sc(150)], [sc(30), sc(40)], [sc(70), sc(250)], [1003, 700], [1022, 302, 42], [1168, 112, 11], [sc(232), sc(112)]];
+  DIG.forEach(([x, z, y], i) => W.digs.push({ id: 'dig' + (i + 1), map: i + 1, pos: y === undefined ? spot(x, z) : spotAt(x, y, z) }));
+  // things people have lost: [id, item, x, z, floor]
+  const PK = [['pk_shell', 'rainbowshell', sc(408), sc(300)], ['pk_page1', 'journalpage', sc(66), sc(70)], ['pk_page2', 'journalpage', sc(34), sc(100)], ['pk_page3', 'journalpage', sc(100), sc(40)],
+    ['pk_log', 'logbook', 1060, 734], ['pk_music', 'musicbox', VAEL.c[0] + 5, VAEL.c[1] + 8, 2], ['pk_cog1', 'memcog', 1220, 398, 12], ['pk_cog2', 'memcog', 1221, 411, 30], ['pk_cog3', 'memcog', 1220, 399, 48],
+    ['pk_fea1', 'couragefeather', 1022, 296, 42], ['pk_fea2', 'couragefeather', 1096, 362, 40], ['pk_fea3', 'couragefeather', 1092, 292, 46],
+    ['pk_fos1', 'fossil', 1176, 172, 11], ['pk_fos2', 'fossil', 1116, 128, 11], ['pk_fos3', 'fossil', 1190, 146, 11], ['pk_mor1', 'deepshroom', 1134, 176, 11], ['pk_mor2', 'deepshroom', 1104, 142, 11], ['pk_mor3', 'deepshroom', 1170, 96, 11]];
+  for (const [id, item, x, z, y] of PK) W.picks.push({ id, item, pos: y === undefined ? spot(x, z) : spotAt(x, y, z), need: id === 'pk_music' ? 'drained' : null });
+  W.decor.push({ model: 'pirate/ship-wreck', pos: [1063.5, ground(1063, 739), 739.5], h: 3.2, rot: 0.6 });
+  // memories of the other side, glowing blue
+  const EAT = [[1040, 628], [1062, 660], [1001, 704], [1086, 608], [1121, 650], [1058, 734], [1232, 832], [1176, 796], [1170, 840, 2], [1190, 822, 2], [1222, 442], [1166, 470], [1212, 410, 30], [1208, 410, 48],
+    [1030, 398], [1052, 360, 40], [1056, 318, 44], [1088, 298, 46], [1024, 302, 42], [1152, 214], [1146, 122, 11], [1114, 152, 11], [1182, 170, 46], [1126, 114, 11]];
+  EAT.forEach(([x, z, y], i) => W.echoes.push({ id: i, pos: y === undefined ? spot(x, z) : spotAt(x, y, z) }));
+  // signs of the east
+  for (const [id, x, z, y] of [['s_tide', 1030, 652], ['s_coral', 1084, 612], ['s_vael', VAEL.c[0] - 4, VAEL.c[1] - VAEL.r - 2], ['s_cog', 1186, 449], ['s_clock', TOWER.x - 4, TOWER.z1 + 4], ['s_gale', 1034, 398], ['s_sky', 1054, 322, 44], ['s_deep', DEEP.c[0] - 5, DEEP.c[1] + 70], ['s_delve', DELVE.c[0] - 3, DELVE.c[1] + 9, 11], ['s_abyss', SPIRE.x + 4, SPIRE.z + 25], ['s_noon', NOON.x + 3, NOON.z + 37]]) W.signs.push({ id, pos: y === undefined ? spot(x, z) : spotAt(x, y, z), rot: rand(x, z, 70) * 6.28 });
+  // berries in the sky, moss in the deep
+  let got = 0;
+  for (let i = 0; got < 9 && i < 400; i++) { const s = SKY[i % SKY.length], a = rand(i, 3, 140) * 6.28, d = rand(i, 4, 141) * (s[3] - 2), x = Math.round(s[0] + Math.cos(a) * d), z = Math.round(s[1] + Math.sin(a) * d), y = standAt(x, s[2], z, 3); if (y !== s[2] || W.herbs.some((h) => Math.hypot(h.pos[0] - x, h.pos[2] - z) < 5)) continue; W.herbs.push({ id: 'cloudberry' + got, kind: 'cloudberry', pos: [x + 0.5, y, z + 0.5] }); got++; }
+  got = 0;
+  for (let i = 0; got < 10 && i < 600; i++) { const a = rand(i, 5, 142) * 6.28, d = 8 + rand(i, 6, 143) * 40, x = Math.round(DEEP.c[0] + Math.cos(a) * d), z = Math.round(DEEP.c[1] + Math.sin(a) * d), y = standAt(x, 13, z, 6); if (y < 0 || regionAt3(x, y, z) !== 'deep' || W.herbs.some((h) => Math.hypot(h.pos[0] - x, h.pos[2] - z) < 7)) continue; W.herbs.push({ id: 'glowmoss' + got, kind: 'glowmoss', pos: [x + 0.5, y, z + 0.5] }); got++; }
+  // fish by the harbour and the reefs
+  shoreSpot(1014, 646, 'coral'); shoreSpot(1100, 712, 'coral'); shoreSpot(1160, 456, 'sea');
+  // where Ein waits in the east
+  for (const [x, z, y] of [[1044, 644], [1056, 312, 44], [VAEL.c[0] - 3, VAEL.c[1] - VAEL.r - 2], [DELVE.c[0] + 2, DELVE.c[1] - 3, 11], [1182, 441], [NOON.x - 3, NOON.z + 40], [SPIRE.x - 3, SPIRE.z + 30]]) W.ein2.push(y === undefined ? spot(x, z) : spotAt(x, y, z));
+  // trees and rocks under the roofs: a jungle in the deep, stone in the abyss
+  const TR = ['hex/tree_single_A.gltf', 'hex/trees_A_medium.gltf', 'survival/tree-tall', 'hex/tree_single_B.gltf'];
+  for (let z = DEEP.c[1] - DEEP.r; z <= DEEP.c[1] + DEEP.r; z += 3) for (let x = DEEP.c[0] - DEEP.r; x <= DEEP.c[0] + DEEP.r; x += 3) {
+    const y = standAt(x, 13, z, 6), r = rand(x, z, 150);
+    if (y < 0 || regionAt3(x, y, z) !== 'deep' || Math.abs(x - DEEP.c[0]) < 5 || get(x, y - 1, z) === B.cobble) continue;
+    if (r < 0.1) { W.decor.push({ model: TR[Math.floor(rand(x, z, 151) * TR.length)], pos: [x + 0.5, y, z + 0.5], h: 3.4 + rand(x, z, 152) * 2.4, rot: r * 60 }); set(x, y, z, B.post); set(x, y + 1, z, B.post); }
+    else if (r > 0.95) W.decor.push({ model: 'hex/rock_single_C.gltf', pos: [x + 0.5, y, z + 0.5], h: 0.7, rot: r * 60 });
+  }
+  for (let i = 0; i < 40; i++) { const a = rand(i, 7, 153) * 6.28, d = 5 + rand(i, 8, 154) * 34, x = Math.round(SPIRE.x + Math.cos(a) * d), z = Math.round(SPIRE.z + Math.sin(a) * d), y = standAt(x, 17, z, 14); if (y > 0) W.decor.push({ model: i % 3 ? 'grave/rocks-tall' : 'grave/pillar-obelisk', pos: [x + 0.5, y, z + 0.5], h: i % 3 ? 1.4 : 2.2, rot: a }); }
+}
+// gates opening and the drowned city draining, as the story moves on: returns the columns whose chunks changed
+let drained = false;
+export function applyWorldFlags(st) {
+  const out = new Map(), mark = (x, z) => out.set(Math.floor(x / CHUNK) + ',' + Math.floor(z / CHUNK), [x, z]);
+  for (const g of GATES) {
+    const open = !!g.open(st);
+    if (open === g.isOpen) continue;
+    g.isOpen = open;
+    for (const [x, y, z, b] of g.blocks) { set(x, y, z, open ? B.air : b); mark(x, z); }
+  }
+  const dr = !!st.flags.drained;
+  if (dr !== drained) {
+    drained = dr;
+    const [cx, cz] = VAEL.c;
+    for (let z = cz - VAEL.r; z <= cz + VAEL.r; z++) for (let x = cx - VAEL.r; x <= cx + VAEL.r; x++) {
+      if (Math.hypot(x - cx, z - cz) >= VAEL.r) continue;
+      let hit = false;
+      for (let y = 2; y <= SEA; y++) { const id = get(x, y, z); if (dr && id === B.water) { set(x, y, z, B.air); hit = true; } else if (!dr && id === B.air) { set(x, y, z, B.water); hit = true; } }
+      if (hit) mark(x, z);
+    }
+  }
+  return [...out.values()];
 }
 
 // ---------- meshing ----------

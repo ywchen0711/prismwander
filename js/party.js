@@ -2,10 +2,12 @@
 import { HEROES, JOBS, ABILITIES, ITEMS, START_JOBS, jpFor, expFor } from './data.js';
 import { L } from './i18n.js';
 
-export const S = { scanned: {}, members: [], inv: {}, gold: 0, jobs: [], crystals: [], chests: {}, homes: [], flags: {}, beaten: {}, pos: null, yaw: 0, time: 0, clock: 0.3, quests: {}, shards: [], picked: {}, kills: {}, fish: {} };
+export const S = { scanned: {}, members: [], inv: {}, gold: 0, jobs: [], crystals: [], chests: {}, homes: [], flags: {}, beaten: {}, pos: null, yaw: 0, time: 0, clock: 0.3, quests: {}, shards: [], picked: {}, kills: {}, fish: {}, crystals2: [], lost: [], mastery: {}, masterQ: {}, jobWins: {}, lore: [], seen: {}, defeated: {}, mined: {}, dug: {}, levers: {}, meal: null, boat: null, arena: {}, echoes: [], cooked: {} };
+// what a new journey and an older save both start from, for the things added with the Eastern Sea
+const fresh = () => ({ crystals2: [], lost: [], mastery: {}, masterQ: {}, jobWins: {}, lore: [], seen: {}, defeated: {}, mined: {}, dug: {}, levers: {}, meal: null, boat: null, arena: {}, echoes: [], cooked: {} });
 
 export function newParty() {
-  Object.assign(S, { members: [], inv: { potion: 4, ether: 1, antidote: 2 }, gold: 120, jobs: [...START_JOBS], crystals: [], chests: {}, homes: [], flags: {}, beaten: {}, pos: null, yaw: 0, time: 0, clock: 0.3, quests: {}, shards: [], picked: {}, kills: {}, fish: {}, scanned: {} });
+  Object.assign(S, { members: [], inv: { potion: 4, ether: 1, antidote: 2 }, gold: 120, jobs: [...START_JOBS], crystals: [], chests: {}, homes: [], flags: {}, beaten: {}, pos: null, yaw: 0, time: 0, clock: 0.3, quests: {}, shards: [], picked: {}, kills: {}, fish: {}, scanned: {}, ...fresh() });
   const gear = { lowe: ['shortsword', 'tunic'], flora: ['rod', 'tunic'], bal: ['mallet', 'tunic'], shia: ['dagger', 'tunic'] };
   for (const id of Object.keys(HEROES)) {
     const job = HEROES[id].job;
@@ -36,10 +38,15 @@ export function stats(m) {
 }
 // what a job has taught so far
 export const learned = (job, jl) => JOBS[job].learn.filter(([l]) => jl >= l).map(([, a]) => a);
+// a master's art comes with the job it belongs to, main or sub
+export const MASTER_ARTS = { fencer: 'swordsaint', mage: 'elemruin', cleric: 'miracle', rogue: 'mug', guardian: 'aegis', ranger: 'heavensbow', bard: 'anthem', monk: 'dragonfist', alchemist: 'philosopher', chrono: 'timewarp', dancer: 'tempest', astro: 'bigbang' };
 export function abilitiesOf(m) {
   const own = learned(m.job, jlvOf(m, m.job)), sub = m.sub ? learned(m.sub, jlvOf(m, m.sub)) : [];
-  return [...new Set([...own, ...sub])];
+  const arts = [m.job, m.sub].filter((j) => j && S.mastery && S.mastery[j] && MASTER_ARTS[j]).map((j) => MASTER_ARTS[j]);
+  return [...new Set([...own, ...sub, ...arts])];
 }
+// a job counts if it is someone's main or sub job
+export const hasJob = (m, job) => m.job === job || m.sub === job;
 export const hasPassive = (m, id) => abilitiesOf(m).includes(id) && ABILITIES[id].passive;
 export function canEquip(m, item) {
   const it = ITEMS[item];
@@ -62,7 +69,7 @@ export function gain(exp, jp) {
   for (const m of S.members) {
     if (m.hp <= 0) continue;
     m.exp += exp;
-    while (m.exp >= expFor(m.lv + 1) && m.lv < 60) {
+    while (m.exp >= expFor(m.lv + 1) && m.lv < 70) {
       const before = stats(m); m.lv++; const after = stats(m);
       m.hp += after.maxhp - before.maxhp; m.mp += after.maxmp - before.maxmp;
       out.push({ lv: true, t: L(`${heroName(m)}升到了 ${m.lv} 級！`, `${heroName(m)} reached level ${m.lv}!`) });
@@ -92,5 +99,5 @@ export const SAVE_VERSION = 3;
 export function save() { try { localStorage.setItem(KEY, JSON.stringify({ ...S, v: SAVE_VERSION, savedAt: Date.now() })); return true; } catch (e) { return false; } }
 export function hasSave() { try { return !!localStorage.getItem(KEY); } catch (e) { return false; } }
 export function load() {
-  try { const d = JSON.parse(localStorage.getItem(KEY)); if (!d) return false; if ((d.v || 1) < SAVE_VERSION) { d.pos = null; d.homes = []; d.chests = {}; d.beaten = {}; } Object.assign(S, { members: [], inv: {}, flags: {}, chests: {}, beaten: {}, clock: 0.3, quests: {}, shards: [], picked: {}, kills: {}, fish: {}, scanned: {} }, d); for (const m of S.members) m.row = m.row || 'front'; return true; } catch (e) { return false; }
+  try { const d = JSON.parse(localStorage.getItem(KEY)); if (!d) return false; if ((d.v || 1) < SAVE_VERSION) { d.pos = null; d.homes = []; d.chests = {}; d.beaten = {}; } Object.assign(S, { members: [], inv: {}, flags: {}, chests: {}, beaten: {}, clock: 0.3, quests: {}, shards: [], picked: {}, kills: {}, fish: {}, scanned: {}, ...fresh() }, d); for (const m of S.members) m.row = m.row || 'front'; return true; } catch (e) { return false; }
 }

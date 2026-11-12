@@ -79,6 +79,7 @@ const CATCH = {
   sea: [['bream', 70, 0.18], ['trout', 20, 0.18], ['prismfish', 6, 0.07, true]],
   marsh: [['mudcat', 80, 0.24], ['carp', 20, 0.22]],
   oasis: [['sandeel', 75, 0.18], ['goldkoi', 12, 0.09]],
+  coral: [['bream', 55, 0.18], ['trout', 25, 0.18], ['goldkoi', 10, 0.09], ['prismfish', 8, 0.07, true]],
 };
 
 export const SCRIPTS = {

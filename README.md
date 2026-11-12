@@ -35,6 +35,26 @@ Long ago the Prism that crowned the Spire shattered into eight crystals, each ho
 - **Turn-based battles** on a little 3D stage with the party's models in two staggered rows facing the monsters, with the land you were standing on behind them. Commands are Attack, Abilities, Items, Guard and Run. Battles include poison, sleep, stun, slow, buffs, and passives such as counter, cover and pharmacy.
 - **Home stones** heal and save the game, and let you warp between any of them you have touched. There are nineteen across the land, and supply caches are scattered everywhere. The Crystal Compass shows the nearest crystal still to find.
 
+## After the Spire: the Eastern Sea (Acts II and III)
+
+When the Prism is whole again, the fog over the eastern sea lifts. Nina the sailor in Saltmere lends the party her ship, the Wanderer, and a second journey begins.
+
+- **The story.** The Prism had twelve faces, not eight. Before the rite three hundred years ago, the king's chancellor Varek cut four away and carried them east to power his Noon Engine in a clockwork tower. Ein, mortal at last, sails with the party to find the four lost faces: in the floating isles of Cloudreach, in Vael (a city that drowned itself to stop time), in the cave world under Deepholm, and on the tower's fourth floor. When Varek falls the sun stops at noon across the land, and the Noon King Aurel wakes in golden halls beneath Old Lumera; Ein fights beside the party there. After that second ending, a stair opens beneath the Spire into the Prism Abyss, where three hundred years of the Prism's loneliness wait as Umbra, the optional superboss.
+- **New places.** The world is now 1290 by 966 blocks: the Eastern Sea with the Coral Isles and the harbour town of Tidehaven, Cogwick and the five-floor Clockwork Tower, the floating isles of Cloudreach with Skyhaven of the bird folk, the drowned city of Vael inside its ring of coral, Deepholm with the cave world of Hollowdeep and Delvers' Hollow inside it, and, under the old continent, the Noon Halls and the Prism Abyss. Ten more home stones.
+- **Sailing.** Board the ship at any dock (whistle and it comes) or wherever you left it; sail into low land to go ashore. Sea monsters rise out of the Eastern Sea now and then.
+- **Updraughts.** Step into a column of wind to be carried up to the sky isles; glide back down with the cape.
+- **Puzzles.** Set the tower's levers by the riddles on each floor's plaque to open the trapdoor above; turn three tide valves to drain Vael (the city really empties and the sea opens over it).
+- **24 jobs.** Eight new ones: Dragoon (Jump, untouchable mid-air), Summoner (spirits that appear on the field), Machinist (guns, turrets), Geomancer (the ground decides the element), Hexer (dark, silence, curse, doom), Duskknight (pays in HP), Mimic (learns monster techniques when hit and uses them with Lore) and Chef (food twice as strong).
+- **Master arts and link arts.** Twelve masters across the land each set a trial (win twelve battles with their craft as a main job) and teach a master art. Twelve link arts let two friends with the right jobs act together.
+- **New elements and ailments.** Wind and dark; silence, burns, freezing and doom.
+- **Guardians with tricks.** The Reef Kraken shields itself with arms that grow back, the Tempest Wyvern takes to the sky where only ranged attacks and jumps reach, Morwen absorbs water at high tide and fears lightning at low tide, the Gear Colossus vents steam and then overheats, Varek hides behind coglings, the Deepmaw Tyrant goes berserk and acts twice, Aurel burns everyone each round under the endless noon unless Ein's veil of dusk covers them, and Umbra alternates a mirror that throws magic back with armour that turns weapons aside.
+- **More of everything.** 115 monsters (20 guardians), 139 abilities plus 12 link arts and monster lore, 189 items (93 pieces of gear, 43 things to use, 23 materials).
+- **Crafting.** Monsters drop materials. Mine glittering ore veins with the pickaxe (a timing strike), take ore and parts to a smith (Dunewell, Tidehaven, Delvers' Hollow) to forge 22 pieces of gear, and cook 12 dishes from fish, herbs and drops. Eat a dish in battle to heal, or as a meal whose effect lasts several battles.
+- **The bestiary** records every monster met; scanned ones show their weaknesses, drops and haunts.
+- **The Saltmere Arena**: six ranks of three fights each, up to the Masked Blade.
+- **Treasure maps** mark a red X on the map; dig there.
+- **Village stories.** Tibb's rainbow shell, the Fenside granny's locket, the lost climber's journal, the smith's fire, the harbour kitchen, the wreck of the Gull's Wing, the song of Vael, Unit 7's memory, the fledgling who would not fly, the fossil collector, the hermit's abyss morels, and 24 blue echoes that tell the other side of that day.
+
 ## Controls
 
 | | Keyboard / mouse | Touch | Gamepad |
@@ -53,13 +73,13 @@ Long ago the Prism that crowned the Spire shattered into eight crystals, each ho
 - `js/main.js` streams chunks in around you and covers day and night, walking, jumping, the camera, interaction, roaming monsters, the minimap, the title and the ending.
 - `js/battle.js` runs the battles.
 - `js/party.js` covers levels, main and sub jobs, JP and saving.
-- `js/data.js` holds the jobs, abilities, items and monsters.
+- `js/data.js` holds the jobs, abilities, items and monsters; `js/data2.js` adds those of the east, link arts, recipes, forging and the arena.
 - `js/menu.js` has the menus, shops and inns.
-- `js/story.js` holds every conversation, the requests, the memory shards and the signposts.
+- `js/story.js` holds the first act's conversations, requests, memory shards and signposts; `js/story2.js` holds Acts II and III, the masters, the village stories, the echoes and the system scripts.
 - `js/models.js` loads the Kenney models and builds monsters out of blocks.
 
 There is no build step. Open `index.html` through any static web server. three.js 0.160.0 is loaded from unpkg.
 
 ## Credits
 
-See [CREDITS.md](CREDITS.md). The 3D models are by KayKit (Kay Lousberg) and Kenney, and the block textures are by Kenney; all are CC0. The music comes from the Ninja Adventure pack by Pixel-boy and AAA (CC0). The world, story, characters and code are original.
+See [CREDITS.md](CREDITS.md). The 3D models are by KayKit (Kay Lousberg), Kenney and Quaternius, and the block textures are by Kenney; all are CC0. The music comes from the Ninja Adventure pack by Pixel-boy and AAA (CC0). The world, story, characters and code are original.

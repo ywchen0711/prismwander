@@ -54,9 +54,11 @@ export function list(title, items, { cancel = true, start = 0, footer = '', widt
     let sel = Math.min(start, items.length - 1);
     const draw = () => {
       const it = items[sel];
-      root.innerHTML = `<div style="display:flex;gap:12px;align-items:flex-start;max-width:calc(100% - 20px)">${side ? `<div class="panel win">${side}</div>` : ''}<div class="panel win list" style="width:min(${width}px,calc(100vw - 30px))">${title ? `<h2>${esc(title)}</h2>` : ''}` +
+      // a long list keeps its description at the top, where scrolling cannot hide it
+      const descTop = items.length > 12 ? `<div class="small" style="margin-bottom:8px;min-height:36px;position:sticky;top:-14px;background:#16203a;padding:4px 0;z-index:1">${esc((it && it.desc) || footer || '')}</div>` : '';
+      root.innerHTML = `<div style="display:flex;gap:12px;align-items:flex-start;max-width:calc(100% - 20px)">${side ? `<div class="panel win">${side}</div>` : ''}<div class="panel win list" style="width:min(${width}px,calc(100vw - 30px))">${title ? `<h2>${esc(title)}</h2>` : ''}${descTop}` +
         items.map((o, i) => `<div class="opt${i === sel ? ' sel' : ''}${o.disabled ? ' off' : ''}" data-i="${i}"><div class="row"><span>${o.html || esc(o.label)}</span><span>${o.right !== undefined ? esc(o.right) : ''}</span></div></div>`).join('') +
-        `<div class="small" style="margin-top:8px;min-height:18px">${esc((it && it.desc) || footer || '')}</div></div></div>`;
+        (descTop ? '</div></div>' : `<div class="small" style="margin-top:8px;min-height:18px">${esc((it && it.desc) || footer || '')}</div></div></div>`);
       root.classList.add('on');
       const s = root.querySelector('.opt.sel'); if (s) s.scrollIntoView({ block: 'nearest' });
     };
@@ -88,11 +90,12 @@ export const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 void L;
 
 // fishing: wait for the bite, pull when the "!" shows, then stop the needle on the bright mark
-export function fishGame(width = 0.2) {
+// mining uses the same bar, starting straight away and with its own words
+export function fishGame(width = 0.2, label = null, quick = false) {
   return new Promise((res) => {
     const el = document.createElement('div'); el.id = 'fishui'; el.className = 'panel'; document.body.appendChild(el);
     const t0 = performance.now(), bite = 1200 + Math.random() * 2200, zone = 0.15 + Math.random() * (0.7 - width);
-    let phase = 'wait', tBite = 0, tBar = 0, needle = 0;
+    let phase = quick ? 'bar' : 'wait', tBite = 0, tBar = quick ? performance.now() : 0, needle = 0;
     const draw = (msg) => {
       el.innerHTML = `<div class="ft">${msg}</div>` + (phase === 'bar' ? `<div class="fbar"><i style="left:${zone * 100}%;width:${width * 100}%"></i><b style="left:${needle * 100}%"></b></div>` : '');
     };
@@ -110,7 +113,7 @@ export function fishGame(width = 0.2) {
           else if (now - tBite > 900) { finish(false); }
         } else {
           needle = 0.5 - Math.cos((now - tBar) / 700 * Math.PI) * 0.5;
-          draw(L('按 E 拉起！', 'Press E to reel in!'));
+          draw(label || L('按 E 拉起！', 'Press E to reel in!'));
           if (input.pressed('a')) finish(needle >= zone && needle <= zone + width);
           else if (now - tBar > 6000) finish(false);
         }

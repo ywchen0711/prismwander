@@ -1,0 +1,62 @@
+Models by Quaternius (https://quaternius.com), released under CC0 1.0 Universal (public domain).
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Each file was downloaded from its Poly Pizza page (author Quaternius, licence CC0):
+
+Alien.glb  "Alien"  https://poly.pizza/m/RRliSQBP7r
+Alien_Tall.glb  "Alien"  https://poly.pizza/m/HYUUkdugoP
+Alpaking.glb  "Alpaking"  https://poly.pizza/m/AQ8zbFoDln
+Alpaking_Evolved.glb  "Alpaking Evolved"  https://poly.pizza/m/UdJudob66v
+Armabee.glb  "Armabee"  https://poly.pizza/m/42djT5zJnx
+Armored_Catfish.glb  "Armored Catfish"  https://poly.pizza/m/mtd9QK5yCe
+Birb.glb  "Birb"  https://poly.pizza/m/gZ2ExU9OAB
+Blobfish.glb  "Blobfish"  https://poly.pizza/m/7Jh8vsARfN
+Blue_Demon.glb  "Blue Demon"  https://poly.pizza/m/S7jYW6Amye
+Bunny.glb  "Bunny"  https://poly.pizza/m/irZjWFARyl
+Cactoro.glb  "Cactoro"  https://poly.pizza/m/66CYX5UhRK
+Cactoro_Big.glb  "Cactoro"  https://poly.pizza/m/IGn9lhdama
+Demon.glb  "Demon"  https://poly.pizza/m/LnfIziKv4o
+Demon_Blocky.glb  "Demon"  https://poly.pizza/m/IkB63XOPvr
+Demon_Flying.glb  "Demon"  https://poly.pizza/m/Mo2ky6vkf8
+Dino.glb  "Dino"  https://poly.pizza/m/wuerCFCWNR
+Dragon.glb  "Dragon"  https://poly.pizza/m/3rUm1cN3yp
+Dragon_Evolved.glb  "Dragon Evolved"  https://poly.pizza/m/LlwD0QNUPj
+Dragon_Real.glb  "Dragon"  https://poly.pizza/m/VBvzjFIYws
+Enemy_Flying.glb  "Enemy Flying"  https://poly.pizza/m/kzpT6fNmM5
+Enemy_Large.glb  "Enemy Large"  https://poly.pizza/m/UgBmRVnQ9h
+Enemy_Small.glb  "Enemy Small"  https://poly.pizza/m/4LjT020LQh
+Fish.glb  "Fish"  https://poly.pizza/m/7V4gaDMQV8
+Frog.glb  "Frog"  https://poly.pizza/m/37wofOCOzG
+Frog_Real.glb  "Frog"  https://poly.pizza/m/9Z2V8fpazF
+Ghost.glb  "Ghost"  https://poly.pizza/m/Iip30bDHmu
+Ghost_Skull.glb  "Ghost Skull"  https://poly.pizza/m/TX8r9WBXpe
+Giant.glb  "Giant"  https://poly.pizza/m/BldaiPtyJa
+Glub.glb  "Glub"  https://poly.pizza/m/x59pqJscry
+Glub_Evolved.glb  "Glub Evolved"  https://poly.pizza/m/Z9lddNpM1M
+Goblin.glb  "Goblin"  https://poly.pizza/m/OdCOFSmEhl
+Goleling.glb  "Goleling"  https://poly.pizza/m/71gomWolax
+Goleling_Evolved.glb  "Goleling Evolved"  https://poly.pizza/m/iHEuXiH6Aj
+Green_Blob.glb  "Green Blob"  https://poly.pizza/m/y4kJh8EeYS
+Hywirl.glb  "Hywirl"  https://poly.pizza/m/zjr7CmWGER
+Mech.glb  "Mech"  https://poly.pizza/m/o3Ps8z8ByP
+Monkroose.glb  "Monkroose"  https://poly.pizza/m/j4rVPvxyLg
+Mushnub.glb  "Mushnub"  https://poly.pizza/m/LWKmS30Xxl
+Mushnub_Evolved.glb  "Mushnub Evolved"  https://poly.pizza/m/0SZyA6MV51
+Mushroom_King.glb  "Mushroom King"  https://poly.pizza/m/grnFTziU8u
+Ninja.glb  "Ninja"  https://poly.pizza/m/xGYmeDpfTu
+Orc.glb  "Orc"  https://poly.pizza/m/5vO2YJsPEf
+Orc_Brute.glb  "Orc Enemy"  https://poly.pizza/m/Q3z8ZX4kUy
+Pink_Slime.glb  "Pink Slime"  https://poly.pizza/m/AyP8sQmDLh
+Skeleton_Blocky.glb  "Skeleton"  https://poly.pizza/m/DM4QScSmbS
+Spiky_Blob.glb  "Green Spiky Blob"  https://poly.pizza/m/IoWG5F9WUc
+Squidle.glb  "Squidle"  https://poly.pizza/m/54QyRcsogk
+Stegosaurus.glb  "Stegosaurus"  https://poly.pizza/m/eFcNbOlpvl
+TRex.glb  "T-Rex"  https://poly.pizza/m/UYtneO5FpF
+Tribal.glb  "Tribal"  https://poly.pizza/m/t91lDHaqRW
+Triceratops.glb  "Triceratops"  https://poly.pizza/m/IGvrUqGrRM
+Velociraptor.glb  "Velociraptor"  https://poly.pizza/m/cnlGH2UcDd
+Wizard.glb  "Wizard"  https://poly.pizza/m/o87Upt5uHX
+Yeti.glb  "Yeti"  https://poly.pizza/m/ceRHrn8HHE
+Yeti_Blob.glb  "Yeti"  https://poly.pizza/m/S1E7idPFhe
+Yeti_Blocky.glb  "Yeti"  https://poly.pizza/m/xtMYEVzyw0
+Zombie_Blocky.glb  "Zombie"  https://poly.pizza/m/JoBvxIUpZP

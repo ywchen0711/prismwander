@@ -16,11 +16,21 @@ By [Kenney](https://kenney.nl), released under CC0 1.0:
 - **Mini Dungeon**: the forest orc, chests and barrels. https://kenney.nl/assets/mini-dungeon
 - **Voxel Pack**: the block textures, packed into `assets/tex/blocks.png`. https://kenney.nl/assets/voxel-pack (The mushroom-cap and mossy-stone tiles in the last row of the atlas were drawn for this game, the moss from the pack's grey stone.)
 
+- **Pirate Kit**: the ship, docks, palm trees, flags, barrels, the shipwreck. https://kenney.nl/assets/pirate-kit
+- **Survival Kit**: the anvils and workbenches, campfires, ore rocks and tall trees. https://kenney.nl/assets/survival-kit
+
+By [Quaternius](https://quaternius.com), released under CC0 1.0:
+
+- **Ultimate Monsters** and other Quaternius packs (animated monsters, robots, dinosaurs and the Mech): most monsters of the Eastern Sea, the summoned spirits, Unit 7 and the bird folk and Delvers. Each model was downloaded from its Poly Pizza page by Quaternius, licence CC0; the list of files with their source pages is in `assets/models/quat/License.txt`. https://quaternius.com/packs/ultimatemonsters.html · https://poly.pizza/u/Quaternius
+- Many of them are recoloured in code for this game.
+
+More tiles from the Kenney **Voxel Pack** (coral, sandstone, sky stone, gold, iron, ruby, planks, brass track, glass frames) were added to the block atlas.
+
 Each pack's own licence file sits next to its models in `assets/models/` and `assets/tex/`. The slimes, crabs, golems, wisps, scorpions, the treants, the drakes and the Prism Heart are built from boxes in code for this game, and so are the memory shards, signposts, herbs and ripples.
 
 ## Music and jingles (CC0)
 
-From the **Ninja Adventure Asset Pack** by [Pixel-boy](https://pixel-boy.itch.io/) and AAA, released under CC0 1.0: https://pixel-boy.itch.io/ninja-adventure-asset-pack. Its licence is in `assets/music/`.
+From the **Ninja Adventure Asset Pack** by [Pixel-boy](https://pixel-boy.itch.io/) and AAA, released under CC0 1.0: https://pixel-boy.itch.io/ninja-adventure-asset-pack. Its licence is in `assets/music/`. The Eastern Sea added thirteen more of its tracks (Boat, Aquatic, Temple, Revelation, Dark Forest, Lost Village, Crypt, Dark Castle, Fight, Calm Village, Good Time, Tension, Lament).
 
 ## Code library
 
