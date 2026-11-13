@@ -2,7 +2,7 @@
 import { JOBS, ITEMS, ABILITIES, HEROES, MONSTERS, jpFor, monsterStats, affinity, EL_NAME } from './data.js';
 import { RECIPES, FORGE } from './data2.js';
 import { S, stats, heroName, jlvOf, learned, setJob, canEquip, addItem, count, fullHeal, save, MASTER_ARTS } from './party.js';
-import { list, say, ask, toast } from './ui.js';
+import { list, say, ask, toast, statusHTML } from './ui.js';
 import { sfx, vol, setVolumes, music, setMusic } from './audio.js';
 import { L, LANG, setLang } from './i18n.js';
 import { REGIONS, WX, WZ, W, ground, SEA, get, B, SPAWN, OLD_W } from './world.js';
@@ -15,7 +15,7 @@ export const MAPCOL = { [B.grass]: [96, 176, 72], [B.sand]: [232, 214, 160], [B.
 const bar = (v, max, col) => `<div class="bar"><i style="width:${Math.max(0, Math.min(100, v / max * 100))}%;background:${col}"></i></div>`;
 function memberCard(m, sel = false) {
   const s = stats(m);
-  return `<div class="mem${sel ? ' sel' : ''}"><div class="row"><span class="nm">${heroName(m)}</span><span class="small">Lv ${m.lv}</span></div>` +
+  return `<div class="mem${sel ? ' sel' : ''}"><div class="row"><span><span class="nm">${heroName(m)}</span> ${m.hp > 0 ? statusHTML(m.status) : ''}</span><span class="small">Lv ${m.lv}</span></div>` +
     `<div class="jb">${JOBS[m.job].name} ${jlvOf(m, m.job)}${m.sub ? ' / ' + JOBS[m.sub].name + ' ' + jlvOf(m, m.sub) : ''}</div>` +
     `<div class="row small"><span>HP ${m.hp}/${s.maxhp}</span><span>MP ${m.mp}/${s.maxmp}</span></div>${bar(m.hp, s.maxhp, '#7cf29a')}${bar(m.mp, s.maxmp, '#7cc4ff')}</div>`;
 }
@@ -203,7 +203,7 @@ async function statusMenu() {
   const m = S.members[i], s = stats(m);
   const all = S.jobs.map((j) => `${JOBS[j].name} ${jlvOf(m, j)}`).join('　');
   await list(`${heroName(m)}　Lv ${m.lv}`, [
-    { label: `HP ${m.hp}/${s.maxhp}　MP ${m.mp}/${s.maxmp}` }, { label: `${L('攻擊', 'ATK')} ${s.atk}　${L('防禦', 'DEF')} ${s.dfn}` },
+    { label: `HP ${m.hp}/${s.maxhp}　MP ${m.mp}/${s.maxmp}` }, ...(m.hp > 0 && statusHTML(m.status) ? [{ html: L('狀態：', 'Status: ') + statusHTML(m.status) }] : []), { label: `${L('攻擊', 'ATK')} ${s.atk}　${L('防禦', 'DEF')} ${s.dfn}` },
     { label: `${L('魔力', 'MAG')} ${s.mag}　${L('精神', 'SPR')} ${s.spr}　${L('速度', 'AGI')} ${s.agi}` },
     { label: `${L('經驗值', 'EXP')} ${m.exp}` },
     { label: L('奧義：', 'Master arts: ') + (Object.keys(S.mastery).filter((j) => S.mastery[j] && MASTER_ARTS[j]).map((j) => ABILITIES[MASTER_ARTS[j]].name).join('、') || '-') },

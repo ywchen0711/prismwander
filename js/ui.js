@@ -4,6 +4,25 @@ import { input } from './input.js';
 import { sfx } from './audio.js';
 import { L } from './i18n.js';
 
+// short coloured status tags so the panels show who is poisoned, asleep, buffed... at a glance
+const STTAG = {
+  poison: ['毒', 'PSN', '#c890ff'], sleep: ['眠', 'SLP', '#a0c0ff'], stun: ['暈', 'STN', '#ffe070'], slow: ['緩', 'SLW', '#f8b060'],
+  blind: ['盲', 'BLD', '#b8b8c8'], regen: ['再生', 'RGN', '#80f8a0'], silence: ['默', 'MUT', '#f8a0d0'], burn: ['灼', 'BRN', '#ff8050'],
+  freeze: ['凍', 'FRZ', '#a0e8ff'], doom: ['死', 'DOOM', '#ff5a5a'], dusk: ['暮', 'DUSK', '#c8a0ff'],
+};
+const BUFN = { str: ['攻', 'ATK'], def: ['防', 'DEF'], agi: ['速', 'SPD'], mag: ['魔', 'MAG'] };
+// status: { poison: turns }, buffs: { str: { k, t } }, extra: [[text, colour]]
+export function statusTags(status, buffs, extra = []) {
+  const out = Object.keys(status || {}).filter((k) => status[k] && STTAG[k]).map((k) => ({ s: L(STTAG[k][0], STTAG[k][1]) + (k === 'doom' ? status[k] : ''), col: STTAG[k][2] }));
+  for (const [k, b] of Object.entries(buffs || {})) if (BUFN[k] && b && b.k !== 1) out.push({ s: L(BUFN[k][0], BUFN[k][1]) + (b.k > 1 ? '↑' : '↓'), col: b.k > 1 ? '#ffd070' : '#90a0e8' });
+  for (const [s, col] of extra) out.push({ s, col });
+  return out;
+}
+export function statusHTML(status, buffs, extra) {
+  const t = statusTags(status, buffs, extra);
+  return t.length ? `<span class="sts">${t.map((x) => `<b style="color:${x.col}">${x.s}</b>`).join('')}</span>` : '';
+}
+
 const $ = (id) => document.getElementById(id);
 const stack = [];
 export const UI = { get active() { return stack.length > 0; }, clear() { while (stack.length) stack.pop().close(); } };

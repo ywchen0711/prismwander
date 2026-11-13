@@ -10,7 +10,7 @@ import { S, stats, abilitiesOf, hasPassive, heroName, gain, addItem, count, gear
 import { input } from './input.js';
 import { sfx, playMusic, jingle } from './audio.js';
 import { L } from './i18n.js';
-import { UI, list } from './ui.js';
+import { UI, list, statusHTML } from './ui.js';
 import { Q } from './quality.js';
 
 const $ = (id) => document.getElementById(id);
@@ -89,7 +89,6 @@ const ELC = { fire: '#ff9050', ice: '#a0e8ff', bolt: '#fff080', water: '#70b0ff'
 const EL_COL = { fire: 0xff7030, ice: 0x90e0ff, bolt: 0xfff070, holy: 0xfff8d0, water: 0x60a0ff, earth: 0xc09050, wind: 0xa0ffc0, dark: 0x8050c0, none: 0xd0a0ff };
 const elName = (el) => (EL_NAME[el] ? L(EL_NAME[el][0], EL_NAME[el][1]) : '');
 // what each status is called, short and long
-const ST_SHORT = { poison: ['毒', 'Psn'], sleep: ['睡', 'Zz'], stun: ['暈', 'Stn'], slow: ['緩', 'Slw'], blind: ['盲', 'Bld'], regen: ['生', 'Rgn'], silence: ['默', 'Sil'], burn: ['灼', 'Brn'], freeze: ['凍', 'Frz'], doom: ['亡', 'Doom'], dusk: ['暮', 'Dusk'] };
 const statusWord = (s) => ({ poison: L('中毒', 'POISON'), sleep: L('睡著', 'SLEEP'), stun: L('暈眩', 'STUN'), slow: L('減速', 'SLOW'), blind: L('失明', 'BLIND'), regen: L('再生', 'REGEN'), silence: L('沉默', 'SILENCE'), burn: L('灼傷', 'BURN'), freeze: L('凍結', 'FROZEN'), doom: L('死亡宣告', 'DOOM'), dusk: L('暮光', 'DUSK') }[s]);
 // how long each ailment lasts when it lands
 const ST_TURNS = { poison: 9, sleep: 2, stun: 1, slow: 4, blind: 4, silence: 3, burn: 3, freeze: 1, doom: 4 };
@@ -216,8 +215,9 @@ function drawParty() {
   const el = $('bparty'); if (!el) return;
   el.innerHTML = S.members.map((m) => {
     const s = stats(m), act = B.active === m, dead = m.hp <= 0;
-    const st = Object.keys(m.status).map((k) => (ST_SHORT[k] ? L(...ST_SHORT[k]) + (k === 'doom' ? m.status.doom : '') : '')).filter(Boolean).concat(m.charge ? [L('蓄', 'Chg')] : []).concat(m.jumping ? [L('跳', 'Jmp')] : []).join(' ');
-    return `<div class="hb${act ? ' act' : ''}${dead ? ' dead' : ''}"><div class="row"><span>${heroName(m)} <span class="small">${m.row === 'back' ? L('後', 'B') : L('前', 'F')}</span></span><span class="small">${st}</span></div>` +
+    // every ailment and buff as a coloured tag
+    const st = dead ? '' : statusHTML(m.status, m.buffs, [...(m.charge ? [[L('蓄', 'CHG'), '#ffe27a']] : []), ...(m.jumping ? [[L('跳', 'JMP'), '#9fe0ff']] : [])]);
+    return `<div class="hb${act ? ' act' : ''}${dead ? ' dead' : ''}"><div class="row"><span>${heroName(m)} <span class="small">${m.row === 'back' ? L('後', 'B') : L('前', 'F')}</span></span>${st}</div>` +
       `<div class="row small"><span>HP ${m.hp}/${s.maxhp}</span><span>MP ${m.mp}</span></div><div class="bar"><i style="width:${Math.max(0, m.hp / s.maxhp * 100)}%;background:${m.hp < s.maxhp / 4 ? '#ff7a8a' : '#7cf29a'}"></i></div></div>`;
   }).join('') + (B.guest ? `<div class="hb"><div class="row"><span>${B.guest.name}</span><span class="small">${L('同行', 'Guest')}</span></div></div>` : '');
 }

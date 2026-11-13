@@ -36,12 +36,16 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0a1020; col
 .bar { height: 6px; border-radius: 3px; background: #1a2544; overflow: hidden; margin: 3px 0 4px; }
 .bar i { display: block; height: 100%; }
 .small { font-size: 13px; color: var(--dim); }
+.sts { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 0 5px; font-size: 13px; }
+.sts b { font-weight: normal; }
 .list { min-width: 260px; }
 .row { display: flex; justify-content: space-between; gap: 16px; }
 #battleui { position: fixed; inset: 0; pointer-events: none; display: none; }
 #battleui.on { display: block; }
 #bparty { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); width: min(760px, calc(100% - 16px)); padding: 8px 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; font-size: 14px; }
 #bparty .hb.act { color: var(--gold); }
+#bparty .hb .row { gap: 6px; }
+#bparty .hb .row > span:first-child { white-space: nowrap; }
 #bparty .hb.dead { color: var(--bad); }
 #bmsg { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); padding: 8px 18px; font-size: 16px; min-width: 240px; text-align: center; display: none; }
 #bmsg.on { display: block; }
