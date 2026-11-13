@@ -274,7 +274,7 @@ export async function shop(stock) {
     if (r < 0) return;
     if (r === 0) {
       for (;;) {
-        const k = await list(L('買什麼？', 'Buy what?'), stock.map((id) => ({ label: ITEMS[id].name, right: ITEMS[id].price, disabled: ITEMS[id].price > S.gold, desc: (ITEMS[id].desc || describeGear(id)) + `　${L('持有', 'Have')} ${count(id)}` + (ITEMS[id].slot === 'weapon' ? '　' + kindName(ITEMS[id].kind) : '') })), { width: 360, footer: `${L('金幣', 'Gold')} ${S.gold}` });
+        const k = await list(L(`買什麼？　金幣 ${S.gold}`, `Buy what?  Gold ${S.gold}`), stock.map((id) => ({ label: ITEMS[id].name, right: ITEMS[id].price, disabled: ITEMS[id].price > S.gold, desc: (ITEMS[id].desc || describeGear(id)) + `　${L('持有', 'Have')} ${count(id)}` + (ITEMS[id].slot === 'weapon' ? '　' + kindName(ITEMS[id].kind) : '') })), { width: 360, footer: `${L('金幣', 'Gold')} ${S.gold}` });
         if (k < 0) break;
         S.gold -= ITEMS[stock[k]].price; addItem(stock[k]); sfx('chest');
       }

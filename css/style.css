@@ -24,7 +24,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0a1020; col
 .opt.sel { background: rgba(111, 216, 255, 0.16); }
 .opt.sel::before { content: '▶'; position: absolute; left: 6px; color: var(--edge); font-size: 12px; top: 6px; }
 .opt.off { color: #6b7a9a; }
-#menu { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(4, 8, 20, 0.55); }
+#menu { position: fixed; inset: 0; display: none; align-items: safe center; justify-content: safe center; overflow: auto; padding: 10px 0; background: rgba(4, 8, 20, 0.55); }
 #menu.on { display: flex; }
 .win { padding: 14px 16px; font-size: 15px; max-height: calc(100% - 30px); max-height: calc(100dvh - 40px); overflow: auto; }
 .win h2 { margin: 0 0 8px; font-size: 18px; color: var(--gold); font-weight: normal; }
@@ -47,7 +47,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0a1020; col
 #bparty .hb .row { gap: 6px; }
 #bparty .hb .row > span:first-child { white-space: nowrap; }
 #bparty .hb.dead { color: var(--bad); }
-#bmsg { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); padding: 8px 18px; font-size: 16px; min-width: 240px; text-align: center; display: none; }
+#bmsg { position: absolute; left: 50%; top: 46px; transform: translateX(-50%); padding: 8px 18px; font-size: 16px; min-width: 240px; width: max-content; max-width: calc(100vw - 24px); text-align: center; display: none; }
 #bmsg.on { display: block; }
 #bcmd { position: absolute; right: 16px; bottom: 112px; padding: 8px 6px; font-size: 15px; display: none; pointer-events: auto; min-width: 170px; max-height: 50vh; overflow: auto; }
 #bcmd.on { display: block; }
@@ -90,3 +90,15 @@ body.touching #touch { display: block; }
 #bview { position: absolute; left: 10px; top: 10px; display: flex; gap: 8px; align-items: center; font-size: 12px; color: #fff; text-shadow: 0 1px 2px #000; }
 #bview button { pointer-events: auto; font: inherit; color: #fff; background: rgba(20,28,48,.72); border: 1px solid rgba(255,255,255,.35); border-radius: 6px; padding: 4px 8px; cursor: pointer; }
 @media (pointer: coarse) { #bview span { display: none; } }
+
+/* on a narrow screen the party panel goes above the menu instead of being squeezed off the left edge,
+   and the music button steps aside while a menu or dialogue is open so it does not cover the list */
+@media (max-width: 640px) {
+  #menu > div { flex-wrap: wrap; justify-content: center; }
+  #menu > div > .panel.win:not(.list) { width: min(420px, calc(100vw - 30px)); }
+  #menu > div > .panel.win:not(.list) .cols { flex-direction: row !important; }
+  #menu .mem { width: calc(50% - 6px); padding: 6px 8px; }
+  #menu .mem .row { gap: 6px; }
+  #menu .mem .row.small > span { white-space: nowrap; }
+  body:has(#menu.on) #musicBtn, body:has(#dialog.on) #musicBtn { visibility: hidden; }
+}
