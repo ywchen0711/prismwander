@@ -149,3 +149,14 @@ body.touching #touch { display: block; }
 body:has(#bcmd.on) #musicBtn { visibility: hidden; }
 .det .la:not(:has(.jl)) { grid-template-columns: 1fr; }
 .det .la:not(:has(.jl)) > span { grid-column: 1; }
+/* menus keep one size while the cursor moves: the detail panel has a fixed height (it scrolls inside),
+   list descriptions reserve their lines, and the battle list keeps one width */
+#menu > .hasdet > .det { height: min(560px, calc(100dvh - 40px)); }
+#menu .list > .small { min-height: 42px !important; }
+#bcmd { width: 250px; min-width: 0; max-width: calc(100vw - 32px); }
+#bcmd .bdesc { max-width: none; min-height: calc(1.4em * 3 + 11px); }
+@media (max-width: 760px) {
+  #menu > .hasdet > .det { height: 46dvh; max-height: 46dvh; }
+  #menu > .hasdet > .list { height: 43dvh; }
+}
+@media (max-width: 640px) { #bcmd { width: min(230px, calc(100vw - 32px)); } }

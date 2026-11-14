@@ -442,7 +442,7 @@ async function commandFor(p, canBack) {
     if (lore.length) opts.push({ id: 'lore', label: L('擬態', 'Lore'), disabled: !!m.status.silence, desc: L('使用學會的魔物招式', 'use monster techniques you have learned') });
     opts.push({ id: 'item', label: L('道具', 'Items'), disabled: !Object.keys(S.inv).some((k) => ITEMS[k].use && ITEMS[k].use !== 'tent'), desc: L('使用道具', 'use an item') },
       { id: 'guard', label: L('防禦', 'Guard'), desc: L('這回合受到的傷害減半，最先行動', 'halve damage this round, act first') },
-      { id: 'row', label: m.row === 'back' ? L('換到前排', 'To front row') : L('換到後排', 'To back row'), desc: L('後排受到的物理傷害少四成，但近戰傷害也降低（弓、槍不受影響）。不消耗回合', 'Back row takes 40% less physical damage but deals less in melee (bows and guns are unaffected). Costs no turn') },
+      { id: 'row', label: m.row === 'back' ? L('換到前排', 'To front row') : L('換到後排', 'To back row'), desc: L('後排物理傷害減四成，近戰也變弱（弓、槍不受影響）。不耗回合', 'Back row: 40% less physical damage, weaker melee (bows, guns unaffected). Free action') },
       { id: 'flee', label: L('逃跑', 'Run'), disabled: !B.canFlee });
     const r = await cmdMenu(opts, { cancel: canBack });
     if (r < 0) return 'back';
