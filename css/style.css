@@ -147,3 +147,5 @@ body.touching #touch { display: block; }
 /* a long battle list keeps its description pinned at the bottom, and the music button steps aside */
 #bcmd .bdesc { position: sticky; bottom: -8px; background: #121a38; padding-bottom: 6px; z-index: 1; }
 body:has(#bcmd.on) #musicBtn { visibility: hidden; }
+.det .la:not(:has(.jl)) { grid-template-columns: 1fr; }
+.det .la:not(:has(.jl)) > span { grid-column: 1; }

@@ -1,18 +1,19 @@
 // The party: levels, a main job and a sub job each, job levels earned with JP, equipment, items and saving.
-import { HEROES, JOBS, ABILITIES, ITEMS, START_JOBS, jpFor, expFor } from './data.js';
+import { HEROES, JOBS, ABILITIES, ITEMS, MONSTERS, START_JOBS, jpFor, expFor } from './data.js';
 import { L } from './i18n.js';
 import { JL_MAX, JOB_INFO, supSlots } from './data3.js';
+import { BOOK_REWARDS, MASTERY_REWARDS } from './data4.js';
 
 export const S = { scanned: {}, members: [], inv: {}, gold: 0, jobs: [], crystals: [], chests: {}, homes: [], flags: {}, beaten: {}, pos: null, yaw: 0, time: 0, clock: 0.3, quests: {}, shards: [], picked: {}, kills: {}, fish: {}, crystals2: [], lost: [], mastery: {}, masterQ: {}, jobWins: {}, lore: [], seen: {}, defeated: {}, mined: {}, dug: {}, levers: {}, meal: null, boat: null, arena: {}, echoes: [], cooked: {} };
 // what a new journey and an older save both start from, for the things added with the Eastern Sea
-const fresh = () => ({ crystals2: [], lost: [], mastery: {}, masterQ: {}, jobWins: {}, lore: [], seen: {}, defeated: {}, mined: {}, dug: {}, levers: {}, meal: null, boat: null, arena: {}, echoes: [], cooked: {} });
+const fresh = () => ({ crystals2: [], lost: [], mastery: {}, masterQ: {}, jobWins: {}, lore: [], seen: {}, defeated: {}, mined: {}, dug: {}, levers: {}, meal: null, boat: null, arena: {}, echoes: [], cooked: {}, rewards: {}, hunts: {} });
 
 export function newParty() {
   Object.assign(S, { members: [], inv: { potion: 4, ether: 1, antidote: 2 }, gold: 120, jobs: [...START_JOBS], crystals: [], chests: {}, homes: [], flags: {}, beaten: {}, pos: null, yaw: 0, time: 0, clock: 0.3, quests: {}, shards: [], picked: {}, kills: {}, fish: {}, scanned: {}, ...fresh() });
   const gear = { lowe: ['shortsword', 'tunic'], flora: ['rod', 'tunic'], bal: ['mallet', 'tunic'], shia: ['dagger', 'tunic'] };
   for (const id of Object.keys(HEROES)) {
     const job = HEROES[id].job;
-    const m = { id, row: id === 'flora' || id === 'bal' ? 'back' : 'front', lv: 1, exp: 0, job, sub: null, jlv: { [job]: 1 }, jp: { [job]: 0 }, equip: { weapon: gear[id][0], armor: gear[id][1], acc: null }, sup: [], status: {}, buffs: {} };
+    const m = { id, row: id === 'flora' || id === 'bal' ? 'back' : 'front', lv: 1, exp: 0, job, sub: null, jlv: { [job]: 1 }, jp: { [job]: 0 }, equip: { weapon: gear[id][0], armor: gear[id][1], acc: null }, sup: [], cmd: null, status: {}, buffs: {} };
     const s = stats(m); m.hp = s.maxhp; m.mp = s.maxmp; S.members.push(m);
   }
 }
@@ -67,6 +68,24 @@ export const hasPassive = (m, id) => !!(ABILITIES[id] && ABILITIES[id].passive) 
 // every passive a hero has learned in any job, which is what the support slots can hold
 export function learnedPassives(m) { const out = []; for (const job of Object.keys(m.jlv || {})) if (JOBS[job]) for (const a of learned(job, jlvOf(m, job))) if (ABILITIES[a].passive && !out.includes(a)) out.push(a); return out; }
 export { supSlots };
+// a mastered job (not the main or sub) can lend all its actions as an extra battle command
+export const cmdJobs = (m) => Object.keys(m.jlv || {}).filter((j) => JOBS[j] && mastered(m, j) && j !== m.job && j !== m.sub);
+export function cmdAbilities(m) {
+  if (!m.cmd || !JOBS[m.cmd] || !mastered(m, m.cmd) || m.cmd === m.job || m.cmd === m.sub) return [];
+  const own = new Set(abilitiesOf(m));
+  return learned(m.cmd, JL_MAX).filter((a) => !ABILITIES[a].passive && !own.has(a));
+}
+// masteries across the whole party, and distinct monsters defeated
+export const masteryCount = () => S.members.reduce((n, m) => n + Object.keys(m.jlv || {}).filter((j) => mastered(m, j)).length, 0);
+export const bookCount = () => Object.keys(S.defeated || {}).filter((id) => MONSTERS[id]).length;
+export const bookNeed = (n) => (n === Infinity ? Object.keys(MONSTERS).length : n);
+// hand out any reward track prizes that have been earned; returns lines to show
+export function milestones() {
+  S.rewards = S.rewards || {}; const out = [];
+  for (const [n, item, c] of BOOK_REWARDS) { const k = 'book' + n; if (!S.rewards[k] && bookCount() >= bookNeed(n)) { S.rewards[k] = true; addItem(item, c); out.push({ lv: true, t: L(`魔物圖鑑達成 ${bookNeed(n)} 種！獲得${ITEMS[item].name}${c > 1 ? ' ×' + c : ''}。`, `Bestiary: ${bookNeed(n)} kinds defeated! Received ${ITEMS[item].name}${c > 1 ? ' x' + c : ''}.`) }); } }
+  for (const [n, item, c] of MASTERY_REWARDS) { const k = 'mast' + n; if (!S.rewards[k] && masteryCount() >= n) { S.rewards[k] = true; addItem(item, c); out.push({ lv: true, t: L(`全隊精通了 ${n} 個職業！獲得${ITEMS[item].name}${c > 1 ? ' ×' + c : ''}。`, `${n} jobs mastered across the party! Received ${ITEMS[item].name}${c > 1 ? ' x' + c : ''}.`) }); } }
+  return out;
+}
 export function canEquip(m, item) {
   const it = ITEMS[item];
   if (!it || !it.slot) return false;
@@ -121,5 +140,5 @@ export const SAVE_VERSION = 3;
 export function save() { try { localStorage.setItem(KEY, JSON.stringify({ ...S, v: SAVE_VERSION, savedAt: Date.now() })); return true; } catch (e) { return false; } }
 export function hasSave() { try { return !!localStorage.getItem(KEY); } catch (e) { return false; } }
 export function load() {
-  try { const d = JSON.parse(localStorage.getItem(KEY)); if (!d) return false; if ((d.v || 1) < SAVE_VERSION) { d.pos = null; d.homes = []; d.chests = {}; d.beaten = {}; } Object.assign(S, { members: [], inv: {}, flags: {}, chests: {}, beaten: {}, clock: 0.3, quests: {}, shards: [], picked: {}, kills: {}, fish: {}, scanned: {}, ...fresh() }, d); for (const m of S.members) { m.row = m.row || 'front'; m.sup = (m.sup || []).filter((a) => ABILITIES[a] && ABILITIES[a].passive); m.jlv = m.jlv || {}; m.jp = m.jp || {}; } return true; } catch (e) { return false; }
+  try { const d = JSON.parse(localStorage.getItem(KEY)); if (!d) return false; if ((d.v || 1) < SAVE_VERSION) { d.pos = null; d.homes = []; d.chests = {}; d.beaten = {}; } Object.assign(S, { members: [], inv: {}, flags: {}, chests: {}, beaten: {}, clock: 0.3, quests: {}, shards: [], picked: {}, kills: {}, fish: {}, scanned: {}, ...fresh() }, d); for (const m of S.members) { m.row = m.row || 'front'; m.sup = (m.sup || []).filter((a) => ABILITIES[a] && ABILITIES[a].passive); m.cmd = m.cmd && JOBS[m.cmd] ? m.cmd : null; m.jlv = m.jlv || {}; m.jp = m.jp || {}; } return true; } catch (e) { return false; }
 }

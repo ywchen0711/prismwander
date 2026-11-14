@@ -8,7 +8,7 @@ import { MONSTERS, TECHS, ABILITIES, ITEMS, HEROES, JOBS, monsterStats, affinity
 import { LINKS, LORE_MP } from './data2.js';
 import { DROPS } from './data3.js';
 import { abilityLine, techLine, itemLine } from './help.js';
-import { S, stats, abilitiesOf, hasPassive, heroName, gain, addItem, count, gearHas, immuneTo, resists, hasJob } from './party.js';
+import { S, stats, abilitiesOf, hasPassive, heroName, gain, addItem, count, gearHas, immuneTo, resists, hasJob, cmdAbilities, milestones } from './party.js';
 import { input } from './input.js';
 import { sfx, playMusic, jingle } from './audio.js';
 import { L } from './i18n.js';
@@ -342,12 +342,12 @@ async function victory() {
   const foes = B.foes.filter((f) => !f.fled), anyPassive = (k) => S.members.some((m) => m.hp > 0 && hasPassive(m, k));
   let exp = foes.reduce((a, f) => a + f.exp, 0), jp = foes.reduce((a, f) => a + f.jp, 0), gold = foes.reduce((a, f) => a + f.gold, 0);
   if (anyGear('expUp')) exp = Math.round(exp * 1.3); if (anyGear('goldUp')) gold = Math.round(gold * 1.5); if (anyPassive('goldfind')) gold = Math.round(gold * 1.4);
-  if (meal && meal.exp) exp = Math.round(exp * meal.exp); if (meal && meal.jp) jp = Math.round(jp * meal.jp);
+  if (meal && meal.exp) exp = Math.round(exp * meal.exp); if (meal && meal.jp) jp = Math.round(jp * meal.jp); if (meal && meal.gold) gold = Math.round(gold * meal.gold);
   if (B.arena) { exp = Math.round(exp * 0.5); gold = Math.round(gold * 0.5); }
   for (const p of heroesUp()) p.inst.play('emote-yes', { once: true });
   S.gold += gold;
   // what the monsters dropped, and what the bestiary learns
-  const luck = (anyPassive('treasure') ? 1.5 : 1) * (anyGear('luck') ? 1.3 : 1);
+  const luck = (anyPassive('treasure') ? 1.5 : 1) * (anyGear('luck') ? 1.3 : 1) * (meal && meal.luck ? meal.luck : 1);
   for (const f of foes) {
     S.defeated[f.id] = (S.defeated[f.id] || 0) + 1;
     const d = DROPS[f.id] || (MONSTERS[f.id].drop && { c: MONSTERS[f.id].drop, r: null });
@@ -361,6 +361,7 @@ async function victory() {
   if (!foes.length) lines[0] = L('魔物逃走了……', 'The monsters got away...');
   for (const d of B.drops) lines.push((B.rare || []).includes(d) ? L(`★ 稀有掉落：${ITEMS[d].name}！`, `★ Rare drop: ${ITEMS[d].name}!`) : L(`得到了${ITEMS[d].name}！`, `Got ${ITEMS[d].name}!`));
   for (const l of gain(exp, jp)) lines.push(l.t);
+  for (const l of milestones()) lines.push(l.t);
   if (B.mealDone) lines.push(L(`${B.mealDone}的效果消失了。`, `The ${B.mealDone} has worn off.`));
   for (const l of lines) { msg(l); drawParty(); await waitKey(); }
   end('win');
@@ -435,6 +436,8 @@ async function commandFor(p, canBack) {
       { id: 'attack', label: L('攻擊', 'Attack'), right: wel ? elName(wel) : '', desc: (wel ? elName(wel) + L('屬性・', ' element · ') : '') + (m.row === 'back' && !(wep && (wep.kind === 'bow' || wep.kind === 'gun')) ? L('後排：近戰傷害降低', 'back row: melee does less') : L('普通攻擊', 'a plain attack')) },
       { id: 'abil', label: L('技能', 'Abilities'), disabled: !abil.length, desc: m.status.silence ? L('沉默中：不能使用法術類技能', 'Silenced: no spells') : L('職業技能', 'job abilities') },
     ];
+    const extra = cmdAbilities(m);
+    if (extra.length) opts.push({ id: 'cmdjob', label: JOBS[m.cmd].name, right: '★', desc: L('精通職業的技能（額外指令）', 'actions of a mastered job (extra command)') });
     if (links.length) opts.push({ id: 'link', label: L('連攜', 'Link'), desc: L('和夥伴一起出招（夥伴這回合不能行動）', 'act together with a friend (they give up their turn)') });
     if (lore.length) opts.push({ id: 'lore', label: L('擬態', 'Lore'), disabled: !!m.status.silence, desc: L('使用學會的魔物招式', 'use monster techniques you have learned') });
     opts.push({ id: 'item', label: L('道具', 'Items'), disabled: !Object.keys(S.inv).some((k) => ITEMS[k].use && ITEMS[k].use !== 'tent'), desc: L('使用道具', 'use an item') },
@@ -445,6 +448,12 @@ async function commandFor(p, canBack) {
     if (r < 0) return 'back';
     const id = opts[r].id;
     if (id === 'attack') { const t = await target('enemy', m); if (t) return { type: 'attack', target: t }; }
+    if (id === 'cmdjob') {
+      const k = await cmdMenu(extra.map((a) => { const A = ABILITIES[a]; return { label: A.name, right: A.hpcost ? `HP${hpCost(m, A)}` : mpCost(m, A), disabled: !usable(m, A), desc: describe(A) }; }));
+      if (k < 0) continue;
+      const a = extra[k], t = await target(ABILITIES[a].target, m);
+      if (t !== null) return { type: 'ability', id: a, target: t };
+    }
     if (id === 'abil') {
       const k = await cmdMenu(abil.map((a) => { const A = ABILITIES[a]; return { label: A.name, right: A.hpcost ? `HP${hpCost(m, A)}` : mpCost(m, A), disabled: !usable(m, A), desc: describe(A) }; }));
       if (k < 0) continue;

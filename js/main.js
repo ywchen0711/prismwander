@@ -4,6 +4,8 @@
 import * as THREE from 'three';
 import './data2.js';
 import './data3.js';
+import './data4.js';
+import { SCRIPTS3 } from './story3.js';
 import { generate, buildChunk, setAtlas, W, WX, WZ, WY, SEA, CHUNK, get, solid, seeThrough, B, regionAt, regionAt3, standAt, REGIONS, ground, SPIRE, NIGHT, EIN_STEPS, tw, sc, OLD_W, VAEL, SPAWN, applyWorldFlags } from './world.js';
 import { preload, make, ensure, ready, crystalMesh, homeMesh, instanced, shardMesh, signMesh, herbMesh, rippleMesh, leverMesh, valveMesh, ventMesh, echoMesh, pickMesh, digMesh, oreMesh } from './models.js';
 import { input, setupInput, pollInput, endInput } from './input.js';
@@ -18,7 +20,7 @@ import { SCRIPTS2, CREDITS2 } from './story2.js';
 import { L, LANG, setLang, onLang } from './i18n.js';
 import { Q } from './quality.js';
 
-Object.assign(SCRIPTS, SCRIPTS2);
+Object.assign(SCRIPTS, SCRIPTS2, SCRIPTS3);
 const $ = (id) => document.getElementById(id);
 loadSettings();
 document.documentElement.lang = LANG === 'en' ? 'en' : 'zh-Hant';
@@ -447,7 +449,7 @@ const ctx = {
 // ---------- monsters on the field ----------
 function updateMonster(e, dt, far) {
   const nightOnly = NIGHT.has(e.data.monster), m = MONSTERS[e.data.monster];
-  const hidden = (e.data.reg === 'vael' && !S.flags.drained) || (m.boss && S.beaten[e.data.id]);
+  const hidden = (e.data.reg === 'vael' && !S.flags.drained) || (m.boss && S.beaten[e.data.id]) || (m.need && !S.flags[m.need]);
   if (far > Math.min(95, VIEW * 0.7) || beatenNow(e.data) || (nightOnly && !isNight()) || hidden) { if (e.inst) e.inst.obj.visible = false; return; }
   const inst = monsterInst(e);
   if (!inst) return;

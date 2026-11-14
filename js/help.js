@@ -3,7 +3,9 @@
 import { JOBS, ABILITIES, ITEMS, MONSTERS, TECHS, EL_NAME, jpFor, monsterStats, affinity, kindOf } from './data.js';
 import { LINKS, MASTER_ART, MASTER_WINS, RECIPES, FORGE } from './data2.js';
 import { JL_MAX, JOB_INFO, DROPS, RARE_AT, FIELD_AT } from './data3.js';
-import { S, stats, jlvOf, learned, mastered, masteryBonus, canEquip, heroName } from './party.js';
+import { S, stats, jlvOf, learned, mastered, masteryBonus, canEquip, heroName, cmdAbilities, masteryCount, bookCount, bookNeed, abilitiesOf } from './party.js';
+import { MONSTER_LORE } from './lore.js';
+import { POST_AT, BOOK_REWARDS, MASTERY_REWARDS, HUNTS } from './data4.js';
 import { L } from './i18n.js';
 
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -90,7 +92,7 @@ const usedIn = (id) => {
   const f = FORGE.filter(([, need]) => need.some(([n]) => n === id)).map(([o]) => ITEMS[o].name), c = RECIPES.filter(([, need]) => need.some(([n]) => n === id)).map(([o]) => ITEMS[o].name);
   return [f.length ? L('鍛造：', 'Forge: ') + f.join(L('、', ', ')) : '', c.length ? L('料理：', 'Cooking: ') + c.join(L('、', ', ')) : ''].filter(Boolean);
 };
-const MEAL = (meal) => [meal.str ? `${statN('str')} ×${meal.str}` : '', meal.mag ? `${statN('mag')} ×${meal.mag}` : '', meal.def ? `${statN('def')} ×${meal.def}` : '', meal.agi ? `${statN('agi')} ×${meal.agi}` : '', meal.regen ? stName('regen') : '', meal.exp ? `EXP ×${meal.exp}` : '', meal.jp ? `JP ×${meal.jp}` : ''].filter(Boolean).join(L('、', ', '));
+const MEAL = (meal) => [meal.str ? `${statN('str')} ×${meal.str}` : '', meal.mag ? `${statN('mag')} ×${meal.mag}` : '', meal.def ? `${statN('def')} ×${meal.def}` : '', meal.agi ? `${statN('agi')} ×${meal.agi}` : '', meal.regen ? stName('regen') : '', meal.exp ? `EXP ×${meal.exp}` : '', meal.jp ? `JP ×${meal.jp}` : '', meal.gold ? L(`金幣 ×${meal.gold}`, `gold x${meal.gold}`) : '', meal.luck ? L(`掉落率 ×${meal.luck}`, `drop rates x${meal.luck}`) : ''].filter(Boolean).join(L('、', ', '));
 // what a usable item does, in numbers
 export function itemEffect(id) {
   const it = ITEMS[id], who = it.target === 'allies' ? L('全員', 'everyone') : '';
@@ -174,7 +176,7 @@ export function jobHTML(job, m) {
   const art = MASTER_ART[job];
   if (art) h.push(`<div class="sub">${L('奧義', 'Master art')}</div><div class="la${S.mastery[job] ? '' : ' lock'}"><span class="an">${esc(ABILITIES[art].name)}</span><span class="small ad">${esc(abilityLine(ABILITIES[art]))}${S.mastery[job] ? '' : L(`　（找到東方的大師，以此為主職業打贏 ${MASTER_WINS} 場）`, `  (find its master in the east and win ${MASTER_WINS} battles with it as a main job)`)}</span></div>`);
   const b = Object.entries(I.bonus).map(([k, v]) => `${{ hp: 'HP', mp: 'MP', str: L('力', 'STR'), def: L('防', 'DEF'), mag: L('魔', 'MAG'), spr: L('精', 'SPR'), agi: L('速', 'AGI') }[k]} +${v}%`).join(' ');
-  h.push(`<div class="sub">${L('精通獎勵', 'Mastery bonus')}</div><div class="small${m && mastered(m, job) ? '' : ' off'}">${b}${L(`（職業等級 ${JL_MAX} 時永久獲得，換職業也有效）`, ` (yours for good at job level ${JL_MAX}, whatever job you wear)`)}</div>`);
+  h.push(`<div class="sub">${L('精通獎勵', 'Mastery bonus')}</div><div class="small${m && mastered(m, job) ? '' : ' off'}">${b}${L(`（職業等級 ${JL_MAX} 時永久獲得，換職業也有效。精通後，這個職業的所有技能也能放進「額外指令」）`, ` (yours for good at job level ${JL_MAX}, whatever job you wear. Once mastered, all its actions can also be set as an extra command)`)}</div>`);
   h.push(`<div class="small fl">${esc(I.where)}</div>`);
   return h.join('');
 }
@@ -194,7 +196,7 @@ const pct = (x) => `${Math.round(Math.min(1, x) * 100)}%`;
 export function monsterHTML(id, where = '') {
   const m = MONSTERS[id], met = !!S.seen[id], scan = !!S.scanned[id], st = monsterStats(id), a = affinity(id), d = DROPS[id], k = kindOf(id);
   if (!met) return `<h3>？？？</h3><div class="small">${L('還沒遇過的魔物。', 'A monster you have not met yet.')}</div>${where ? `<div class="small">${L('出沒：', 'Found: ')}${esc(where)}</div>` : ''}`;
-  const h = [`<h3>${esc(m.name)}</h3>`, `<div class="tags"><b>Lv ${m.lv}</b>${k && KIND_N[k] ? `<b>${L(...KIND_N[k])}</b>` : ''}${m.boss ? `<b class="rare">${m.field ? L('野外守護者', 'field guardian') : L('守護者', 'guardian')}</b>` : ''}${m.rare ? `<b class="rare">${L('稀有', 'rare')}</b>` : ''}${m.undead ? `<b>${L('不死者', 'undead')}</b>` : ''}${m.machine ? `<b>${L('機械', 'machine')}</b>` : ''}</div>`];
+  const h = [`<h3>${esc(m.name)}</h3>`, MONSTER_LORE[id] ? `<div class="small fl">${esc(L(MONSTER_LORE[id][0], MONSTER_LORE[id][1]))}</div>` : '', `<div class="tags"><b>Lv ${m.lv}</b>${k && KIND_N[k] ? `<b>${L(...KIND_N[k])}</b>` : ''}${m.boss ? `<b class="rare">${m.post ? L('終極狩獵', 'final hunt') : m.field ? L('野外守護者', 'field guardian') : L('守護者', 'guardian')}</b>` : ''}${m.rare ? `<b class="rare">${L('稀有', 'rare')}</b>` : ''}${m.undead ? `<b>${L('不死者', 'undead')}</b>` : ''}${m.machine ? `<b>${L('機械', 'machine')}</b>` : ''}</div>`];
   h.push(`<div class="kv"><span>HP ${scan ? st.hp : '???'}</span><span>${L('攻', 'ATK')} ${scan ? st.atk : '?'}</span><span>${L('防', 'DEF')} ${scan ? st.def : '?'}</span><span>${L('魔', 'MAG')} ${scan ? st.mag : '?'}</span><span>${L('速', 'AGI')} ${scan ? st.agi : '?'}</span></div>`);
   h.push(`<div class="kv"><span>EXP ${st.exp}</span><span>JP ${st.jp}</span><span>${L('金', 'G')} ${st.gold}</span></div>`);
   if (scan) {
@@ -239,6 +241,13 @@ export const HELP = [
     + P('被動技能（支援能力）只要主職業或副職業學會就有效，也可以放進支援欄。', 'Passive abilities work if the main or sub job has learned them, and can also be set in support slots.') },
   { t: ['支援能力', 'Support abilities'], b: () => P('任何職業學會的被動技能，都能裝進「支援欄」，換職業也帶著走。支援欄一開始有 2 格，20 級和 40 級時各多 1 格。', 'Any passive a hero has learned in any job can go into a support slot and comes along whatever job they wear. There are 2 slots, plus one at level 20 and one at level 40.')
     + P('從選單「職業」→ 選人 →「支援能力」設定。', 'Set them from Jobs → a hero → Support abilities.') },
+  { t: ['額外指令', 'Extra command'], b: () => P(`精通（職業等級 ${JL_MAX}）的職業，可以設成「額外指令」：戰鬥中會多一個以該職業命名的指令，裡面是它的全部行動技能。主職業與副職業不能重複設定。`, `A mastered job (job level ${JL_MAX}) can be set as an extra command: in battle you get one more command, named after that job, holding all its action abilities. It cannot be your main or sub job.`)
+    + P('從選單「職業」→ 選人 →「額外指令」設定。被動技能請用支援欄。', 'Set it from Jobs → a hero → Extra command. Passives go in support slots.') },
+  { t: ['收集與精通獎勵', 'Collection and mastery rewards'], b: () => `<div class="sub">${L('魔物圖鑑（打倒過的種類）', 'Bestiary (kinds defeated)')}　${bookCount()}</div>` + rewardList(BOOK_REWARDS, bookCount(), 'book', bookNeed)
+    + `<div class="sub">${L('職業精通（全隊合計）', 'Job masteries (whole party)')}　${masteryCount()}</div>` + rewardList(MASTERY_REWARDS, masteryCount(), 'mast', (n) => n)
+    + P('達成時，戰鬥結束後會自動獲得。', 'Prizes arrive automatically after the battle in which you reach them.') },
+  { t: ['懸賞板', 'The hunt board'], b: () => P('鹽灣港的獵人公會貼著稀有魔物與野外守護者的懸賞。接下懸賞後再打倒目標一次，就能回去領賞金和獎品。打倒稜影之後，還會貼出三張終極狩獵。', 'The Hunters in Saltmere post bounties on rare monsters and field guardians. Take one, fell the target once more, then go back for gold and a prize. After Umbra falls, three final hunts are posted.')
+    + `<div class="gl">${HUNTS.filter((h) => !h[4] || S.flags.umbra).map((h) => `<div><b>${S.seen[h[0]] ? esc(MONSTERS[h[0]].name) : '？？？'}</b><span class="small">${h[1]} G + ${esc(ITEMS[h[2]].name)}${h[3] > 1 ? ' ×' + h[3] : ''}${S.hunts && S.hunts[h[0]] === 'paid' ? L('　✔ 完成', '  ✔ done') : ''}</span></div>`).join('')}</div>` },
   { t: ['連攜', 'Link arts'], b: () => P('兩位夥伴的職業（主或副）組合對了，就能一起出招；夥伴會放棄這回合的行動。', 'When two friends have the right pair of jobs (main or sub), they can act together; the partner gives up their turn.')
     + `<div class="gl">${Object.values(LINKS).map((a) => `<div><b>${esc(a.name)}</b><span class="small">${a.jobs.map((j) => (S.jobs.includes(j) ? JOBS[j].name : '？？？')).join(' + ')}${SEP()}${esc(abilityParts(a).slice(0, 4).join(SEP()))}</span></div>`).join('')}</div>` },
   { t: ['奧義', 'Master arts'], b: () => P(`東方各地住著十二門古老技藝的大師。學會該職業後去找他們，再以此為主職業打贏 ${MASTER_WINS} 場，就能學會奧義。奧義在主職業或副職業是該職業時都能用。`, `Masters of twelve old crafts live across the east. Once you know the job, find its master, then win ${MASTER_WINS} battles with it as someone's main job to learn its master art. It works whenever that job is your main or sub job.`)
@@ -250,5 +259,23 @@ export const HELP = [
   { t: ['料理與餐點', 'Food and meals'], b: () => P('料理可以在戰鬥中吃來回復，也可以從道具選單當作「餐點」吃：效果會持續五場戰鬥（隊裡有廚師時八場）。', 'Dishes heal when eaten in battle, or can be had as a meal from the Items menu: the effect lasts five battles (eight with a chef in the party).') },
   { t: ['能力值', 'Stats'], b: () => `<div class="gl">${[['HP', '體力。歸零就倒下。', 'Hit points. At zero you fall.'], ['MP', '使用技能的點數。', 'Points spent on abilities.'], [L('攻擊', 'ATK'), '力量加上武器攻擊力 ×1.7，決定物理傷害。', 'Strength plus weapon attack x1.7; sets physical damage.'], [L('防禦', 'DEF'), '減少受到的物理傷害。', 'Lowers physical damage taken.'], [L('魔力', 'MAG'), '決定魔法與回復的威力。', 'Sets the power of magic and healing.'], [L('精神', 'SPR'), '減少受到的魔法傷害，也讓回復更有效。', 'Lowers magic damage taken and strengthens healing.'], [L('速度', 'AGI'), '決定行動順序與閃避。', 'Sets turn order and dodging.'], ['EXP', '升級需要的經驗值。最高 70 級。', 'Experience for levels, up to 70.'], ['JP', '升職業等級需要的點數。', 'Points for job levels.']].map(([n, zh, en]) => `<div><b>${n}</b><span class="small">${L(zh, en)}</span></div>`).join('')}</div>` },
 ];
+// a reward track: what you get at each step, done ones ticked
+function rewardList(track, have, key, need) {
+  return `<div class="gl">${track.map(([n, item, c]) => { const got = S.rewards && S.rewards[key + n]; return `<div><b class="${got ? 'up' : have >= need(n) ? '' : 'off'}">${got ? '✔ ' : ''}${need(n)}</b><span class="small">${esc(ITEMS[item].name)}${c > 1 ? ' ×' + c : ''}${SEP()}${esc(itemLine(item))}</span></div>`; }).join('')}</div>`;
+}
+// everything about a hero right now: ailments in words, boosts, meal, supports, extra command
+export function heroStatusHTML(m) {
+  const s = stats(m), h = [`<h3>${esc(heroName(m))}</h3>`];
+  h.push(`<div class="kv"><span>HP ${m.hp}/${s.maxhp}</span><span>MP ${m.mp}/${s.maxmp}</span></div>`);
+  const sts = Object.keys(m.status || {}).filter((k) => m.status[k] && STATUS[k]);
+  h.push(`<div class="sub">${L('狀態', 'Condition')}</div>` + (sts.length ? `<div class="gl">${sts.map((k) => `<div><b style="color:${STATUS[k].col}">${stName(k)}</b><span class="small">${L(STATUS[k].d[0], STATUS[k].d[1])}</span></div>`).join('')}</div>` : `<p class="small">${L('一切正常。', 'All well.')}</p>`));
+  const meal = S.meal && ITEMS[S.meal.id];
+  h.push(`<div class="sub">${L('餐點', 'Meal')}</div><p class="small">${meal ? `${esc(meal.name)}${L(`（還有 ${S.meal.n} 場）`, ` (${S.meal.n} more battles)`)}${SEP()}${esc(MEAL(meal.meal || {}))}` : L('沒有。從道具選單把料理當餐點吃，效果會持續好幾場戰鬥。', 'None. Have a dish as a meal from the Items menu; it lasts several battles.')}</p>`);
+  const pas = [...new Set([...abilitiesOf(m).filter((a) => ABILITIES[a].passive), ...(m.sup || [])])];
+  h.push(`<div class="sub">${L('生效中的被動', 'Passives in effect')}</div>` + (pas.length ? pas.map((a) => `<div class="la"><span class="an">${esc(ABILITIES[a].name)}</span><span class="small ad">${esc(ABILITIES[a].note || '')}</span></div>`).join('') : `<p class="small off">-</p>`));
+  const ex = cmdAbilities(m);
+  h.push(`<div class="sub">${L('額外指令', 'Extra command')}</div><p class="small">${ex.length ? `${esc(JOBS[m.cmd].name)}${SEP()}${ex.map((a) => esc(ABILITIES[a].name)).join(L('、', ', '))}` : L('沒有（需要精通一個職業）', 'None (needs a mastered job)')}</p>`);
+  return h.join('');
+}
 // where the rare finds and field guardians live, for the bestiary
-export const extraWhere = (id) => RARE_AT && Object.entries(RARE_AT).find(([, v]) => v === id)?.[0] || FIELD_AT[id] || null;
+export const extraWhere = (id) => Object.entries(RARE_AT).find(([, v]) => v === id)?.[0] || FIELD_AT[id] || POST_AT[id] || null;

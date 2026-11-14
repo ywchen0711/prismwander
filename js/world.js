@@ -532,6 +532,7 @@ function placeSpawns() {
   boss('f_boar', 'boarking', 58, 258);
   boss('f_sand', 'sandcolossus', 310, 170);
   boss('f_glacius', 'glacius', 64, 42);
+  boss('p_star', 'stareater', 238, 60);
 }
 
 // ---------- memory shards, signs, herbs, fishing spots, the traveller ----------
@@ -883,6 +884,7 @@ function buildOldExtras() {
   building('hearth'); npc('hv_master', 'character-e', at(205.5, 389.5), 'hv_master', { face: 1 }); building(null);
   building('saltmere');
   npc('sm_arena', 'character-d', at(362.5, 333.5), 'sm_arena', { face: 1 }); npc('sm_cook', 'character-k', at(374.5, 333.5), 'sm_cook');
+  npc('sm_hunt', 'character-g', at(368.5, 333.5), 'sm_hunt');
   npc('sm_pell', 'character-q', at(376.5, 346.5), 'sm_pell'); npc('sm_hawk', 'character-b', at(378.5, 336.5), 'sm_hawk', { face: 1 });
   prop({ type: 'prop', model: 'pirate/flag-high', pos: at(360.5, 330.5) }, { type: 'prop', model: 'survival/campfire-pit', pos: at(374.5, 331.5) });
   building(null);
@@ -946,6 +948,9 @@ function placeEast() {
   boss('f_roc', 'stormroc', spotAt(1058, 40, 352));
   boss('f_wyrm', 'hollowwyrm', spotAt(1124, 11, 156));
   boss('f_nameless', 'nameless', spotAt(SPIRE.x + 28, 16, SPIRE.z - 10));
+  // the hunts that wait until the shadow is at rest
+  boss('p_aurora', 'auroradrake', spotAt(1054, 54, 296));
+  boss('p_mycel', 'myceliumking', spotAt(1176, 11, 160));
   // crystals of the lost faces
   W.crystals.push({ job: 'dragoon', pos: [SKY[6][0] + 0.5, SKY[6][2] + 0.8, SKY[6][1] + 0.5], east: true, lost: true });
   W.crystals.push({ job: 'summoner', pos: [VAEL.c[0] + 0.5, 2.8, VAEL.c[1] - 3.5], east: true, lost: true, need: 'b_morwen' });

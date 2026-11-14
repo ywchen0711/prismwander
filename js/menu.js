@@ -1,8 +1,8 @@
 // The field menu (party, jobs, equipment, items, map, warp, save, settings), shops and inns.
 import { JOBS, ITEMS, ABILITIES, HEROES, MONSTERS, jpFor, monsterStats, affinity, EL_NAME } from './data.js';
 import { RECIPES, FORGE } from './data2.js';
-import { S, stats, heroName, jlvOf, learned, setJob, canEquip, addItem, count, fullHeal, save, MASTER_ARTS, abilitiesOf, learnedPassives, supSlots, mastered } from './party.js';
-import { HELP, jobHTML, jobLine, abilityHTML, abilityLine, itemHTML, itemLine, gearLine, monsterHTML, masteryLine, extraWhere, kindName as kindN } from './help.js';
+import { S, stats, heroName, jlvOf, learned, setJob, canEquip, addItem, count, fullHeal, save, MASTER_ARTS, abilitiesOf, learnedPassives, supSlots, mastered, cmdJobs, cmdAbilities, bookCount, masteryCount } from './party.js';
+import { HELP, jobHTML, jobLine, abilityHTML, abilityLine, itemHTML, itemLine, gearLine, monsterHTML, masteryLine, extraWhere, heroStatusHTML, kindName as kindN } from './help.js';
 import { JL_MAX } from './data3.js';
 import { list, say, ask, toast, statusHTML } from './ui.js';
 import { sfx, vol, setVolumes, music, setMusic } from './audio.js';
@@ -69,11 +69,12 @@ export async function bestiaryMenu() {
   const seen = ids.filter((id) => S.seen[id]).length;
   const regN = (r) => (REGIONS[r] ? REGIONS[r].name[LANG === 'en' ? 1 : 0] : '');
   const where = (id) => [...new Set([...(REG_OF[id] || []), BOSS_AT[id], extraWhere(id)].filter(Boolean))].map(regN).filter(Boolean).slice(0, 3).join(L('、', ', '));
-  await list(L(`魔物圖鑑　${seen}／${ids.length}`, `Bestiary  ${seen} / ${ids.length}`), ids.map((id, i) => {
+  const track = HELP.find((h) => h.t[1] === 'Collection and mastery rewards');
+  await list(L(`魔物圖鑑　${seen}／${ids.length}`, `Bestiary  ${seen} / ${ids.length}`), [{ label: L('★ 收集獎勵', '★ Collection rewards'), right: `${bookCount()}/${ids.length}`, desc: L('打倒過的魔物種類越多，獎勵越好。', 'The more kinds you defeat, the better the prizes.') }, ...ids.map((id, i) => {
     const m = MONSTERS[id], met = !!S.seen[id];
     if (!met) return { label: `${String(i + 1).padStart(3, '0')} ？？？`, right: '', desc: L('還沒遇過的魔物。', 'A monster you have not met yet.') };
     return { label: `${String(i + 1).padStart(3, '0')} ${m.name}${m.rare ? ' ✦' : m.field ? ' ♛' : ''}`, right: S.defeated[id] ? `×${S.defeated[id]}` : '', desc: `Lv ${m.lv}${where(id) ? L('　出沒：', '  Found: ') + where(id) : ''}` };
-  }), { width: 380, dwidth: 400, footer: L('右邊是打倒的次數。✦ 稀有魔物　♛ 野外守護者', 'Times defeated on the right. ✦ rare  ♛ field guardian'), detail: (i) => monsterHTML(ids[i], where(ids[i])) });
+  })], { width: 380, dwidth: 400, start: 1, footer: L('右邊是打倒的次數。✦ 稀有魔物　♛ 野外守護者', 'Times defeated on the right. ✦ rare  ♛ field guardian'), detail: (i) => (i === 0 ? `<h3>${L('收集獎勵', 'Collection rewards')}</h3>${track.b()}` : monsterHTML(ids[i - 1], where(ids[i - 1]))) });
 }
 // cooking: turn fish, herbs and what monsters drop into dishes
 export async function cookMenu() {
@@ -149,12 +150,18 @@ async function jobsMenu() {
     let k0 = 0;
     for (;;) {
       const slots = supSlots(m);
-      const k = await list(`${heroName(m)}`, [{ label: L('主職業', 'Main job'), right: JOBS[m.job].name }, { label: L('副職業', 'Sub job'), right: m.sub ? JOBS[m.sub].name : L('無', 'None') }, { label: L('支援能力', 'Support abilities'), right: `${(m.sup || []).length}/${slots}` }],
+      const k = await list(`${heroName(m)}`, [{ label: L('主職業', 'Main job'), right: JOBS[m.job].name }, { label: L('副職業', 'Sub job'), right: m.sub ? JOBS[m.sub].name : L('無', 'None') }, { label: L('支援能力', 'Support abilities'), right: `${(m.sup || []).length}/${slots}` }, { label: L('額外指令', 'Extra command'), right: m.cmd && cmdAbilities(m).length ? JOBS[m.cmd].name : L('無', 'None'), disabled: !cmdJobs(m).length && !m.cmd }],
         { width: 300, start: k0, footer: L('主職業決定能力值和裝備；副職業借用它學會的技能和武器。支援欄放任何職業學會的被動技能。', 'The main job sets stats and gear; the sub job lends its learned abilities and weapons. Support slots hold passives learned in any job.'),
-          detail: (r) => (r === 0 ? jobHTML(m.job, m) : r === 1 ? (m.sub ? jobHTML(m.sub, m) : `<h3>${L('副職業', 'Sub job')}</h3><p>${L('還沒設定。副職業學會的技能都能用，JP 拿一半。', 'Not set. You can use everything the sub job has learned, and it earns half the JP.')}</p>`) : supportHTML(m)) });
+          detail: (r) => (r === 0 ? jobHTML(m.job, m) : r === 1 ? (m.sub ? jobHTML(m.sub, m) : `<h3>${L('副職業', 'Sub job')}</h3><p>${L('還沒設定。副職業學會的技能都能用，JP 拿一半。', 'Not set. You can use everything the sub job has learned, and it earns half the JP.')}</p>`) : r === 2 ? supportHTML(m) : cmdHTML(m)) });
       if (k < 0) break;
       k0 = k;
       if (k === 2) { await supportMenu(m); continue; }
+      if (k === 3) {
+        const js = [null, ...cmdJobs(m)];
+        const c = await list(L('額外指令', 'Extra command'), js.map((j) => (j === null ? { label: L('（不設定）', '(none)') } : { label: JOBS[j].name + ' ★', right: m.cmd === j ? '✔' : '', desc: learned(j, JL_MAX).filter((a) => !ABILITIES[a].passive).map((a) => ABILITIES[a].name).join(L('、', ', ')) })), { width: 320, dwidth: 420, detail: (i) => (js[i] ? jobHTML(js[i], m) : cmdHTML(m)) });
+        if (c >= 0) { m.cmd = js[c]; sfx('ok'); }
+        continue;
+      }
       const opts = (k === 1 ? [null] : []).concat(S.jobs);
       const items = opts.map((j) => j === null ? { label: L('（不設定）', '(none)') } : {
         label: JOBS[j].name + (mastered(m, j) ? ' ★' : ''), right: `Lv ${jlvOf(m, j)}`, disabled: k === 1 && j === m.job, desc: jobLine(j, m),
@@ -165,6 +172,12 @@ async function jobsMenu() {
       setJob(m, opts[c], k === 1); sfx('ok');
     }
   }
+}
+// what the extra command slot holds
+function cmdHTML(m) {
+  const ex = cmdAbilities(m);
+  return `<h3>${L('額外指令', 'Extra command')}</h3><p class="small">${L(`精通的職業（職業等級 ${JL_MAX}）可以放在這裡：戰鬥中會多一個指令，裡面是那個職業的全部行動技能。主職業和副職業不能放。`, `A mastered job (job level ${JL_MAX}) can go here: in battle you get one more command holding all that job's actions. Not your main or sub job.`)}</p>`
+    + (ex.length ? `<div class="sub">${JOBS[m.cmd].name}</div>` + ex.map((a) => `<div class="la"><span class="an">${ABILITIES[a].name}</span><span class="small ad">${abilityLine(ABILITIES[a])}</span></div>`).join('') : `<p class="small off">${cmdJobs(m).length ? L('（還沒設定）', '(not set)') : L('（還沒有精通的職業）', '(no mastered job yet)')}</p>`);
 }
 // which job taught a passive (for the support list)
 const teacher = (m, a) => Object.keys(m.jlv || {}).filter((j) => JOBS[j] && learned(j, jlvOf(m, j)).includes(a)).map((j) => JOBS[j].name).join(L('、', ', '));
@@ -199,8 +212,8 @@ async function abilitiesMenu() {
   const i = await pickMember(L('看誰的技能？', 'Whose abilities?'));
   if (i < 0) return;
   const m = S.members[i];
-  const src = (a) => [m.job, m.sub].filter((j) => j && learned(j, jlvOf(m, j)).includes(a)).map((j) => JOBS[j].name).concat(Object.values(MASTER_ARTS).includes(a) ? [L('奧義', 'Master art')] : []).concat((m.sup || []).includes(a) ? [L('支援欄', 'Support slot')] : []).join(L('、', ', '));
-  const own = abilitiesOf(m), act = own.filter((a) => !ABILITIES[a].passive), pas = [...new Set([...own.filter((a) => ABILITIES[a].passive), ...(m.sup || [])])], ids = [...act, ...pas];
+  const src = (a) => [m.job, m.sub].filter((j) => j && learned(j, jlvOf(m, j)).includes(a)).map((j) => JOBS[j].name).concat(Object.values(MASTER_ARTS).includes(a) ? [L('奧義', 'Master art')] : []).concat((m.sup || []).includes(a) ? [L('支援欄', 'Support slot')] : []).concat(cmdAbilities(m).includes(a) ? [L(`額外指令（${JOBS[m.cmd].name}）`, `Extra command (${JOBS[m.cmd].name})`)] : []).join(L('、', ', '));
+  const own = [...abilitiesOf(m), ...cmdAbilities(m)], act = own.filter((a) => !ABILITIES[a].passive), pas = [...new Set([...own.filter((a) => ABILITIES[a].passive), ...(m.sup || [])])], ids = [...act, ...pas];
   if (!ids.length) { toast(L('還沒有技能。', 'No abilities yet.')); return; }
   await list(L(`${heroName(m)}的技能`, `${heroName(m)}'s abilities`), ids.map((a) => { const A = ABILITIES[a]; return { label: A.name, right: A.passive ? L('被動', 'Passive') : A.hpcost ? `HP${Math.round(A.hpcost * 100)}%` : `MP ${A.mp}`, desc: abilityLine(A, false) }; }),
     { width: 340, dwidth: 380, footer: L('戰鬥中從「技能」使用。', 'Use them in battle under Abilities.'), detail: (k) => abilityHTML(ids[k], src(ids[k])) });
@@ -280,7 +293,7 @@ async function statusMenu() {
     { label: L('支援：', 'Support: ') + ((m.sup || []).map((a) => ABILITIES[a].name).join(L('、', ', ')) || '-') },
     { label: L('精通：', 'Mastered: ') + (Object.keys(m.jlv).filter((j) => mastered(m, j)).map((j) => JOBS[j].name).join(L('、', ', ')) || '-') },
     { label: L('精通獎勵：', 'Mastery bonus: ') + masteryLine(m) }, { html: all },
-  ], { width: 460 });
+  ], { width: 420, dwidth: 380, detail: () => heroStatusHTML(m) });
 }
 // the map: the whole continent from above, with what you have found
 async function mapMenu(ctx) {
