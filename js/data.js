@@ -32,7 +32,8 @@ export const JOBS = {
 };
 bilingual(JOBS);
 export const START_JOBS = ['fencer', 'mage', 'cleric', 'rogue'];
-export const jpFor = (jl) => 20 + (jl - 1) * 30 + (jl - 1) * (jl - 1) * 6;
+// past job level 12 each level asks for a good deal more: the high tier is for those who keep at it
+export const jpFor = (jl) => 20 + (jl - 1) * 30 + (jl - 1) * (jl - 1) * 6 + (jl > 12 ? (jl - 12) * (jl - 12) * 200 : 0);
 
 // type: phys (power is a multiplier), magic (power + mag), heal, buff, status, special
 export const ABILITIES = {
@@ -289,18 +290,20 @@ export const EL_NAME = { fire: ['火', 'Fire'], ice: ['冰', 'Ice'], bolt: ['雷
 // the jobs that are not found in crystals, and who teaches them
 export const JOB_GIFTS = { sporelord: 'druid', fallenknight: 'paladin', emberdrake: 'samurai' };
 // stats of a monster of level lv
+// what a monster gives: JP grows a little faster than level so later lands pay for the grind; rare finds multiply it
+const rewards = (m, lv) => ({ exp: Math.round((6 + lv * 5 + lv * lv * 0.6) * (m.boss ? 6 : 1) * (m.expk || 1)), jp: Math.round((3 + lv * 1.2 + lv * lv * 0.02) * (m.boss ? 4 : 1) * (m.jpk || 1)), gold: Math.round((4 + lv * 3.5) * (m.boss ? 5 : 1) * (m.goldk || 1)) });
 export function monsterStats(id) {
   const m = MONSTERS[id], lv = m.lv;
   // the eastern lands use a gentler hit-point curve so long fights stay quick, but hit harder
   if (m.v2) return {
     lv, hp: Math.round((260 + lv * 26 + lv * lv * 0.42) * (m.hp || 1)), atk: Math.round((10 + lv * 3.6) * (m.atk || 1)), def: Math.round((6 + lv * 2.0) * (m.def || 1)),
     mag: Math.round((8 + lv * 3.1) * (m.mag || 1)), agi: Math.round((6 + lv * 1.6) * (m.agi || 1)),
-    exp: Math.round((6 + lv * 5 + lv * lv * 0.6) * (m.boss ? 6 : 1)), jp: Math.round((3 + lv * 1.2) * (m.boss ? 4 : 1)), gold: Math.round((4 + lv * 3.5) * (m.boss ? 5 : 1)),
+    ...rewards(m, lv),
   };
   return {
     lv, hp: Math.round((24 + lv * 20 + lv * lv * 1.2) * (m.hp || 1)), atk: Math.round((8 + lv * 3.4) * (m.atk || 1)), def: Math.round((4 + lv * 2.2) * (m.def || 1)),
     mag: Math.round((6 + lv * 3.0) * (m.mag || 1)), agi: Math.round((6 + lv * 1.6) * (m.agi || 1)),
-    exp: Math.round((6 + lv * 5 + lv * lv * 0.6) * (m.boss ? 6 : 1)), jp: Math.round((3 + lv * 1.2) * (m.boss ? 4 : 1)), gold: Math.round((4 + lv * 3.5) * (m.boss ? 5 : 1)),
+    ...rewards(m, lv),
   };
 }
 export const expFor = (L) => Math.floor(8 * Math.pow(L - 1, 2.15) + 14 * (L - 1));

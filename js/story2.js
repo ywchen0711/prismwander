@@ -7,6 +7,7 @@
 import { S, addItem, count, fullHeal, hasJob, MASTER_ARTS } from './party.js';
 import { JOBS, ITEMS, SHOPS, ABILITIES, MONSTERS } from './data.js';
 import { MASTER_WINS, ARENA } from './data2.js';
+import { FIELD_LINES } from './data3.js';
 import { L } from './i18n.js';
 import { say, talk, ask, toast, fishGame, fade } from './ui.js';
 import { shop, inn, forgeMenu, cookMenu } from './menu.js';
@@ -500,6 +501,7 @@ export const SCRIPTS2 = {
       echoknight: [L('亡騎的迴響', 'Echo of the Fallen Knight'), L('（隊長已經安息了。這只是他的盔甲記得的、那三百年的站崗。）', '(The captain is at rest. This is only the three hundred years of watch his armour remembers.)')],
       umbra: [L('稜影', 'Umbra'), L('……一個人。一直一個人。三百年。\n你們把光帶回去了。那我呢？留在這裡的我呢？', '...Alone. Always alone. Three hundred years.\nYou took the light back up. What about me? The me that stayed down here?')],
     };
+    if (!T[id] && FIELD_LINES[id]) { await say(FIELD_LINES[id].name, FIELD_LINES[id].line); return; }
     if (!T[id]) return ORIG.bossIntro(id);
     await say(...T[id]);
   },

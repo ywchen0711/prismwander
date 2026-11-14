@@ -3,13 +3,14 @@
 // title, the opening and the endings.
 import * as THREE from 'three';
 import './data2.js';
+import './data3.js';
 import { generate, buildChunk, setAtlas, W, WX, WZ, WY, SEA, CHUNK, get, solid, seeThrough, B, regionAt, regionAt3, standAt, REGIONS, ground, SPIRE, NIGHT, EIN_STEPS, tw, sc, OLD_W, VAEL, SPAWN, applyWorldFlags } from './world.js';
 import { preload, make, ensure, ready, crystalMesh, homeMesh, instanced, shardMesh, signMesh, herbMesh, rippleMesh, leverMesh, valveMesh, ventMesh, echoMesh, pickMesh, digMesh, oreMesh } from './models.js';
 import { input, setupInput, pollInput, endInput } from './input.js';
 import { initAudio, playMusic, sfx, jingle, music, setMusic } from './audio.js';
 import { UI, uiUpdate, say, toast, areaName, prompt, fade, wait } from './ui.js';
 import { S, newParty, fullHeal, save, load, hasSave } from './party.js';
-import { HEROES, MONSTERS, ITEMS } from './data.js';
+import { HEROES, MONSTERS, ITEMS, ABILITIES } from './data.js';
 import { startBattle, battleRender, battleTick, inBattle, setBattleAtlas, mechAdds, debugWin, debugState } from './battle.js';
 import { fieldMenu, loadSettings, homeName, MAPCOL } from './menu.js';
 import { SCRIPTS } from './story.js';
@@ -472,7 +473,7 @@ const bgOf = (reg) => BG[reg] || REGIONS[reg].bg;
 // fetch every model a fight will need before it starts
 async function battleModels(ids, guest) {
   const need = new Set([...ids, ...mechAdds(ids)].map((id) => MONSTERS[id].model));
-  for (const m of S.members) for (const a of ['sylph', 'undine', 'ignis', 'terra', 'lumen', 'nox']) if ((m.job === 'summoner' || m.sub === 'summoner')) need.add({ sylph: 'quat/Hywirl', undine: 'quat/Glub_Evolved', ignis: 'quat/Dragon', terra: 'quat/Goleling_Evolved', lumen: 'quat/Alpaking_Evolved', nox: 'quat/Demon_Flying' }[a]);
+  for (const m of S.members) if (m.job === 'summoner' || m.sub === 'summoner') for (const a of Object.values(ABILITIES)) if (a.type === 'summon' && a.model) need.add(a.model);
   if (guest) need.add(guest.model);
   for (const m of ['pirate/palm-straight', 'pirate/palm-bend', 'pirate/rocks-sand-a']) need.add(m);
   await ensure([...need].filter((p) => !p.startsWith('vox:')));

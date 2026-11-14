@@ -67,23 +67,31 @@ export const ask = (who, text, options, cancel = true) => say(who, text, { optio
 export async function talk(who, ...lines) { for (const l of lines) await say(who, l); }
 
 // a list window; items are { label, right, disabled, desc, html }; resolves to the index or -1
-export function list(title, items, { cancel = true, start = 0, footer = '', width = 340, onMove = null, side = '' } = {}) {
+// detail: (index) => HTML for a panel beside the list (below it on a phone) that follows the cursor
+export function list(title, items, { cancel = true, start = 0, footer = '', width = 340, onMove = null, side = '', detail = null, dwidth = 400 } = {}) {
   return new Promise((res) => {
     const root = $('menu');
     let sel = Math.min(start, items.length - 1);
     const draw = () => {
       const it = items[sel];
       // a long list keeps its description at the top, where scrolling cannot hide it
-      const descTop = items.length > 12 ? `<div class="small" style="margin-bottom:8px;min-height:36px;position:sticky;top:-14px;background:#16203a;padding:4px 0;z-index:1">${esc((it && it.desc) || footer || '')}</div>` : '';
-      root.innerHTML = `<div style="display:flex;gap:12px;align-items:flex-start;max-width:calc(100% - 20px)">${side ? `<div class="panel win">${side}</div>` : ''}<div class="panel win list" style="width:min(${width}px,calc(100vw - 30px))">${title ? `<h2>${esc(title)}</h2>` : ''}${descTop}` +
-        items.map((o, i) => `<div class="opt${i === sel ? ' sel' : ''}${o.disabled ? ' off' : ''}" data-i="${i}"><div class="row"><span>${o.html || esc(o.label)}</span><span>${o.right !== undefined ? esc(o.right) : ''}</span></div></div>`).join('') +
-        (descTop ? '</div></div>' : `<div class="small" style="margin-top:8px;min-height:18px">${esc((it && it.desc) || footer || '')}</div></div></div>`);
+      const long = items.length > 12 && (!!footer || items.some((o) => o.desc)), text = esc((it && it.desc) || footer || '');
+      const descTop = long ? `<div class="small" style="margin-bottom:8px;min-height:36px;position:sticky;top:-14px;background:#16203a;padding:4px 0;z-index:1">${text}</div>` : '';
+      const rows = items.map((o, i) => `<div class="opt${i === sel ? ' sel' : ''}${o.disabled ? ' off' : ''}" data-i="${i}"><div class="row"><span>${o.html || esc(o.label)}</span><span>${o.right !== undefined ? esc(o.right) : ''}</span></div></div>`).join('');
+      const listPanel = `<div class="panel win list" style="width:min(${width}px,calc(100vw - 30px))">${title ? `<h2>${esc(title)}</h2>` : ''}${descTop}${rows}${long ? '' : `<div class="small" style="margin-top:8px;min-height:18px">${text}</div>`}</div>`;
+      const det = detail ? `<div class="panel win det" style="width:min(${dwidth}px,calc(100vw - 30px))">${detail(sel) || ''}</div>` : '';
+      const keep = root.querySelector('.det'), top = keep ? keep.scrollTop : 0, same = keep && keep.dataset.sel === String(sel);
+      root.innerHTML = `<div class="mwrap${detail ? ' hasdet' : ''}" style="display:flex;gap:12px;align-items:flex-start;max-width:calc(100% - 20px)">${side ? `<div class="panel win">${side}</div>` : ''}${listPanel}${det}</div>`;
       root.classList.add('on');
+      const d = root.querySelector('.det'); if (d) { d.dataset.sel = sel; if (same) d.scrollTop = top; }
       const s = root.querySelector('.opt.sel'); if (s) s.scrollIntoView({ block: 'nearest' });
     };
     root.onclick = (e) => { const o = e.target.closest('.opt'); if (!o) return; const i = +o.dataset.i; if (i === sel) choose(); else { sel = i; sfx('cursor'); if (onMove) onMove(sel); draw(); } };
     const choose = () => { if (!items[sel] || items[sel].disabled) { sfx('buzz'); return; } sfx('ok'); finish(sel); };
-    const finish = (v) => { root.classList.remove('on'); root.onclick = null; pop(w); res(v); };
+    // Page Up / Page Down scroll the detail panel
+    const onKey = (e) => { if (!detail || (e.key !== 'PageDown' && e.key !== 'PageUp')) return; const d = root.querySelector('.det'); if (d) { d.scrollTop += e.key === 'PageDown' ? 160 : -160; e.preventDefault(); } };
+    window.addEventListener('keydown', onKey);
+    const finish = (v) => { window.removeEventListener('keydown', onKey); root.classList.remove('on'); root.onclick = null; pop(w); res(v); };
     const w = {
       update() {
         if (!items.length) { if (input.pressed('b') || input.pressed('a')) finish(-1); return; }
@@ -92,7 +100,7 @@ export function list(title, items, { cancel = true, start = 0, footer = '', widt
         if (input.pressed('a')) choose();
         if (cancel && (input.pressed('b') || input.pressed('menu'))) { sfx('cancel'); finish(-1); }
       },
-      close() { root.classList.remove('on'); },
+      close() { window.removeEventListener('keydown', onKey); root.classList.remove('on'); },
     };
     push(w); draw();
   });

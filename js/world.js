@@ -494,19 +494,22 @@ function placeHomes() {
 
 // ---------- monsters ----------
 export const SPAWN = {
-  meadow: ['slime', 'bunny', 'chick', 'hog', 'dewdrop', 'nightshade'], forest: ['caterpillar', 'monkey', 'orc', 'bluejelly', 'woodogre'], coast: ['crab', 'fish', 'parrot', 'bluejelly'], lake: ['wisp', 'fish', 'ghost', 'minion', 'piranha'],
-  mistfen: ['bogslime', 'minion', 'ghost', 'caterpillar', 'bogfrog'], sporewood: ['sporeling', 'sporetreant', 'monkey', 'bluejelly', 'mushnub'],
-  mesa: ['lion', 'scorpion', 'tiger', 'cactoro'], ember: ['magmaslime', 'emberwisp', 'magmagolem', 'emberimp'], ruins: ['skeleton', 'skelmage', 'zombie', 'ruinguard', 'ruingoblin'],
-  mountain: ['skeleton', 'skelmage', 'golem', 'yeti', 'ridgeogre'], rimefield: ['yeti', 'frostjelly', 'icewisp', 'golem', 'rimeyeti'], spire: ['vampire', 'crysgolem', 'skelrogue', 'ghost', 'spiredemon'],
+  meadow: ['slime', 'bunny', 'chick', 'hog', 'dewdrop', 'nightshade', 'puffcap'], forest: ['caterpillar', 'monkey', 'orc', 'bluejelly', 'woodogre', 'thornwolf', 'leafsprite', 'mossgolem'], coast: ['crab', 'fish', 'parrot', 'bluejelly', 'shellgull', 'hermitcrab'], lake: ['wisp', 'fish', 'ghost', 'minion', 'piranha', 'lilyfrog', 'lakeglub'],
+  mistfen: ['bogslime', 'minion', 'ghost', 'caterpillar', 'bogfrog', 'mirehand', 'fenwisp'], sporewood: ['sporeling', 'sporetreant', 'monkey', 'bluejelly', 'mushnub', 'sporebrute', 'bloomslime'],
+  mesa: ['lion', 'scorpion', 'tiger', 'cactoro', 'dusthog', 'bigcactoro', 'redhawk'], ember: ['magmaslime', 'emberwisp', 'magmagolem', 'emberimp', 'cinderhound', 'lavafiend'], ruins: ['skeleton', 'skelmage', 'zombie', 'ruinguard', 'ruingoblin', 'lumeranshade', 'hollowarmor', 'ruinprowler'],
+  mountain: ['skeleton', 'skelmage', 'golem', 'yeti', 'ridgeogre', 'cragbull', 'cragroc'], rimefield: ['yeti', 'frostjelly', 'icewisp', 'golem', 'rimeyeti', 'snowpuff', 'rimegolem'], spire: ['vampire', 'crysgolem', 'skelrogue', 'ghost', 'spiredemon', 'prismmote', 'crystalknight'],
   // the east
-  coral: ['coraltoad', 'coralcrab', 'mongoose', 'reefmask', 'coraljelly'], cloud: ['galebirb', 'skywasp', 'cloudalpaca', 'whirlwisp', 'skystone', 'wyvernling'],
-  clock: ['cogling', 'geardrone', 'gearmech'], clocktower: ['cogling', 'gearmech', 'steamgolem', 'geardrone', 'brassgiant'], deepholm: ['dinoling', 'moonhare', 'raptor'],
-  vael: ['drownedwraith', 'tidespecter', 'drownedguard', 'coralskel', 'abyssglub', 'inkhorror'], deep: ['raptor', 'behemoth', 'crusher', 'glowshroom', 'spikecap', 'thornblob', 'cavefrog', 'fungallord'],
-  abyss: ['abyssfiend', 'voiddrake', 'voidspecter', 'obsidiangolem', 'umbralogre', 'echomask', 'voidwalker'], noonhall: ['courtier', 'sunknight', 'gildedsentinel', 'solarwisp'],
-  eastsea: ['glubfin', 'gloomfish', 'ironcatfish', 'squidling', 'razorfin'],
+  coral: ['coraltoad', 'coralcrab', 'mongoose', 'reefmask', 'coraljelly', 'coralglub', 'reefbrute'], cloud: ['galebirb', 'skywasp', 'cloudalpaca', 'whirlwisp', 'skystone', 'wyvernling', 'stormbirb', 'cloudpuff', 'cloudstrider'],
+  clock: ['cogling', 'geardrone', 'gearmech', 'tickbomb'], clocktower: ['cogling', 'gearmech', 'steamgolem', 'geardrone', 'brassgiant', 'tickbomb', 'brasssentry'], deepholm: ['dinoling', 'moonhare', 'raptor', 'fernstalker', 'sparkdino'],
+  vael: ['drownedwraith', 'tidespecter', 'drownedguard', 'coralskel', 'abyssglub', 'inkhorror', 'sirenshade', 'pearlcrab'], deep: ['raptor', 'behemoth', 'crusher', 'glowshroom', 'spikecap', 'thornblob', 'cavefrog', 'fungallord', 'cavetroll', 'crystalcrawler'],
+  abyss: ['abyssfiend', 'voiddrake', 'voidspecter', 'obsidiangolem', 'umbralogre', 'echomask', 'voidwalker', 'voidooze', 'nightmare', 'abyssgiant'], noonhall: ['courtier', 'sunknight', 'gildedsentinel', 'solarwisp', 'gildedmage', 'sunhound'],
+  eastsea: ['glubfin', 'gloomfish', 'ironcatfish', 'squidling', 'razorfin', 'angler', 'volteel'],
 };
+// the rare find of some places: a few spawn points hold one instead (see data3.js RARE_AT)
+export const RARE_SPAWN = { meadow: 'goldjelly', mountain: 'silvergolem', spire: 'prismslime', clocktower: 'goldcog', deepholm: 'elderhare', abyss: 'shadowprism' };
+const rareOr = (reg, x, z, id) => (RARE_SPAWN[reg] && rand(x, z, 31) < 0.03 ? RARE_SPAWN[reg] : id);
 // monsters that only walk at night
-export const NIGHT = new Set(['ghost', 'wisp', 'nightshade']);
+export const NIGHT = new Set(['ghost', 'wisp', 'nightshade', 'fenwisp']);
 function placeSpawns() {
   let k = 0;
   for (let z = 8; z < WZ - 8; z += 10) for (let x = 8; x < OLD_W - 8; x += 10) {
@@ -514,7 +517,7 @@ function placeSpawns() {
     if (!list || REGIONS[reg].town || isClear(x, z)) continue;
     if (rand(x, z, 21) > 0.42) continue;
     if (!dry(x, z)) continue;
-    W.spawns.push({ id: 's' + (k++), reg, monster: list[Math.floor(rand(x, z, 22) * list.length)], pos: [x + 0.5, ground(x, z), z + 0.5] });
+    W.spawns.push({ id: 's' + (k++), reg, monster: rareOr(reg, x, z, list[Math.floor(rand(x, z, 22) * list.length)]), pos: [x + 0.5, ground(x, z), z + 0.5] });
   }
   // the guardians of the lands
   const boss = (id, monster, x, z, raw = false) => { const p = raw ? spot(x, z) : spot(sc(x), sc(z)); W.spawns.push({ id, monster, boss: true, reg: regionAt(p[0], p[2]), pos: p }); };
@@ -525,6 +528,10 @@ function placeSpawns() {
   boss('b_ruin', 'fallenknight', REGIONS.ruins.c[0], REGIONS.ruins.c[1] + 10, true);
   boss('b_wyrm', 'frostwyrm', summit[0] + 4, summit[1] + 5, true);
   boss('b_ember', 'emberdrake', 386, 52);
+  // field guardians: optional, each near a home stone
+  boss('f_boar', 'boarking', 58, 258);
+  boss('f_sand', 'sandcolossus', 310, 170);
+  boss('f_glacius', 'glacius', 64, 42);
 }
 
 // ---------- memory shards, signs, herbs, fishing spots, the traveller ----------
@@ -904,7 +911,7 @@ function placeEast() {
     const g = ground(x, z);
     if (reg === 'deepholm' && g < 40) continue;
     if (Math.hypot(x - SKY[3][0], z - SKY[3][1]) < 18) continue;
-    W.spawns.push({ id: 'e' + (k++), reg, monster: list[Math.floor(rand(x, z, 22) * list.length)], pos: [x + 0.5, g, z + 0.5] });
+    W.spawns.push({ id: 'e' + (k++), reg, monster: rareOr(reg, x, z, list[Math.floor(rand(x, z, 22) * list.length)]), pos: [x + 0.5, g, z + 0.5] });
   }
   // and under roofs: a grid over each place, standing on whatever floor is there
   const under = (reg, cx, cz, r, y, step, p, test = () => true) => {
@@ -913,14 +920,14 @@ function placeEast() {
       const s = standAt(x, y, z, 8);
       if (s < 0 || regionAt3(x + 0.5, s, z + 0.5) !== reg) continue;
       const list = S2[reg];
-      W.spawns.push({ id: 'u' + (k++), reg, monster: list[Math.floor(rand(x, z, 24) * list.length)], pos: [x + 0.5, s, z + 0.5] });
+      W.spawns.push({ id: 'u' + (k++), reg, monster: rareOr(reg, x, z, list[Math.floor(rand(x, z, 24) * list.length)]), pos: [x + 0.5, s, z + 0.5] });
     }
   };
   under('deep', DEEP.c[0], DEEP.c[1], DEEP.r, 13, 9, 0.5, (x, z) => Math.hypot(x - DELVE.c[0], z - DELVE.c[1]) > 16);
   under('vael', VAEL.c[0], VAEL.c[1], VAEL.r - 2, 3, 8, 0.6);
   under('abyss', SPIRE.x, SPIRE.z, 38, 17, 8, 0.45);
   under('noonhall', NOON.x, NOON.z, NOON.r - 2, 5, 7, 0.5, (x, z) => z > NOON.z - NOON.r + 8);
-  for (let L = 1; L <= 5; L++) for (const [dx, dz] of [[-4, 4], [5, -5], [0, 6]].slice(0, L === 3 ? 2 : 3)) W.spawns.push({ id: 'tw' + L + dx, reg: 'clocktower', monster: S2.clocktower[(L + dx + 9) % 5], pos: [TOWER.x + dx + 0.5, 12 + 9 * (L - 1), TOWER.z + dz + 0.5] });
+  for (let L = 1; L <= 5; L++) for (const [dx, dz] of [[-4, 4], [5, -5], [0, 6]].slice(0, L === 3 ? 2 : 3)) W.spawns.push({ id: 'tw' + L + dx, reg: 'clocktower', monster: L === 4 && dx === 5 ? 'goldcog' : S2.clocktower[(L + dx + 9) % S2.clocktower.length], pos: [TOWER.x + dx + 0.5, 12 + 9 * (L - 1), TOWER.z + dz + 0.5] });
   // the guardians of the east and of the deep places
   const boss = (id, monster, pos) => W.spawns.push({ id, monster, boss: true, reg: regionAt3(pos[0], pos[1], pos[2]), pos });
   boss('b_kraken', 'kraken', spot(1100, 700));
@@ -934,6 +941,11 @@ function placeEast() {
   boss('b_echo2', 'echowyrm', spotAt(SPIRE.x + 15, 8, SPIRE.z));
   boss('b_echo3', 'echoknight', spotAt(SPIRE.x - 15, 8, SPIRE.z));
   boss('b_umbra', 'umbra', [SPIRE.x + 0.5, 4, SPIRE.z + 0.5]);
+  // field guardians of the east
+  boss('f_glutton', 'glutton', spot(1066, 732));
+  boss('f_roc', 'stormroc', spotAt(1058, 40, 352));
+  boss('f_wyrm', 'hollowwyrm', spotAt(1124, 11, 156));
+  boss('f_nameless', 'nameless', spotAt(SPIRE.x + 28, 16, SPIRE.z - 10));
   // crystals of the lost faces
   W.crystals.push({ job: 'dragoon', pos: [SKY[6][0] + 0.5, SKY[6][2] + 0.8, SKY[6][1] + 0.5], east: true, lost: true });
   W.crystals.push({ job: 'summoner', pos: [VAEL.c[0] + 0.5, 2.8, VAEL.c[1] - 3.5], east: true, lost: true, need: 'b_morwen' });

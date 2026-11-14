@@ -1,7 +1,9 @@
 // The field menu (party, jobs, equipment, items, map, warp, save, settings), shops and inns.
 import { JOBS, ITEMS, ABILITIES, HEROES, MONSTERS, jpFor, monsterStats, affinity, EL_NAME } from './data.js';
 import { RECIPES, FORGE } from './data2.js';
-import { S, stats, heroName, jlvOf, learned, setJob, canEquip, addItem, count, fullHeal, save, MASTER_ARTS } from './party.js';
+import { S, stats, heroName, jlvOf, learned, setJob, canEquip, addItem, count, fullHeal, save, MASTER_ARTS, abilitiesOf, learnedPassives, supSlots, mastered } from './party.js';
+import { HELP, jobHTML, jobLine, abilityHTML, abilityLine, itemHTML, itemLine, gearLine, monsterHTML, masteryLine, extraWhere, kindName as kindN } from './help.js';
+import { JL_MAX } from './data3.js';
 import { list, say, ask, toast, statusHTML } from './ui.js';
 import { sfx, vol, setVolumes, music, setMusic } from './audio.js';
 import { L, LANG, setLang } from './i18n.js';
@@ -65,29 +67,30 @@ const BOSS_AT = { treant: 'forest', bogkeeper: 'mistfen', sporelord: 'sporewood'
 export async function bestiaryMenu() {
   const ids = Object.keys(MONSTERS).sort((a, b) => MONSTERS[a].lv - MONSTERS[b].lv || (MONSTERS[a].boss ? 1 : 0) - (MONSTERS[b].boss ? 1 : 0));
   const seen = ids.filter((id) => S.seen[id]).length;
-  const elN = (e) => L(EL_NAME[e][0], EL_NAME[e][1]);
+  const regN = (r) => (REGIONS[r] ? REGIONS[r].name[LANG === 'en' ? 1 : 0] : '');
+  const where = (id) => [...new Set([...(REG_OF[id] || []), BOSS_AT[id], extraWhere(id)].filter(Boolean))].map(regN).filter(Boolean).slice(0, 3).join(L('、', ', '));
   await list(L(`魔物圖鑑　${seen}／${ids.length}`, `Bestiary  ${seen} / ${ids.length}`), ids.map((id, i) => {
-    const m = MONSTERS[id], met = !!S.seen[id], st = monsterStats(id), a = affinity(id), where = (REG_OF[id] || [BOSS_AT[id]]).filter(Boolean).map((r) => REGIONS[r] ? REGIONS[r].name[LANG === 'en' ? 1 : 0] : '').filter(Boolean).slice(0, 2).join(L('、', ', '));
+    const m = MONSTERS[id], met = !!S.seen[id];
     if (!met) return { label: `${String(i + 1).padStart(3, '0')} ？？？`, right: '', desc: L('還沒遇過的魔物。', 'A monster you have not met yet.') };
-    const scan = S.scanned[id];
-    const desc = [`Lv ${m.lv}${m.boss ? L('・守護者', ' · guardian') : ''}`, scan ? `HP ${st.hp}` : 'HP ???', scan && a.weak.length ? L('弱：', 'Weak: ') + a.weak.map(elN).join('') : '', scan && a.res.length ? L('抗：', 'Res: ') + a.res.map(elN).join('') : '', !scan ? L('（用看破或鑑定鏡查看弱點）', '(Scan it to learn its weaknesses)') : '', m.drop ? L('掉落：', 'Drops: ') + ITEMS[m.drop[0]].name : '', where ? L('出沒：', 'Found: ') + where : ''].filter(Boolean).join('　');
-    return { label: `${String(i + 1).padStart(3, '0')} ${m.name}`, right: S.defeated[id] ? `×${S.defeated[id]}` : '', desc };
-  }), { width: 460, footer: L('打倒過的次數顯示在右邊。', 'Times defeated are shown on the right.') });
+    return { label: `${String(i + 1).padStart(3, '0')} ${m.name}${m.rare ? ' ✦' : m.field ? ' ♛' : ''}`, right: S.defeated[id] ? `×${S.defeated[id]}` : '', desc: `Lv ${m.lv}${where(id) ? L('　出沒：', '  Found: ') + where(id) : ''}` };
+  }), { width: 380, dwidth: 400, footer: L('右邊是打倒的次數。✦ 稀有魔物　♛ 野外守護者', 'Times defeated on the right. ✦ rare  ♛ field guardian'), detail: (i) => monsterHTML(ids[i], where(ids[i])) });
 }
 // cooking: turn fish, herbs and what monsters drop into dishes
 export async function cookMenu() {
   for (;;) {
-    const r = await list(L('料理', 'Cooking'), RECIPES.map(([out, need]) => { const ok = need.every(([id, n]) => count(id) >= n); return { label: ITEMS[out].name, right: S.cooked[out] ? `×${S.cooked[out]}` : '', disabled: !ok, desc: need.map(([id, n]) => `${ITEMS[id].name} ${count(id)}/${n}`).join('　') + '　→　' + (ITEMS[out].desc || '') }; }), { width: 420, footer: L('材料夠了就能做。做好的菜可以在戰鬥中吃，或從道具選單當作餐點吃。', 'Cook when you have the ingredients. Eat dishes in battle, or as a meal from the Items menu.') });
+    const r = await list(L('料理', 'Cooking'), RECIPES.map(([out, need]) => { const ok = need.every(([id, n]) => count(id) >= n); return { label: ITEMS[out].name, right: S.cooked[out] ? `×${S.cooked[out]}` : '', disabled: !ok, desc: need.map(([id, n]) => `${ITEMS[id].name} ${count(id)}/${n}`).join('　') }; }), { width: 340, footer: L('材料夠了就能做。做好的菜可以在戰鬥中吃，或從道具選單當作餐點吃。', 'Cook when you have the ingredients. Eat dishes in battle, or as a meal from the Items menu.'), detail: (i) => needHTML(RECIPES[i][1]) + itemHTML(RECIPES[i][0], { price: false }) });
     if (r < 0) return;
     const [out, need] = RECIPES[r];
     for (const [id, n] of need) addItem(id, -n);
     addItem(out); S.cooked[out] = (S.cooked[out] || 0) + 1; sfx('heal'); toast(L(`做好了${ITEMS[out].name}！`, `${ITEMS[out].name} is ready!`));
   }
 }
+// what a recipe needs against what is in the bag
+const needHTML = (need, fee) => `<div class="kv">${need.map(([id, n]) => `<span class="${count(id) >= n ? 'up' : 'dn'}">${ITEMS[id].name} ${count(id)}/${n}</span>`).join('')}${fee ? `<span class="${S.gold >= fee ? 'up' : 'dn'}">${L('費用', 'Fee')} ${fee}G</span>` : ''}</div>`;
 // a smith turns ore and monster parts into gear
 export async function forgeMenu(name) {
   for (;;) {
-    const r = await list(name || L('鍛造', 'Forge'), FORGE.map(([out, need, fee]) => { const ok = need.every(([id, n]) => count(id) >= n) && S.gold >= fee; return { label: ITEMS[out].name, right: fee, disabled: !ok, desc: need.map(([id, n]) => `${ITEMS[id].name} ${count(id)}/${n}`).join('　') + '　' + describeGear(out) }; }), { width: 440, footer: `${L('金幣', 'Gold')} ${S.gold}` });
+    const r = await list(name || L('鍛造', 'Forge'), FORGE.map(([out, need, fee]) => { const ok = need.every(([id, n]) => count(id) >= n) && S.gold >= fee; return { label: ITEMS[out].name, right: fee, disabled: !ok, desc: need.map(([id, n]) => `${ITEMS[id].name} ${count(id)}/${n}`).join('　') }; }), { width: 340, footer: `${L('金幣', 'Gold')} ${S.gold}`, detail: (i) => needHTML(FORGE[i][1], FORGE[i][2]) + itemHTML(FORGE[i][0], { who: S.members, price: false }) });
     if (r < 0) return;
     const [out, need, fee] = FORGE[r];
     for (const [id, n] of need) addItem(id, -n);
@@ -97,27 +100,45 @@ export async function forgeMenu(name) {
 
 export async function fieldMenu(ctx) {
   for (;;) {
-    const r = await list(L('選單', 'Menu'), [
-      { label: L('職業', 'Jobs') }, { label: L('裝備', 'Equipment') }, { label: L('道具', 'Items') }, { label: L('能力', 'Status') },
-      { label: L('隊形', 'Formation') }, { label: L('委託', 'Requests') }, { label: L('回憶', 'Memories'), disabled: !S.shards.length && !S.echoes.length },
-      { label: L('地圖', 'Map') }, { label: L('傳送', 'Warp'), disabled: S.homes.length < 2 }, { label: L('記錄', 'Save') }, { label: L('設定', 'Settings') },
-      { label: L('魔物圖鑑', 'Bestiary') }, { label: L('料理', 'Cooking'), disabled: !S.inv.recipebook },
-    ], { side: partySide(), width: 200 });
+    const opts = [
+      ['jobs', L('職業', 'Jobs')], ['abil', L('技能', 'Abilities')], ['equip', L('裝備', 'Equipment')], ['items', L('道具', 'Items')], ['status', L('能力', 'Status')],
+      ['form', L('隊形', 'Formation')], ['quest', L('委託', 'Requests')], ['mem', L('回憶', 'Memories'), !S.shards.length && !S.echoes.length],
+      ['map', L('地圖', 'Map')], ['warp', L('傳送', 'Warp'), S.homes.length < 2], ['save', L('記錄', 'Save')], ['set', L('設定', 'Settings')],
+      ['book', L('魔物圖鑑', 'Bestiary')], ['cook', L('料理', 'Cooking'), !S.inv.recipebook], ['help', L('說明', 'Help')],
+    ];
+    const r = await list(L('選單', 'Menu'), opts.map(([, label, off]) => ({ label, disabled: !!off })), { side: partySide(), width: 200 });
     if (r < 0) return;
-    if (r === 0) await jobsMenu();
-    if (r === 1) await equipMenu();
-    if (r === 2) await itemsMenu(ctx);
-    if (r === 3) await statusMenu();
-    if (r === 4) await formationMenu();
-    if (r === 5) await questMenu();
-    if (r === 6) await memoryMenu();
-    if (r === 7) await mapMenu(ctx);
-    if (r === 8) { const ok = await warpMenu(ctx); if (ok) return; }
-    if (r === 9) { ctx.savePos(); if (save()) { sfx('ok'); toast(L('已記錄', 'Saved')); } }
-    if (r === 10) await settings(ctx);
-    if (r === 11) await bestiaryMenu();
-    if (r === 12) await cookMenu();
+    const id = opts[r][0];
+    if (id === 'jobs') await jobsMenu();
+    if (id === 'abil') await abilitiesMenu();
+    if (id === 'equip') await equipMenu();
+    if (id === 'items') await itemsMenu(ctx);
+    if (id === 'status') await statusMenu();
+    if (id === 'form') await formationMenu();
+    if (id === 'quest') await questMenu();
+    if (id === 'mem') await memoryMenu();
+    if (id === 'map') await mapMenu(ctx);
+    if (id === 'warp') { const ok = await warpMenu(ctx); if (ok) return; }
+    if (id === 'save') { ctx.savePos(); if (save()) { sfx('ok'); toast(L('已記錄', 'Saved')); } }
+    if (id === 'set') await settings(ctx);
+    if (id === 'book') await bestiaryMenu();
+    if (id === 'cook') await cookMenu();
+    if (id === 'help') await helpMenu();
   }
+}
+// the help pages: how things work, a guide to every job, a glossary
+export async function helpMenu() {
+  for (;;) {
+    const topics = [{ t: [L('職業圖鑑', 'Job guide')], guide: true }, ...HELP];
+    const r = await list(L('說明', 'Help'), topics.map((h) => ({ label: h.guide ? h.t[0] : L(h.t[0], h.t[1]), right: h.guide ? '▶' : '' })), { width: 280, dwidth: 460, footer: L('選一個主題。', 'Pick a topic.'),
+      detail: (i) => (topics[i].guide ? `<h3>${L('職業圖鑑', 'Job guide')}</h3><p>${L('全部 24 個職業：能力值、武器、會學到的技能和精通獎勵。還沒找到的職業只會告訴你在哪一帶。', 'All 24 jobs: stats, weapons, what each teaches and its mastery bonus. For jobs you have not found, only a hint of where to look.')}</p>` : `<h3>${L(topics[i].t[0], topics[i].t[1])}</h3>${topics[i].b()}`) });
+    if (r < 0) return;
+    if (topics[r].guide) await jobGuide();
+  }
+}
+async function jobGuide() {
+  const ids = Object.keys(JOBS), m = S.members[0];
+  await list(L('職業圖鑑', 'Job guide'), ids.map((j) => ({ label: S.jobs.includes(j) ? JOBS[j].name : '？？？', right: S.jobs.includes(j) ? '' : L('未發現', 'not found'), desc: jobLine(j, m) })), { width: 300, dwidth: 460, detail: (i) => jobHTML(ids[i], null) });
 }
 const pickMember = (title) => list(title, S.members.map((m) => ({ label: heroName(m), right: `${JOBS[m.job].name}${m.sub ? ' / ' + JOBS[m.sub].name : ''}` })), { width: 320 });
 async function jobsMenu() {
@@ -125,20 +146,64 @@ async function jobsMenu() {
     const i = await pickMember(L('誰要換職業？', 'Whose jobs?'));
     if (i < 0) return;
     const m = S.members[i];
+    let k0 = 0;
     for (;;) {
-      const k = await list(`${heroName(m)}`, [{ label: L('主職業', 'Main job'), right: JOBS[m.job].name }, { label: L('副職業', 'Sub job'), right: m.sub ? JOBS[m.sub].name : L('無', 'None') }], { width: 300, footer: L('主職業決定能力值和裝備；副職業只借用它學會的技能。', 'The main job sets stats and gear; the sub job lends only the abilities it has learned.') });
+      const slots = supSlots(m);
+      const k = await list(`${heroName(m)}`, [{ label: L('主職業', 'Main job'), right: JOBS[m.job].name }, { label: L('副職業', 'Sub job'), right: m.sub ? JOBS[m.sub].name : L('無', 'None') }, { label: L('支援能力', 'Support abilities'), right: `${(m.sup || []).length}/${slots}` }],
+        { width: 300, start: k0, footer: L('主職業決定能力值和裝備；副職業借用它學會的技能和武器。支援欄放任何職業學會的被動技能。', 'The main job sets stats and gear; the sub job lends its learned abilities and weapons. Support slots hold passives learned in any job.'),
+          detail: (r) => (r === 0 ? jobHTML(m.job, m) : r === 1 ? (m.sub ? jobHTML(m.sub, m) : `<h3>${L('副職業', 'Sub job')}</h3><p>${L('還沒設定。副職業學會的技能都能用，JP 拿一半。', 'Not set. You can use everything the sub job has learned, and it earns half the JP.')}</p>`) : supportHTML(m)) });
       if (k < 0) break;
+      k0 = k;
+      if (k === 2) { await supportMenu(m); continue; }
       const opts = (k === 1 ? [null] : []).concat(S.jobs);
       const items = opts.map((j) => j === null ? { label: L('（不設定）', '(none)') } : {
-        label: JOBS[j].name, right: `Lv ${jlvOf(m, j)}`, disabled: k === 1 && j === m.job,
-        desc: `${JOBS[j].desc}　${L('已學會', 'Learned')}: ${learned(j, jlvOf(m, j)).map((a) => ABILITIES[a].name).join('、') || '-'}　(JP ${m.jp[j] || 0}/${jpFor(jlvOf(m, j) + 1)})`,
+        label: JOBS[j].name + (mastered(m, j) ? ' ★' : ''), right: `Lv ${jlvOf(m, j)}`, disabled: k === 1 && j === m.job, desc: jobLine(j, m),
       });
-      const c = await list(k === 0 ? L('主職業', 'Main job') : L('副職業', 'Sub job'), items, { width: 360 });
+      const c = await list(k === 0 ? L('主職業', 'Main job') : L('副職業', 'Sub job'), items, { width: 300, dwidth: 460, start: Math.max(0, opts.indexOf(k === 0 ? m.job : m.sub)), detail: (r) => (opts[r] === null ? `<p>${L('不設定副職業。', 'No sub job.')}</p>` : jobHTML(opts[r], m)) });
       if (c < 0) continue;
       if (k === 1 && opts[c] === null) { m.sub = null; sfx('ok'); continue; }
       setJob(m, opts[c], k === 1); sfx('ok');
     }
   }
+}
+// which job taught a passive (for the support list)
+const teacher = (m, a) => Object.keys(m.jlv || {}).filter((j) => JOBS[j] && learned(j, jlvOf(m, j)).includes(a)).map((j) => JOBS[j].name).join(L('、', ', '));
+function supportHTML(m) {
+  const sup = m.sup || [], n = supSlots(m);
+  return `<h3>${L('支援能力', 'Support abilities')}</h3><p class="small">${L(`支援欄 ${n} 格（20 級與 40 級各多一格）。主職業或副職業學會的被動技能本來就有效，不用放進來。`, `${n} slots (one more at level 20 and at 40). Passives your main or sub job has learned already work and need no slot.`)}</p>`
+    + (sup.length ? sup.map((a) => `<div class="la"><span class="an">${ABILITIES[a].name}</span><span class="small ad">${ABILITIES[a].note || ''}</span></div>`).join('') : `<p class="small off">${L('（還沒放任何能力）', '(nothing set yet)')}</p>`);
+}
+async function supportMenu(m) {
+  let start = 0;
+  for (;;) {
+    m.sup = m.sup || [];
+    const n = supSlots(m), rows = Array.from({ length: n }, (_, i) => m.sup[i] || null);
+    const k = await list(L(`${heroName(m)}的支援能力`, `${heroName(m)}: support`), rows.map((a, i) => ({ label: a ? ABILITIES[a].name : L('（空）', '(empty)'), right: `${i + 1}`, desc: a ? ABILITIES[a].note : L('選擇要放進這一格的被動技能。', 'Choose a passive for this slot.') })),
+      { width: 320, start, detail: (i) => (rows[i] ? abilityHTML(rows[i], teacher(m, rows[i])) : supportHTML(m)) });
+    if (k < 0) return;
+    start = k;
+    const own = new Set(abilitiesOf(m)), all = learnedPassives(m);
+    if (!all.length) { toast(L('還沒學會任何被動技能。', 'No passives learned yet.')); continue; }
+    const opts = [null, ...all];
+    const c = await list(L('放哪一個？', 'Which one?'), opts.map((a) => (a === null ? { label: L('（清空）', '(clear)') } : { label: ABILITIES[a].name, right: m.sup.includes(a) ? L('已裝', 'Set') : own.has(a) ? L('職業中', 'From job') : '', desc: ABILITIES[a].note })),
+      { width: 340, detail: (i) => (opts[i] ? abilityHTML(opts[i], teacher(m, opts[i])) + (own.has(opts[i]) ? `<p class="small">${L('主職業或副職業已經讓它生效了。', 'Your main or sub job already makes it work.')}</p>` : '') : `<p>${L('把這一格清空。', 'Empty this slot.')}</p>`) });
+    if (c < 0) continue;
+    const a = opts[c], cur = Array.from({ length: n }, (_, i) => m.sup[i] || null);
+    if (a !== null) { const at = cur.indexOf(a); if (at >= 0) cur[at] = null; }
+    cur[k] = a;
+    m.sup = cur.filter(Boolean); sfx('ok');
+  }
+}
+// every ability a hero can use now, with what it does
+async function abilitiesMenu() {
+  const i = await pickMember(L('看誰的技能？', 'Whose abilities?'));
+  if (i < 0) return;
+  const m = S.members[i];
+  const src = (a) => [m.job, m.sub].filter((j) => j && learned(j, jlvOf(m, j)).includes(a)).map((j) => JOBS[j].name).concat(Object.values(MASTER_ARTS).includes(a) ? [L('奧義', 'Master art')] : []).concat((m.sup || []).includes(a) ? [L('支援欄', 'Support slot')] : []).join(L('、', ', '));
+  const own = abilitiesOf(m), act = own.filter((a) => !ABILITIES[a].passive), pas = [...new Set([...own.filter((a) => ABILITIES[a].passive), ...(m.sup || [])])], ids = [...act, ...pas];
+  if (!ids.length) { toast(L('還沒有技能。', 'No abilities yet.')); return; }
+  await list(L(`${heroName(m)}的技能`, `${heroName(m)}'s abilities`), ids.map((a) => { const A = ABILITIES[a]; return { label: A.name, right: A.passive ? L('被動', 'Passive') : A.hpcost ? `HP${Math.round(A.hpcost * 100)}%` : `MP ${A.mp}`, desc: abilityLine(A, false) }; }),
+    { width: 340, dwidth: 380, footer: L('戰鬥中從「技能」使用。', 'Use them in battle under Abilities.'), detail: (k) => abilityHTML(ids[k], src(ids[k])) });
 }
 async function equipMenu() {
   for (;;) {
@@ -148,12 +213,15 @@ async function equipMenu() {
     for (;;) {
       const slots = ['weapon', 'armor', 'acc'], names = { weapon: L('武器', 'Weapon'), armor: L('防具', 'Armour'), acc: L('飾品', 'Accessory') };
       const s = stats(m);
-      const k = await list(heroName(m), slots.map((sl) => ({ label: names[sl], right: m.equip[sl] ? ITEMS[m.equip[sl]].name : '-' })), { width: 320, footer: `${L('攻擊', 'ATK')} ${s.atk}　${L('防禦', 'DEF')} ${s.dfn}　${L('魔力', 'MAG')} ${s.mag}　${L('速度', 'AGI')} ${s.agi}` });
+      const k = await list(heroName(m), slots.map((sl) => ({ label: names[sl], right: m.equip[sl] ? ITEMS[m.equip[sl]].name : '-', desc: m.equip[sl] ? gearLine(m.equip[sl]) : '' })), { width: 320, footer: `${L('攻擊', 'ATK')} ${s.atk}　${L('防禦', 'DEF')} ${s.dfn}　${L('魔力', 'MAG')} ${s.mag}　${L('速度', 'AGI')} ${s.agi}`,
+        detail: (r) => (m.equip[slots[r]] ? itemHTML(m.equip[slots[r]], { price: false }) : `<h3>${names[slots[r]]}</h3><p class="small off">${L('（沒有裝備）', '(nothing equipped)')}</p>`) + `<div class="sub">${L('目前能力', 'Now')}</div><div class="kv"><span>${L('攻擊', 'ATK')} ${s.atk}</span><span>${L('防禦', 'DEF')} ${s.dfn}</span><span>${L('魔力', 'MAG')} ${s.mag}</span><span>${L('精神', 'SPR')} ${s.spr}</span><span>${L('速度', 'AGI')} ${s.agi}</span></div>` });
       if (k < 0) break;
       const slot = slots[k];
       const options = Object.keys(S.inv).filter((id) => ITEMS[id].slot === slot && canEquip(m, id));
-      const items = [{ label: L('（卸下）', '(remove)') }, ...options.map((id) => ({ label: ITEMS[id].name, right: S.inv[id], desc: describeGear(id) }))];
-      const c = await list(names[slot], items, { width: 320, footer: slot === 'weapon' ? L(`可用：${[...new Set([...JOBS[m.job].wep, ...(m.sub ? JOBS[m.sub].wep : [])])].map(kindName).join('、')}`, `Can hold: ${[...new Set([...JOBS[m.job].wep, ...(m.sub ? JOBS[m.sub].wep : [])])].map(kindName).join(', ')}`) : '' });
+      const items = [{ label: L('（卸下）', '(remove)') }, ...options.map((id) => ({ label: ITEMS[id].name, right: S.inv[id], desc: gearLine(id) }))];
+      const cur = m.equip[slot];
+      const c = await list(names[slot], items, { width: 320, footer: slot === 'weapon' ? L(`可用：${[...new Set([...JOBS[m.job].wep, ...(m.sub ? JOBS[m.sub].wep : [])])].map(kindName).join('、')}`, `Can hold: ${[...new Set([...JOBS[m.job].wep, ...(m.sub ? JOBS[m.sub].wep : [])])].map(kindName).join(', ')}`) : '',
+        detail: (r) => (r === 0 ? (cur ? `<h3>${L('卸下', 'Remove')}</h3>${removeHTML(m, slot)}` : `<p class="small off">${L('（沒有裝備）', '(nothing equipped)')}</p>`) : itemHTML(options[r - 1], { who: [m] })) });
       if (c < 0) continue;
       if (m.equip[slot]) addItem(m.equip[slot]);
       m.equip[slot] = null;
@@ -162,18 +230,19 @@ async function equipMenu() {
     }
   }
 }
+// what taking a piece off would change
+function removeHTML(m, slot) {
+  const now = stats(m), then = stats({ ...m, equip: { ...m.equip, [slot]: null } });
+  return `<div class="cmp">${[['atk', L('攻擊', 'ATK')], ['dfn', L('防禦', 'DEF')], ['mag', L('魔力', 'MAG')], ['spr', L('精神', 'SPR')], ['agi', L('速度', 'AGI')]].filter(([k2]) => now[k2] !== then[k2]).map(([k2, n]) => `<span class="cv"><span class="small">${n}</span> ${now[k2]}→<b class="dn">${then[k2]}</b></span>`).join('') || `<span class="small">${L('能力值不變', 'no stat change')}</span>`}</div>`;
+}
 const kindName = (k) => ({ sword: L('劍', 'swords'), staff: L('杖', 'staves'), dagger: L('短劍', 'daggers'), hammer: L('鎚', 'hammers'), bow: L('弓', 'bows'), fist: L('拳套', 'fists'), spear: L('槍', 'spears'), gun: L('火槍', 'guns') }[k]);
 const EL = (e) => ({ fire: L('火', 'fire'), ice: L('冰', 'ice'), bolt: L('雷', 'bolt'), water: L('水', 'water'), holy: L('聖', 'holy'), earth: L('土', 'earth'), wind: L('風', 'wind'), dark: L('闇', 'dark') }[e] || e);
 const ST = (s) => ({ poison: L('中毒', 'poison'), sleep: L('睡眠', 'sleep'), stun: L('暈眩', 'stun'), slow: L('減速', 'slow'), blind: L('失明', 'blind'), silence: L('沉默', 'silence'), burn: L('灼傷', 'burns'), freeze: L('凍結', 'freezing'), doom: L('死亡宣告', 'doom') }[s] || s);
-function describeGear(id) {
-  const it = ITEMS[id];
-  return [it.atk ? `${L('攻', 'ATK')}+${it.atk}` : '', it.def ? `${L('防', 'DEF')}+${it.def}` : '', it.mag ? `${L('魔', 'MAG')}+${it.mag}` : '', it.str ? `${L('力', 'STR')}+${it.str}` : '', it.agi ? `${L('速', 'AGI')}+${it.agi}` : '', it.spr ? `${L('精', 'SPR')}+${it.spr}` : '',
-    it.el ? L(`${EL(it.el)}屬性攻擊`, `${EL(it.el)} attacks`) : '', it.res ? L(`抗${it.res.map(EL).join('、')}`, `resists ${it.res.map(EL).join(', ')}`) : '', it.immune ? L(`防${it.immune.map(ST).join('、')}`, `blocks ${it.immune.map(ST).join(', ')}`) : '',
-    it.regen ? L('每回合回復 HP', 'HP every round') : '', it.mpcut ? L('MP 消耗 -25%', 'MP cost -25%') : '', it.first ? L('最先行動', 'acts first') : '', it.counter ? L('受攻擊時可能反擊', 'may counter') : '', it.drain ? L('攻擊時吸收 HP', 'drains HP on hits') : '', it.hasteStart ? L('開戰時加速', 'starts battles hasted') : '', it.desc ? (Array.isArray(it.desc) ? '' : it.desc) : ''].filter(Boolean).join(' '); }
+const describeGear = (id) => gearLine(id);
 async function itemsMenu(ctx) {
   for (;;) {
     const ids = Object.keys(S.inv);
-    const r = await list(L('道具', 'Items'), ids.map((id) => ({ label: ITEMS[id].name, right: S.inv[id], disabled: !ITEMS[id].use, desc: ITEMS[id].desc || describeGear(id) })), { width: 340 });
+    const r = await list(L('道具', 'Items'), ids.map((id) => ({ label: ITEMS[id].name, right: S.inv[id], disabled: !ITEMS[id].use, desc: itemLine(id) })), { width: 320, dwidth: 400, detail: (i) => (ids[i] ? itemHTML(ids[i], { who: ITEMS[ids[i]].slot ? S.members : [] }) : '') });
     if (r < 0) return;
     const id = ids[r], it = ITEMS[id];
     if (it.use === 'tent') { if (ctx.inTown()) { toast(L('村子裡用不著帳篷。', 'No need for a tent in town.')); continue; } addItem(id, -1); await ctx.rest(); continue; }
@@ -201,14 +270,17 @@ async function statusMenu() {
   const i = await pickMember(L('看誰？', 'Who?'));
   if (i < 0) return;
   const m = S.members[i], s = stats(m);
-  const all = S.jobs.map((j) => `${JOBS[j].name} ${jlvOf(m, j)}`).join('　');
+  const all = `<span class="small" style="display:flex;flex-wrap:wrap;gap:0 12px">${S.jobs.map((j) => `<span style="white-space:nowrap">${JOBS[j].name} ${jlvOf(m, j)}${mastered(m, j) ? '★' : ''}</span>`).join('')}<span style="white-space:nowrap">${L(`（職業等級最高 ${JL_MAX}）`, `(job levels up to ${JL_MAX})`)}</span></span>`;
   await list(`${heroName(m)}　Lv ${m.lv}`, [
     { label: `HP ${m.hp}/${s.maxhp}　MP ${m.mp}/${s.maxmp}` }, ...(m.hp > 0 && statusHTML(m.status) ? [{ html: L('狀態：', 'Status: ') + statusHTML(m.status) }] : []), { label: `${L('攻擊', 'ATK')} ${s.atk}　${L('防禦', 'DEF')} ${s.dfn}` },
     { label: `${L('魔力', 'MAG')} ${s.mag}　${L('精神', 'SPR')} ${s.spr}　${L('速度', 'AGI')} ${s.agi}` },
     { label: `${L('經驗值', 'EXP')} ${m.exp}` },
     { label: L('奧義：', 'Master arts: ') + (Object.keys(S.mastery).filter((j) => S.mastery[j] && MASTER_ARTS[j]).map((j) => ABILITIES[MASTER_ARTS[j]].name).join('、') || '-') },
     { label: L('餐點：', 'Meal: ') + (S.meal ? `${ITEMS[S.meal.id].name}（${S.meal.n}）` : '-') },
-  ], { width: 420, footer: all });
+    { label: L('支援：', 'Support: ') + ((m.sup || []).map((a) => ABILITIES[a].name).join(L('、', ', ')) || '-') },
+    { label: L('精通：', 'Mastered: ') + (Object.keys(m.jlv).filter((j) => mastered(m, j)).map((j) => JOBS[j].name).join(L('、', ', ')) || '-') },
+    { label: L('精通獎勵：', 'Mastery bonus: ') + masteryLine(m) }, { html: all },
+  ], { width: 460 });
 }
 // the map: the whole continent from above, with what you have found
 async function mapMenu(ctx) {
@@ -274,14 +346,14 @@ export async function shop(stock) {
     if (r < 0) return;
     if (r === 0) {
       for (;;) {
-        const k = await list(L(`買什麼？　金幣 ${S.gold}`, `Buy what?  Gold ${S.gold}`), stock.map((id) => ({ label: ITEMS[id].name, right: ITEMS[id].price, disabled: ITEMS[id].price > S.gold, desc: (ITEMS[id].desc || describeGear(id)) + `　${L('持有', 'Have')} ${count(id)}` + (ITEMS[id].slot === 'weapon' ? '　' + kindName(ITEMS[id].kind) : '') })), { width: 360, footer: `${L('金幣', 'Gold')} ${S.gold}` });
+        const k = await list(L(`買什麼？　金幣 ${S.gold}`, `Buy what?  Gold ${S.gold}`), stock.map((id) => ({ label: ITEMS[id].name, right: ITEMS[id].price, disabled: ITEMS[id].price > S.gold, desc: itemLine(id) + `　${L('持有', 'Have')} ${count(id)}` })), { width: 320, dwidth: 400, footer: `${L('金幣', 'Gold')} ${S.gold}`, detail: (i) => itemHTML(stock[i], { who: ITEMS[stock[i]].slot ? S.members : [] }) });
         if (k < 0) break;
         S.gold -= ITEMS[stock[k]].price; addItem(stock[k]); sfx('chest');
       }
     } else {
       for (;;) {
         const ids = Object.keys(S.inv).filter((id) => !ITEMS[id].key && ITEMS[id].price);
-        const k = await list(L('賣什麼？', 'Sell what?'), ids.map((id) => ({ label: ITEMS[id].name, right: `${Math.floor(ITEMS[id].price / 2)} ×${S.inv[id]}` })), { width: 340, footer: `${L('金幣', 'Gold')} ${S.gold}` });
+        const k = await list(L('賣什麼？', 'Sell what?'), ids.map((id) => ({ label: ITEMS[id].name, right: `${Math.floor(ITEMS[id].price / 2)} ×${S.inv[id]}`, desc: itemLine(id) })), { width: 320, dwidth: 380, footer: `${L('金幣', 'Gold')} ${S.gold}`, detail: (i) => (ids[i] ? itemHTML(ids[i]) : '') });
         if (k < 0) break;
         S.gold += Math.floor(ITEMS[ids[k]].price / 2); addItem(ids[k], -1); sfx('ok');
       }
@@ -295,4 +367,4 @@ export async function inn(ctx, name) {
   if (S.gold < price) { await say(name, L('……錢好像不太夠呢。', '...You seem a little short.')); return; }
   S.gold -= price; await ctx.rest();
 }
-void HEROES; void fullHeal;
+void HEROES; void fullHeal; void kindN; void describeGear; void monsterStats; void affinity; void EL_NAME;

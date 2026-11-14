@@ -102,3 +102,48 @@ body.touching #touch { display: block; }
   #menu .mem .row.small > span { white-space: nowrap; }
   body:has(#menu.on) #musicBtn, body:has(#dialog.on) #musicBtn { visibility: hidden; }
 }
+
+/* the detail panel beside a list: jobs, abilities, items, gear, monsters, help pages */
+.det { font-size: 14px; line-height: 1.45; }
+.det h3 { margin: 0 0 6px; font-size: 17px; color: var(--gold); font-weight: normal; }
+.det p { margin: 6px 0; }
+.det .tags { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-bottom: 6px; }
+.det .tags b { font-weight: normal; font-size: 12px; padding: 1px 8px; border-radius: 9px; background: rgba(111, 216, 255, 0.14); color: var(--edge); }
+.det .tags b.rare, .det .rare { color: #ffb0f0; }
+.det .kv { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 4px 0; }
+.det .eff { margin: 4px 0; color: #dff8e6; }
+.det .fx { margin: 4px 0; padding-left: 18px; }
+.det .fx li { margin: 1px 0; }
+.det .fl { margin: 6px 0; color: #c8d4ee; }
+.det .sub { margin: 10px 0 4px; color: var(--gold); font-size: 13px; border-bottom: 1px solid var(--edge2); }
+.det .lrn { display: flex; flex-direction: column; gap: 4px; }
+.det .la { display: grid; grid-template-columns: 40px 1fr; column-gap: 6px; }
+.det .la .jl { color: var(--edge); font-size: 12px; grid-row: span 2; padding-top: 2px; }
+.det .la .an { grid-column: 2; }
+.det .la .ad { grid-column: 2; line-height: 1.3; }
+.det .la.lock .an, .det .la.lock .ad, .det .la.lock .jl, .det .off { color: #5e6c8c; }
+.det .grades { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 14px; margin: 6px 0; }
+.det .gr { display: grid; grid-template-columns: 30px 14px 1fr 36px; align-items: center; gap: 4px; }
+.det .gr .bar { margin: 0; }
+.det .gr > i { font-style: normal; text-align: center; }
+.det .gS { color: #ffd070; } .det .gA { color: #ffe7a0; } .det .gB { color: #7cf29a; } .det .gC { color: #7cc4ff; } .det .gD { color: #8a90b0; }
+.det .cmp { margin-top: 6px; padding-top: 4px; border-top: 1px dashed var(--edge2); }
+.det .cv { display: inline-block; margin-right: 12px; white-space: nowrap; }
+.det .cv i { font-style: normal; font-size: 12px; margin-left: 2px; }
+.det .up { color: #7cf29a; } .det .dn { color: #ff7a8a; }
+.det .drops { display: flex; flex-direction: column; gap: 1px; }
+.det .drops i { font-style: normal; }
+.det .gl > div { display: flex; flex-direction: column; margin: 5px 0; }
+.det .els { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 4px 0 8px; }
+.det .els b { font-weight: normal; }
+.el-fire { color: #ff9050; } .el-ice { color: #a0e8ff; } .el-bolt { color: #fff080; } .el-water { color: #70b0ff; } .el-holy { color: #fff8d0; } .el-earth { color: #d0a060; } .el-wind { color: #a8ffc8; } .el-dark { color: #c090ff; }
+.star { color: var(--gold); }
+/* on narrow screens the detail goes under the list, and both scroll on their own */
+@media (max-width: 760px) {
+  #menu > .hasdet { flex-direction: column; align-items: center !important; flex-wrap: nowrap; gap: 8px !important; }
+  #menu > .hasdet > .list { max-height: 43dvh; width: min(560px, calc(100vw - 24px)) !important; }
+  #menu > .hasdet > .det { max-height: 46dvh; width: min(560px, calc(100vw - 24px)) !important; }
+}
+/* a long battle list keeps its description pinned at the bottom, and the music button steps aside */
+#bcmd .bdesc { position: sticky; bottom: -8px; background: #121a38; padding-bottom: 6px; z-index: 1; }
+body:has(#bcmd.on) #musicBtn { visibility: hidden; }
