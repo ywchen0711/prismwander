@@ -204,6 +204,7 @@ function mushroom(x, y, z, h = 5 + Math.floor(rand(x, z, 13) * 4)) {
 }
 // a little house: walls, a door gap, a sloped roof
 function house(x, y, z, w = 5, d = 5, wall = B.plank, roof = B.brick) {
+  HOUSES.push({ x: x + OX, y, z: z + OZ, w, d });
   fill(x - 1, y - 1, z - 1, x + w, y - 1, z + d, B.cobble);
   fill(x - 1, y, z - 1, x + w, y + 3 + (w >> 1) + 2, z + d, B.air);
   for (let k = 0; k < 3; k++) for (let i = 0; i < w; i++) for (let j = 0; j < d; j++) { if (i === 0 || j === 0 || i === w - 1 || j === d - 1) set(x + i, y + k, z + j, wall); }
@@ -221,13 +222,15 @@ function house(x, y, z, w = 5, d = 5, wall = B.plank, roof = B.brick) {
   }
   return [x + (w >> 1) + 0.5, y, z + d + 0.5];
 }
+// every house built, for the rooftop climbs
+const HOUSES = [];
 const npc = (id, model, pos, talk, extra = {}) => W.ents.push({ type: 'npc', id, model: 'chars/' + model, pos: [pos[0] + OX, pos[1], pos[2] + OZ], face: 0, talk, ...extra });
 const prop = (...ps) => { for (const p of ps) W.ents.push({ ...p, pos: [p.pos[0] + OX, p.pos[1], p.pos[2] + OZ] }); };
 
 // key places other modules look up: villages' people, crystals, chests, home stones, monster spawns and the rest
 export function generate() {
   const { data, height } = W;
-  data.fill(0); ROOF.fill(0);
+  data.fill(0); ROOF.fill(0); HOUSES.length = 0;
   regReady = false; for (let z = 0; z < WZ; z++) for (let x = 0; x < WX; x++) REG[z * WX + x] = regionSlow(x, z); regReady = true;
   for (let z = 0; z < WZ; z++) for (let x = 0; x < WX; x++) height[z * WX + x] = columnHeight(x, z);
   for (let z = 0; z < WZ; z++) for (let x = 0; x < WX; x++) {
@@ -266,6 +269,8 @@ export function generate() {
   buildEast(); buildAbyss(); buildNoonHalls(); buildOldExtras();
   placeCrystals(); placeChests(); placeHomes(); placeSpawns(); placeShards(); placeSigns(); placeHerbs(); placeFishing(); placeEin(); placeDecor();
   placeEast();
+  // climbs with a reward at the top, set where nothing else stands
+  { const t = Date.now(); buildParkour(); W.pkMs = Date.now() - t; }
   // villagers, props and decorations set at a village's level stand on the ground actually under them
   for (const e of W.ents) if (e.type === 'npc' || e.type === 'prop') settle(e);
   for (const d of W.decor) if (!d.flat) settle(d);
@@ -1015,6 +1020,292 @@ function placeEast() {
   }
   for (let i = 0; i < 40; i++) { const a = rand(i, 7, 153) * 6.28, d = 5 + rand(i, 8, 154) * 34, x = Math.round(SPIRE.x + Math.cos(a) * d), z = Math.round(SPIRE.z + Math.sin(a) * d), y = standAt(x, 17, z, 14); if (y > 0) W.decor.push({ model: i % 3 ? 'grave/rocks-tall' : 'grave/pillar-obelisk', pos: [x + 0.5, y, z + 0.5], h: i % 3 ? 1.4 : 2.2, rot: a }); }
 }
+// ---------- climbs: parkour spots with a reward at the top ----------
+// Each climb is built from the world's own blocks where the land suits it, found by searching outward from a
+// planned spot (always in the same order, so the world comes out the same every time). The way up only ever asks
+// for what the player can do: a step up of one or two blocks, a jump over a one-block gap rising by one, or a jump
+// over two blocks at the same height; a few ask for the Spring Boots. The reward sits where nothing else reaches.
+export const PARKOUR = [];
+// [id, x, z (old-map coordinates unless east), kind, style, reward [item, n] or ['gold', n], extra]
+const PK_PLAN = [
+  ['pk_dawn', 222, 312, 'tower', 'plank', ['powerseed', 1]],
+  ['pk_meadowsky', 262, 352, 'sky', 'cobble', ['hipotion', 3]],
+  ['pk_pond', 250, 396, 'pillars', 'stone', ['lifeseed', 1]],
+  ['pk_mirror', 210, 250, 'stones', 'birch', ['mindseed', 1]],
+  ['pk_meadowcols', 168, 330, 'pillars', 'cobble', ['gold', 600]],
+  ['pk_oakcrown', 72, 270, 'tree', 'wood', ['climbercoat', 1]],
+  ['pk_greenwood', 46, 312, 'tree', 'wood', ['swiftseed', 1]],
+  ['pk_forestsky', 110, 248, 'sky', 'moss', ['spiritseed', 1]],
+  ['pk_fenstones', 60, 404, 'tree', 'wood', ['guardseed', 1]],
+  ['pk_mushhops', 352, 400, 'mushroom', 'mushroom', ['manaseed', 2]],
+  ['pk_shellstack', 402, 262, 'stones', 'sandstone', ['gold', 1200]],
+  ['pk_saltroof', 'saltmere', 0, 'roof', 'plank', ['roofrunner', 1]],
+  ['pk_hearthroof', 'hearth', 0, 'roof', 'plank', ['jpseed', 1]],
+  ['pk_frostsky', 150, 200, 'sky', 'ice', ['lifeseed', 1]],
+  ['pk_duneroof', 'dunewell', 0, 'roof', 'redstone', ['swiftseed', 1]],
+  ['pk_mesacols', 300, 178, 'pillars', 'redstone', ['cliffclaws', 1]],
+  ['pk_mesaspire', 350, 156, 'tower', 'sandstone', ['cragmaul', 1], { boots: true, showcase: true }],
+  ['pk_lavastep', 396, 52, 'lava', 'stone', ['powerseed', 2]],
+  ['pk_embertower', 372, 76, 'tower', 'brick', ['jpseed', 2], { showcase: true }],
+  ['pk_ruincols', 246, 150, 'pillars', 'brick', ['mindseed', 2]],
+  ['pk_spiresky', 186, 52, 'sky', 'crystal', ['featherstaff', 1], { showcase: true }],
+  ['pk_greyridge', 64, 146, 'tower', 'stone', ['guardseed', 2]],
+  ['pk_peakboots', 112, 104, 'sky', 'cobble', ['peakblade', 1], { boots: true, showcase: true }],
+  ['pk_rimesky', 40, 24, 'sky', 'ice', ['skyplate', 1]],
+  ['pk_lakevent', 236, 210, 'vent', 'skystone', ['swallowbow', 1], { showcase: true }],
+  ['pk_westcols', 150, 236, 'pillars', 'cobble', ['spiritseed', 1]],
+  // the Eastern Sea
+  ['pk_coralstones', 1094, 700, 'stones', 'coral', ['gold', 2500], { east: true }],
+  ['pk_coraltower', 1030, 712, 'tower', 'sandstone', ['jpseed', 2], { east: true }],
+  ['pk_tideroof', 'tidehaven', 0, 'roof', 'plank2', ['manaseed', 3], { east: true }],
+  ['pk_cogroof', 'cogwick', 0, 'roof', 'brass', ['gold', 3000], { east: true }],
+  ['pk_clocktower', 1250, 380, 'tower', 'brass', ['ridgespear', 1], { east: true, showcase: true }],
+  ['pk_cloudsky', 1030, 378, 'sky', 'skystone', ['lifeseed', 3], { east: true, isle: 0, tight: true }],
+  ['pk_deepholm', 1150, 214, 'sky', 'stone', ['powerseed', 3], { east: true }],
+  ['pk_hollowsky', 1168, 168, 'sky', 'crystal', ['jpseed', 3], { east: true, cave: true }],
+  ['pk_galevent', 1086, 640, 'vent', 'coral', ['swiftseed', 3], { east: true }],
+  ['pk_deepsky', 1206, 96, 'sky', 'moss', ['mindseed', 3], { east: true, boots: true }],
+];
+const STYLE = {
+  plank: [B.plank, B.wood], cobble: [B.cobble, B.stone], stone: [B.stone, B.cobble], birch: [B.birch, B.birch], wood: [B.plank2, B.wood], moss: [B.moss, B.stone], mushroom: [B.mushroom, B.birch],
+  sandstone: [B.sandstone, B.sandstone], redstone: [B.redstone, B.redsand], brick: [B.brick, B.brick], crystal: [B.crystal, B.skystone], ice: [B.ice, B.snow], skystone: [B.skystone, B.birch],
+  coral: [B.coral, B.sandstone], plank2: [B.plank2, B.redwood], brass: [B.brass, B.iron],
+};
+const TREEISH = new Set([B.wood, B.birch, B.leaves, B.orange, B.post, B.cactus, B.mushroom]);
+// every point something already stands on, so a climb never lands on top of it
+function takenPoints() {
+  const pts = [];
+  const add = (p) => { if (p) pts.push([p[0], p[2]]); };
+  for (const l of [W.chests, W.homes, W.crystals, W.shards, W.signs, W.herbs, W.levers, W.valves, W.vents, W.docks, W.ores, W.digs, W.picks, W.echoes]) for (const e of l) add(e.pos);
+  for (const e of W.ents) add(e.pos); for (const e of W.spawns) if (e.boss) add(e.pos); for (const f of W.fish) add(f.pos);
+  for (const p of W.ein) add(p); for (const p of W.ein2) add(p);
+  return pts;
+}
+// columns within r of (x, z) that are all dry, open land at nearly one height; returns that height, or -1
+// the ground under any trees (they are cleared away for a climb)
+const soil = (x, z) => { for (let y = WY - 1; y > 0; y--) { const id = get(x, y, z); if (solid(id) && !TREEISH.has(id)) return y + 1; } return 1; };
+const nearTown = (x, z) => TOWNS.some((t) => Math.hypot(x - REGIONS[t].c[0], z - REGIONS[t].c[1]) < REGIONS[t].r + 10);
+function landSite(x, z, r, h, reg, free) {
+  let lo = 99, hi = 0;
+  if (nearTown(x, z)) return -1;
+  for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+    const X = x + dx, Z = z + dz;
+    if (X < 8 || Z < 8 || X >= WX - 8 || Z >= WZ - 8 || underRoof(X, Z)) return -1;
+    if (reg && regionAt(X, Z) !== reg) return -1;
+    const g = soil(X, Z), top = get(X, g - 1, Z), here = get(X, g, Z);
+    if (g <= SEA + 1 || here === B.water || here === B.lava || top === B.water) return -1;
+    lo = Math.min(lo, g); hi = Math.max(hi, g);
+  }
+  if (hi - lo > 2 || hi + h + 4 >= WY) return -1;
+  for (let dz = -r - 1; dz <= r + 1; dz++) for (let dx = -r - 1; dx <= r + 1; dx++) for (let y = hi; y <= hi + h + 3; y++) { const id = get(x + dx, y, z + dz); if (solid(id) && !TREEISH.has(id)) return -1; }
+  if (!free(x, z, r + 5)) return -1;
+  return hi;
+}
+// a cave floor (Hollowdeep): one height across, with room up to the roof
+function caveSite(x, z, r, h, free) {
+  let lo = 99, hi = 0;
+  for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+    const s = standAt(x + dx, 13, z + dz, 6);
+    if (s < 0 || regionAt3(x + dx + 0.5, s, z + dz + 0.5) !== 'deep') return -1;
+    lo = Math.min(lo, s); hi = Math.max(hi, s);
+  }
+  if (hi - lo > 2) return -1;
+  for (let dz = -r - 1; dz <= r + 1; dz++) for (let dx = -r - 1; dx <= r + 1; dx++) for (let y = hi; y <= hi + h + 3; y++) if (solid(get(x + dx, y, z + dz))) return -1;
+  if (!free(x, z, r + 5)) return -1;
+  return hi;
+}
+// search outward in rings from (x0, z0) for the first place test() accepts
+function searchSite(x0, z0, maxR, test) {
+  for (let r = 0; r <= maxR; r += 2) for (let a = 0, n = Math.max(1, r * 4); a < n; a++) {
+    const x = Math.round(x0 + Math.cos(a / n * Math.PI * 2) * r), z = Math.round(z0 + Math.sin(a / n * Math.PI * 2) * r);
+    const v = test(x, z);
+    if (v) return v;
+  }
+  return null;
+}
+// the blocks of every climb, so the checker can take each one away and see the reward fall out of reach
+const pkBlocks = [];
+let pkCur = null;
+const put = (x, y, z, id) => { set(x, y, z, id); if (pkCur) pkCur.push(x, y, z); };
+const pcol = (x, z, y0, top, id) => { for (let y = y0; y < top; y++) put(x, y, z, id); };
+// a round of stepping stones: a ring of points two blocks apart, so each hop clears a one-block gap
+const RING2 = [[-2, -2], [0, -2], [2, -2], [2, 0], [2, 2], [0, 2], [-2, 2], [-2, 0]];
+const RING3 = [[-3, -3], [-1, -3], [1, -3], [3, -3], [3, -1], [3, 1], [3, 3], [1, 3], [-1, 3], [-3, 3], [-3, 1], [-3, -1]];
+// steps from height b+1 up and around a ring; the last one sits at a point next to the middle (odd in RING2, not a
+// corner in RING3) one below `top`. With the boots, every other step rises by two.
+function helix(x, z, b, top, ring, id, boots, isLast) {
+  const steps = [];
+  let h = b + 1, n = 0;
+  while (h < top) { steps.push(h); h += boots && n % 2 === 1 ? 2 : 1; n++; }
+  if (steps[steps.length - 1] !== top - 1) steps.push(top - 1);
+  // turn the ring so the last step lands where it can reach the middle
+  let off = 0; while (!isLast(ring[(steps.length - 1 + off) % ring.length])) off++;
+  steps.forEach((sh, k) => { const [dx, dz] = ring[(k + off) % ring.length]; put(x + dx, sh - 1, z + dz, id); });
+  return ring[off % ring.length];
+}
+const pkFlag = (x, y, z) => W.decor.push({ model: 'hex/flag_blue.gltf', pos: [x + 0.5, y, z + 0.5], h: 1.7, rot: 0, pk: true });
+function buildClimb(plan, free) {
+  const [id, ax, az, kind, style, reward, ex = {}] = plan, [step, core] = STYLE[style];
+  const east = !!ex.east, x0 = typeof ax === 'string' ? 0 : east ? ax : sc(ax), z0 = typeof ax === 'string' ? 0 : east ? az : sc(az);
+  const reg = typeof ax === 'string' ? ax : ex.cave ? null : regionAt(x0, z0);
+  let site = null;
+  const H = ex.cave ? 12 : kind === 'tower' ? 11 + Math.floor(rand(x0, z0, 300) * 4) : 12;
+  if (kind === 'tower' || kind === 'tree') site = searchSite(x0, z0, 46, (x, z) => { const b = landSite(x, z, kind === 'tree' ? 4 : 2, H + 2, reg, free); return b > 0 && [x, z, b]; });
+  else if (kind === 'sky') { const fr = ex.tight ? (a, b2, r) => free(a, b2, r - 4) : free; site = searchSite(x0, z0, 46, (x, z) => { const b = ex.cave ? caveSite(x, z, 3, H, fr) : landSite(x, z, 3, H + 1, ex.isle !== undefined ? null : reg, fr); return b > 0 && [x, z, b]; }); }
+  else if (kind === 'vent') site = searchSite(x0, z0, 46, (x, z) => { const b = landSite(x, z, 2, 18, reg, free); return b > 0 && clearBox(x - 2, z - 3, x + 6, z + 13, b + 1, b + 24) && free(x + 2, z + 5, 10) && [x, z, b]; });
+  else if (kind === 'pillars' || kind === 'mushroom') {
+    const N = kind === 'mushroom' ? 4 : 6, gap = kind === 'mushroom' ? 6 : 2;
+    site = searchSite(x0, z0, 46, (x, z) => { for (const [dx, dz] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) { const L = gap * N + (kind === 'mushroom' ? 7 : 5), cx = x + dx * (L >> 1), cz = z + dz * (L >> 1); const r = L >> 1; const b = landSiteLine(x, z, dx, dz, L, kind === 'mushroom' ? 3 : 1, reg, free, N + 7); if (b > 0) return [x, z, b, dx, dz]; void cx; void cz; void r; } return null; });
+  } else if (kind === 'stones') site = searchSite(x0, z0, 60, (x, z) => waterSite(x, z, free));
+  else if (kind === 'lava') site = lavaSite(x0, z0, free);
+  else if (kind === 'roof') site = roofSite(ax, free);
+  if (!site) return null;
+  // the ground the climb covers, cleared of trees
+  const bx0 = site[0], bz0 = site[1];
+  const box = kind === 'pillars' || kind === 'mushroom' ? [Math.min(bx0, bx0 + site[3] * 34) - 4, Math.min(bz0, bz0 + site[4] * 34) - 4, Math.max(bx0, bx0 + site[3] * 34) + 4, Math.max(bz0, bz0 + site[4] * 34) + 4]
+    : kind === 'vent' ? [bx0 - 3, bz0 - 4, bx0 + 7, bz0 + 14] : kind === 'stones' || kind === 'lava' ? [bx0 + Math.min(0, site[3] * 16) - 2, bz0 + Math.min(0, site[4] * 16) - 2, bx0 + Math.max(0, site[3] * 16) + 2, bz0 + Math.max(0, site[4] * 16) + 2] : [bx0 - 5, bz0 - 5, bx0 + 5, bz0 + 5];
+  if (kind !== 'roof' && !ex.cave) clearTrees(box[0], box[1], box[2], box[3], site[2] - 1, site[2] + 30);
+  pkCur = [];
+  const pk = { id, kind, reward, boots: !!ex.boots, showcase: !!ex.showcase, east, reg: null };
+  const [x, z, b] = site;
+  if (kind === 'tower' || kind === 'tree') {
+    const top = b + H;
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) pcol(x + dx, z + dz, b - 3, top, core);
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) put(x + dx, top - 1, z + dz, kind === 'tree' ? B.leaves : step);
+    helix(x, z, b, top, RING2, kind === 'tree' ? B.plank2 : step, pk.boots, ([dx, dz]) => !dx !== !dz);
+    if (kind === 'tree') for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) { const d = Math.max(Math.abs(dx), Math.abs(dz)); if (d < 3) continue; for (let y = top - 1; y <= top + 1; y++) if (Math.abs(dx) + Math.abs(dz) + Math.abs(y - top) <= 6 && !solid(get(x + dx, y, z + dz))) put(x + dx, y, z + dz, B.leaves); }
+    pk.pos = [x + 0.5, top, z + 0.5]; pk.flag = [x + 1, top, z + 1];
+  } else if (kind === 'sky') {
+    const top = b + H;
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) put(x + dx, top - 1, z + dz, core === B.birch ? step : core);
+    helix(x, z, b, top, RING3, step, pk.boots, ([dx, dz]) => Math.abs(dx) === 1 || Math.abs(dz) === 1);
+    pk.pos = [x + 0.5, top, z + 0.5]; pk.flag = [x - 1, top, z - 1];
+  } else if (kind === 'vent') {
+    // an updraught lifts you beside a floating ledge; three more hops lead up to a perch
+    const top = b + 15;
+    W.vents.push({ id: 'v_' + id, pos: [x + 0.5, b, z + 0.5], top: top + 1 });
+    for (let dx = 2; dx <= 4; dx++) for (let dz = -1; dz <= 1; dz++) put(x + dx, top - 1, z + dz, step);
+    let hx = x + 3, hz = z + 1, hh = top;
+    for (let k = 0; k < 3; k++) { hz += 2; hh += 1; put(hx, hh - 1, hz, step); }
+    hz += 2; hh += 1;
+    for (let dx = -1; dx <= 1; dx++) for (let dz = 0; dz <= 2; dz++) put(hx + dx, hh - 1, hz + dz, core);
+    pk.pos = [hx + 0.5, hh, hz + 1.5]; pk.flag = [hx + 1, hh, hz + 2];
+  } else if (kind === 'pillars' || kind === 'mushroom') {
+    const [, , , dx, dz] = site, N = kind === 'mushroom' ? 4 : 6, gap = kind === 'mushroom' ? 6 : 2, mush = kind === 'mushroom';
+    // each one a block higher than the last, with one block of air between (a mushroom cap reaches two blocks out)
+    let h = b;
+    for (let k = 1; k <= N; k++) {
+      h = b + k; const px = x + dx * gap * k, pz = z + dz * gap * k;
+      pcol(px, pz, b - 3, h, mush ? B.birch : k % 2 ? step : core);
+      if (mush) for (let ox = -2; ox <= 2; ox++) for (let oz = -2; oz <= 2; oz++) if (Math.abs(ox) + Math.abs(oz) <= 3) put(px + ox, h - 1, pz + oz, B.mushroom);
+    }
+    // the last stand: a broad top one higher, one gap beyond
+    const reach = mush ? 5 : 3, cx = x + dx * (gap * N + reach), cz = z + dz * (gap * N + reach), top = h + 1;
+    for (let ox = -1; ox <= 1; ox++) for (let oz = -1; oz <= 1; oz++) pcol(cx + ox, cz + oz, b - 3, top, mush ? B.birch : core);
+    if (mush) for (let ox = -1; ox <= 1; ox++) for (let oz = -1; oz <= 1; oz++) put(cx + ox, top - 1, cz + oz, B.mushroom);
+    pk.pos = [cx + 0.5, top, cz + 0.5]; pk.flag = [cx - dz, top, cz + dx];
+  } else if (kind === 'stones') {
+    // from the shore out over the water to a little raised islet
+    const [, , , dx, dz, n, g0] = site;
+    for (let k = 1; k <= n; k++) { const h = g0 + Math.min(2, Math.floor(k * 3 / n)); pcol(x + dx * 2 * k, z + dz * 2 * k, 1, h, k % 2 ? step : core); }
+    const cx = x + dx * (2 * n + 3), cz = z + dz * (2 * n + 3), top = g0 + 3;
+    for (let ox = -1; ox <= 1; ox++) for (let oz = -1; oz <= 1; oz++) pcol(cx + ox, cz + oz, 1, top, ox || oz ? core : step);
+    pk.pos = [cx + 0.5, top, cz + 0.5]; pk.flag = [cx + dz, top, cz - dx];
+  } else if (kind === 'lava') {
+    const [, , , dx, dz, n, g0] = site;
+    for (let k = 1; k <= n; k++) { const X = x + dx * 2 * k, Z = z + dz * 2 * k; pcol(X, Z, Math.min(g0 - 3, ground(X, Z) - 1), g0 + Math.min(2, k), core); }
+    const cx = x + dx * (2 * n + 3), cz = z + dz * (2 * n + 3), top = g0 + 3;
+    for (let ox = -1; ox <= 1; ox++) for (let oz = -1; oz <= 1; oz++) pcol(cx + ox, cz + oz, Math.min(g0 - 3, ground(cx + ox, cz + oz) - 1), top, B.brick);
+    pk.pos = [cx + 0.5, top, cz + 0.5]; pk.flag = [cx + 1, top, cz + 1];
+  } else if (kind === 'roof') {
+    // two stacks of crates up to the eaves, up the roof, and a chimney on the ridge
+    const [, , , hx, hy, hz, w, d] = site;
+    pcol(hx - 3, hz + 1, hy, hy + 1, step); pcol(hx - 2, hz + 1, hy, hy + 3, step);
+    const rx = hx + ((w - 1) >> 1), ry = hy + 3 + (w >> 1) + 1;
+    pcol(rx, hz + 1, ry + 1, ry + 3, B.brick);
+    pk.pos = [rx + 0.5, ry + 3, hz + 1.5];
+  }
+  pk.reg = regionAt3(pk.pos[0], pk.pos[1], pk.pos[2]); pk.box = box;
+  pkBlocks.push(pkCur); pkCur = null;
+  pk.blocks = pkBlocks.length - 1;
+  return pk;
+}
+const clearBox = (x0, z0, x1, z1, y0, y1) => { for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) { if (underRoof(x, z)) return false; for (let y = y0; y <= y1; y++) { const id = get(x, y, z); if (solid(id) && !TREEISH.has(id)) return false; } } return true; };
+// clear the trees out of the way of a climb (block trees, and the posts inside the model trees)
+function clearTrees(x0, z0, x1, z1, y0, y1) { for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) for (let y = y0; y <= y1; y++) if (TREEISH.has(get(x, y, z))) set(x, y, z, B.air); }
+// a straight strip of land for a row of pillars or mushrooms
+function landSiteLine(x, z, dx, dz, L, half, reg, free, h) {
+  let lo = 99, hi = 0;
+  if (nearTown(x, z) || nearTown(x + dx * L, z + dz * L)) return -1;
+  for (let k = 0; k <= L; k++) for (let w = -half; w <= half; w++) {
+    const X = x + dx * k + dz * w, Z = z + dz * k + dx * w;
+    if (X < 8 || Z < 8 || X >= WX - 8 || Z >= WZ - 8 || underRoof(X, Z) || (reg && regionAt(X, Z) !== reg)) return -1;
+    const g = soil(X, Z), top = get(X, g - 1, Z), here = get(X, g, Z);
+    if (g <= SEA + 1 || here === B.water || here === B.lava || top === B.water) return -1;
+    lo = Math.min(lo, g); hi = Math.max(hi, g);
+  }
+  if (lo < hi - 1 || hi + h + 4 >= WY) return -1;
+  for (let k = -1; k <= L + 1; k++) for (let w = -half - 1; w <= half + 1; w++) for (let y = hi; y <= hi + h + 2; y++) { const id = get(x + dx * k + dz * w, y, z + dz * k + dx * w); if (solid(id) && !TREEISH.has(id)) return -1; }
+  if (!free(x + dx * (L >> 1), z + dz * (L >> 1), (L >> 1) + 4)) return -1;
+  return hi;
+}
+// a shore with open water ahead: stepping stones out to an islet that nothing else comes near
+function waterSite(x, z, free) {
+  const g0 = ground(x, z), wet = (X, Z) => get(X, SEA, Z) === B.water && get(X, SEA + 1, Z) === B.air && ground(X, Z) <= SEA + 1;
+  if (g0 <= SEA + 1 || g0 > SEA + 5 || underRoof(x, z) || nearTown(x, z) || TREEISH.has(get(x, g0 - 1, z)) || solid(get(x, g0, z))) return null;
+  for (const n of [4, 3]) for (const [dx, dz] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
+    const far = 2 * n + 3;
+    let ok = true;
+    for (let k = 1; k <= far + 5 && ok; k++) for (let w = -(k > 2 * n ? 3 : 1); w <= (k > 2 * n ? 3 : 1); w++) if (!wet(x + dx * k + dz * w, z + dz * k + dx * w)) { ok = false; break; }
+    if (!ok) continue;
+    if (!free(x + dx * (n + 2), z + dz * (n + 2), n + 4)) continue;
+    return [x, z, g0, dx, dz, n, g0];
+  }
+  return null;
+}
+// the edge of the crater's lava lake, looking across it
+function lavaSite(x0, z0, free) {
+  return searchSite(x0, z0, 14, (x, z) => {
+    const g0 = ground(x, z);
+    if (get(x, g0 - 1, z) === B.lava || get(x, g0, z) === B.lava) return null;
+    for (const [dx, dz] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
+      let lava = 0;
+      for (let k = 1; k <= 9; k++) { const X = x + dx * k, Z = z + dz * k, g = ground(X, Z); if (get(X, g - 1, Z) === B.lava || get(X, g, Z) === B.lava) lava++; }
+      if (lava >= 6 && free(x, z, 6)) return [x, z, g0, dx, dz, 3, g0];
+    }
+    return null;
+  });
+}
+// the tallest house in a village, with room beside it for crates
+function roofSite(town, free) {
+  const c = REGIONS[town].c, hs = HOUSES.filter((h) => Math.hypot(h.x - c[0], h.z - c[1]) < 22).sort((a, b) => b.w - a.w || a.x - b.x);
+  for (const h of hs) {
+    const cx = h.x - 2, cz = h.z + 1;
+    let ok = solid(get(cx, h.y - 1, cz)) && solid(get(cx - 1, h.y - 1, cz));
+    for (let y = h.y; y <= h.y + 4; y++) if (solid(get(cx, y, cz)) || solid(get(cx - 1, y, cz))) ok = false;
+    for (let i = h.x - 3; i <= h.x + h.w + 2 && ok; i++) for (let j = h.z - 3; j <= h.z + h.d + 2; j++) { if (i >= h.x - 1 && i <= h.x + h.w && j >= h.z - 1 && j <= h.z + h.d) continue; if (soil(i, j) > h.y + 1 && !(i === cx && j === cz)) { ok = false; break; } }
+    if (ok && free(cx, cz, 1)) return [cx, cz, h.y, h.x, h.y, h.z, h.w, h.d];
+  }
+  return null;
+}
+function buildParkour() {
+  PARKOUR.length = 0; pkBlocks.length = 0;
+  const taken = takenPoints(), made = [];
+  const free = (x, z, r) => !taken.some(([px, pz]) => Math.abs(px - x) < r && Math.abs(pz - z) < r) && !made.some((p) => Math.abs(p.pos[0] - x) < r + 6 && Math.abs(p.pos[2] - z) < r + 6);
+  for (const plan of PK_PLAN) {
+    const pk = buildClimb(plan, plan[3] === 'roof' ? () => true : free);
+    if (!pk) continue;
+    made.push(pk); PARKOUR.push(pk);
+    const [item, n] = pk.reward;
+    W.chests.push({ id: pk.id, item: item === 'gold' ? null : item, gold: item === 'gold' ? n : 0, n: item === 'gold' ? 1 : n, pos: pk.pos, pk: true, showcase: pk.showcase });
+    if (pk.flag) pkFlag(...pk.flag);
+  }
+  // decorations that would stand inside a climb go
+  const inClimb = (d) => { const x = Math.floor(d.pos[0]), z = Math.floor(d.pos[2]), y = Math.floor(d.pos[1]); const blocked = (id) => solid(id) && id !== B.post; return !d.pk && (blocked(get(x, y, z)) || blocked(get(x, y + 1, z)) || PARKOUR.some((p) => p.kind !== 'roof' && x >= p.box[0] && x <= p.box[2] && z >= p.box[1] && z <= p.box[3])); };
+  for (let i = W.decor.length - 1; i >= 0; i--) if (inClimb(W.decor[i])) W.decor.splice(i, 1);
+}
+export const parkourBlocks = (i) => pkBlocks[i];
+
 // gates opening and the drowned city draining, as the story moves on: returns the columns whose chunks changed
 let drained = false;
 export function applyWorldFlags(st) {

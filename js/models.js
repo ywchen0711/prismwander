@@ -19,6 +19,8 @@ export function preload(paths) {
     }, undefined, () => { console.warn('missing model', p); cache.set(p, null); res(); });
   })));
 }
+// the loaded scene of a model, for borrowing its parts (the paper doll takes weapons and hats from every hero)
+export const sceneOf = (p) => { const g = cache.get(p); return g ? g.scene : null; };
 // a KayKit character carries every weapon it could hold; keep the ones each hero uses
 const KEEP = { Knight: ['1H_Sword', 'Round_Shield'], Mage: ['2H_Staff'], Barbarian: ['1H_Axe', 'Barbarian_Round_Shield'], Rogue_Hooded: ['Knife', 'Knife_Offhand'], Rogue: ['Knife', 'Knife_Offhand'] };
 function hideSpares(path, scene) {

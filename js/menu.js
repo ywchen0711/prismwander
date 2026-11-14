@@ -1,6 +1,9 @@
 // The field menu (party, jobs, equipment, items, map, warp, save, settings), shops and inns.
+import { setPreview } from './doll.js';
 import { JOBS, ITEMS, ABILITIES, HEROES, MONSTERS, jpFor, monsterStats, affinity, EL_NAME } from './data.js';
 import { RECIPES, FORGE } from './data2.js';
+import { addJP } from './party.js';
+import { climbCount, PARKOUR } from './climbs.js';
 import { S, stats, heroName, jlvOf, learned, setJob, canEquip, addItem, count, fullHeal, save, MASTER_ARTS, abilitiesOf, learnedPassives, supSlots, mastered, cmdJobs, cmdAbilities, bookCount, masteryCount } from './party.js';
 import { HELP, jobHTML, jobLine, abilityHTML, abilityLine, itemHTML, itemLine, gearLine, monsterHTML, masteryLine, extraWhere, heroStatusHTML, kindName as kindN } from './help.js';
 import { JL_MAX } from './data3.js';
@@ -11,6 +14,7 @@ import { REGIONS, WX, WZ, W, ground, SEA, get, B, SPAWN, OLD_W } from './world.j
 import { QUESTS, SHARDS } from './story.js';
 import { ECHOES } from './story2.js';
 import { qualityChoice, autoLevel, setQuality } from './quality.js';
+import { prefs, setPref } from './input.js';
 
 export const MAPCOL = { [B.grass]: [96, 176, 72], [B.sand]: [232, 214, 160], [B.redsand]: [208, 112, 64], [B.redstone]: [168, 80, 56], [B.snow]: [236, 244, 252], [B.stone]: [140, 146, 160], [B.gravel]: [150, 150, 150], [B.cobble]: [120, 120, 130], [B.leaves]: [56, 130, 56], [B.orange]: [220, 130, 50], [B.brick]: [150, 150, 160], [B.crystal]: [150, 230, 255], [B.ice]: [190, 230, 250], [B.plank]: [180, 120, 80], [B.wood]: [110, 80, 50], [B.birch]: [220, 220, 200], [B.lava]: [255, 110, 30], [B.mushroom]: [210, 50, 50], [B.moss]: [96, 128, 84], [B.mud]: [128, 126, 108], [B.cactus]: [80, 150, 60],
   [B.coral]: [230, 96, 104], [B.sandstone]: [220, 200, 150], [B.skystone]: [130, 160, 230], [B.gold]: [240, 200, 70], [B.iron]: [130, 130, 140], [B.brass]: [180, 160, 90], [B.ruby]: [150, 60, 80], [B.coal]: [60, 60, 70], [B.plank2]: [190, 150, 100], [B.redwood]: [160, 70, 50], [B.frame]: [170, 180, 190], [B.hedge]: [70, 150, 70], [B.emerald]: [90, 200, 120], [B.silver]: [190, 200, 210] };
@@ -21,7 +25,7 @@ function memberCard(m, sel = false) {
     `<div class="jb">${JOBS[m.job].name} ${jlvOf(m, m.job)}${m.sub ? ' / ' + JOBS[m.sub].name + ' ' + jlvOf(m, m.sub) : ''}</div>` +
     `<div class="row small"><span>HP ${m.hp}/${s.maxhp}</span><span>MP ${m.mp}/${s.maxmp}</span></div>${bar(m.hp, s.maxhp, '#7cf29a')}${bar(m.mp, s.maxmp, '#7cc4ff')}</div>`;
 }
-const partySide = () => `<div class="cols" style="flex-direction:column;gap:6px">${S.members.map((m) => memberCard(m)).join('')}</div><div class="small" style="margin-top:6px">${L('金幣', 'Gold')} ${S.gold}　${L('水晶', 'Crystals')} ${S.crystals.length}/8　${L('記憶', 'Memories')} ${S.shards.length}/24</div>`;
+const partySide = () => `<div class="cols" style="flex-direction:column;gap:6px">${S.members.map((m) => memberCard(m)).join('')}</div><div class="small" style="margin-top:6px">${L('金幣', 'Gold')} ${S.gold}　${L('水晶', 'Crystals')} ${S.crystals.length}/8　${L('記憶', 'Memories')} ${S.shards.length}/24　${L('登頂', 'Climbs')} ${climbCount()}/${PARKOUR.length}</div>`;
 // front and back rows: the back row takes less physical damage but hits softer in melee (bows do not mind)
 async function formationMenu() {
   let start = 0;
@@ -218,8 +222,11 @@ async function abilitiesMenu() {
   await list(L(`${heroName(m)}的技能`, `${heroName(m)}'s abilities`), ids.map((a) => { const A = ABILITIES[a]; return { label: A.name, right: A.passive ? L('被動', 'Passive') : A.hpcost ? `HP${Math.round(A.hpcost * 100)}%` : `MP ${A.mp}`, desc: abilityLine(A, false) }; }),
     { width: 340, dwidth: 380, footer: L('戰鬥中從「技能」使用。', 'Use them in battle under Abilities.'), detail: (k) => abilityHTML(ids[k], src(ids[k])) });
 }
+// a turning portrait of the hero in what is chosen, drawn by doll.js
+const PV_HTML = '<canvas class="dollpv" width="120" height="150"></canvas>';
 async function equipMenu() {
   for (;;) {
+    setPreview(null);
     const i = await pickMember(L('誰的裝備？', 'Whose equipment?'));
     if (i < 0) return;
     const m = S.members[i];
@@ -227,14 +234,14 @@ async function equipMenu() {
       const slots = ['weapon', 'armor', 'acc'], names = { weapon: L('武器', 'Weapon'), armor: L('防具', 'Armour'), acc: L('飾品', 'Accessory') };
       const s = stats(m);
       const k = await list(heroName(m), slots.map((sl) => ({ label: names[sl], right: m.equip[sl] ? ITEMS[m.equip[sl]].name : '-', desc: m.equip[sl] ? gearLine(m.equip[sl]) : '' })), { width: 320, footer: `${L('攻擊', 'ATK')} ${s.atk}　${L('防禦', 'DEF')} ${s.dfn}　${L('魔力', 'MAG')} ${s.mag}　${L('速度', 'AGI')} ${s.agi}`,
-        detail: (r) => (m.equip[slots[r]] ? itemHTML(m.equip[slots[r]], { price: false }) : `<h3>${names[slots[r]]}</h3><p class="small off">${L('（沒有裝備）', '(nothing equipped)')}</p>`) + `<div class="sub">${L('目前能力', 'Now')}</div><div class="kv"><span>${L('攻擊', 'ATK')} ${s.atk}</span><span>${L('防禦', 'DEF')} ${s.dfn}</span><span>${L('魔力', 'MAG')} ${s.mag}</span><span>${L('精神', 'SPR')} ${s.spr}</span><span>${L('速度', 'AGI')} ${s.agi}</span></div>` });
+        detail: (r) => { setPreview(m); return PV_HTML + (m.equip[slots[r]] ? itemHTML(m.equip[slots[r]], { price: false }) : `<h3>${names[slots[r]]}</h3><p class="small off">${L('（沒有裝備）', '(nothing equipped)')}</p>`) + `<div class="sub">${L('目前能力', 'Now')}</div><div class="kv"><span>${L('攻擊', 'ATK')} ${s.atk}</span><span>${L('防禦', 'DEF')} ${s.dfn}</span><span>${L('魔力', 'MAG')} ${s.mag}</span><span>${L('精神', 'SPR')} ${s.spr}</span><span>${L('速度', 'AGI')} ${s.agi}</span></div>`; } });
       if (k < 0) break;
       const slot = slots[k];
       const options = Object.keys(S.inv).filter((id) => ITEMS[id].slot === slot && canEquip(m, id));
       const items = [{ label: L('（卸下）', '(remove)') }, ...options.map((id) => ({ label: ITEMS[id].name, right: S.inv[id], desc: gearLine(id) }))];
       const cur = m.equip[slot];
       const c = await list(names[slot], items, { width: 320, footer: slot === 'weapon' ? L(`可用：${[...new Set([...JOBS[m.job].wep, ...(m.sub ? JOBS[m.sub].wep : [])])].map(kindName).join('、')}`, `Can hold: ${[...new Set([...JOBS[m.job].wep, ...(m.sub ? JOBS[m.sub].wep : [])])].map(kindName).join(', ')}`) : '',
-        detail: (r) => (r === 0 ? (cur ? `<h3>${L('卸下', 'Remove')}</h3>${removeHTML(m, slot)}` : `<p class="small off">${L('（沒有裝備）', '(nothing equipped)')}</p>`) : itemHTML(options[r - 1], { who: [m] })) });
+        detail: (r) => { setPreview(m, { ...m.equip, [slot]: r === 0 ? null : options[r - 1] }); return PV_HTML + (r === 0 ? (cur ? `<h3>${L('卸下', 'Remove')}</h3>${removeHTML(m, slot)}` : `<p class="small off">${L('（沒有裝備）', '(nothing equipped)')}</p>`) : itemHTML(options[r - 1], { who: [m] })); } });
       if (c < 0) continue;
       if (m.equip[slot]) addItem(m.equip[slot]);
       m.equip[slot] = null;
@@ -243,6 +250,9 @@ async function equipMenu() {
     }
   }
 }
+// a seed's stat, now
+const seedName = (k) => ({ str: L('力量', 'STR'), def: L('體格', 'DEF'), mag: L('魔力', 'MAG'), spr: L('精神', 'SPR'), agi: L('速度', 'AGI'), hp: L('最大 HP', 'max HP'), mp: L('最大 MP', 'max MP') }[k]);
+function seedNow(m, k) { const s = stats(m); return `${seedName(k)} ${k === 'hp' ? s.maxhp : k === 'mp' ? s.maxmp : s[k]}`; }
 // what taking a piece off would change
 function removeHTML(m, slot) {
   const now = stats(m), then = stats({ ...m, equip: { ...m.equip, [slot]: null } });
@@ -265,6 +275,15 @@ async function itemsMenu(ctx) {
       const c = await ask(null, L(`要怎麼吃${it.name}？`, `How will you have the ${it.name}?`), [L('當作餐點（效果持續五場戰鬥）', 'As a meal (lasts five battles)'), L('現在吃，回復', 'Eat now to recover'), L('不吃', 'Not now')]);
       if (c === 0) { addItem(id, -1); S.meal = { id, n: S.members.some((m) => (m.job === 'chef' || m.sub === 'chef')) ? 8 : 5 }; sfx('heal'); toast(L(`吃了${it.name}。（${S.meal.n} 場戰鬥）`, `You ate the ${it.name}. (${S.meal.n} battles)`)); continue; }
       if (c !== 1) continue;
+    }
+    // seeds: a hero grows a little stronger for good
+    if (it.use === 'seed' || it.use === 'jpseed') {
+      const k2 = await list(it.name, S.members.map((m) => ({ label: heroName(m), right: it.use === 'jpseed' ? `${JOBS[m.job].name} ${jlvOf(m, m.job)}` : seedNow(m, it.stat) })), { width: 300, footer: itemLine(id) });
+      if (k2 < 0) continue;
+      const m = S.members[k2]; addItem(id, -1); sfx('heal');
+      if (it.use === 'seed') { m.seeds = m.seeds || {}; m.seeds[it.stat] = (m.seeds[it.stat] || 0) + it.power; toast(L(`${heroName(m)}的${seedName(it.stat)}提升了 ${it.power}！`, `${heroName(m)}'s ${seedName(it.stat)} rose by ${it.power}!`)); }
+      else { const lines = addJP(m, it.power); toast(lines.length ? lines.join(L('　', '  ')) : L(`${heroName(m)}的${JOBS[m.job].name}得到 ${it.power} JP。`, `${heroName(m)}'s ${JOBS[m.job].name} gained ${it.power} JP.`), 2600); }
+      continue;
     }
     if (it.target === 'allies') { addItem(id, -1); sfx('heal'); for (const m of S.members) { if (m.hp <= 0) continue; const st = stats(m); if (it.use === 'heal') m.hp = Math.min(st.maxhp, m.hp + it.power); if (it.use === 'elixir') { m.hp = st.maxhp; m.mp = st.maxmp; } } toast(L('大家都恢復了。', 'Everyone feels better.')); continue; }
     const pool = S.members.filter((m) => (it.use === 'revive' ? m.hp <= 0 : m.hp > 0));
@@ -329,14 +348,20 @@ export const homeName = (id) => ({ h_hearth: L('爐心村', 'Hearthvale'), h_fen
   h_tide: L('潮汐港', 'Tidehaven'), h_cog: L('齒輪村', 'Cogwick'), h_gale: L('疾風島', 'Gale Isle'), h_sky: L('天空之巢', 'Skyhaven'), h_vael: L('薇爾的珊瑚環', 'The Ring of Vael'), h_tower: L('機關塔門口', 'Clockwork Tower gate'), h_deepm: L('深岩島海灘', 'Deepholm beach'), h_delve: L('掘地人之窟', "Delvers' Hollow"), h_abyss: L('稜晶深淵', 'The Prism Abyss'), h_noon: L('正午宮殿', 'The Noon Halls') }[id] || id);
 const QNAME = { auto: () => L('自動', 'Auto'), high: () => L('高', 'High'), medium: () => L('中', 'Medium'), low: () => L('低（最流暢）', 'Low (smoothest)') };
 async function settings(ctx) {
+  let at = 0;
   for (;;) {
-    const r = await list(L('設定', 'Settings'), [
+    const rows = [
       { label: L('語言', 'Language'), right: LANG === 'en' ? 'English' : '中文' },
       { label: L('音樂', 'Music'), right: music.on ? L('開', 'On') : L('關', 'Off') },
       { label: L('音樂音量', 'Music volume'), right: Math.round(vol.music * 10) }, { label: L('音效音量', 'Sound volume'), right: Math.round(vol.sfx * 10) },
       { label: L('畫質', 'Graphics'), right: QNAME[qualityChoice]() + (qualityChoice === 'auto' ? `（${QNAME[autoLevel]()}）` : ''), desc: L('手機和平板若會卡頓，請選「低」。變更後會自動記錄並重新載入。', 'If a phone or tablet stutters, choose Low. Changing it saves and reloads the game.') },
-    ], { width: 320 });
+      { label: L('自動奔跑', 'Auto-run'), right: prefs.autoRun ? L('開', 'On') : L('關', 'Off'), desc: L('開著時平常就用跑的，按住 Shift 走路。Caps Lock 或 F 也能切換；觸控螢幕有 » 按鈕，搖桿推到底也會跑。', 'When on you always run; hold Shift to walk. Caps Lock or F also switch it; touch screens have the » button, and pushing the stick all the way runs too.') },
+      { label: L('隊伍跟在後面', 'Party follows'), right: prefs.party ? L('開', 'On') : L('關', 'Off'), desc: L('在野外讓其他夥伴跟在隊長後面走，身上的裝備都看得到。很舊的手機若會卡頓可以關掉。', 'The other heroes walk behind the leader in the field, wearing their gear. Switch it off if a very old phone stutters.') },
+    ];
+    const tip = [L('切換中文與英文。', 'Switch between Chinese and English.'), L('背景音樂開或關（M 鍵也可以）。', 'Background music on or off (or press M).'), L('音樂的大小聲。', 'How loud the music plays.'), L('音效的大小聲。', 'How loud the sounds play.')];
+    const r = await list(L('設定', 'Settings'), rows.map(({ desc, ...o }) => o), { width: 320, start: at, dwidth: 340, detail: (k) => `<h3>${rows[k].label}</h3><p>${rows[k].desc || tip[k] || ''}</p>` });
     if (r < 0) return;
+    at = r;
     if (r === 0) setLang(LANG === 'en' ? 'zh' : 'en');
     if (r === 1) setMusic(!music.on);
     // volume steps 0.2 to 1.0 and round again
@@ -346,6 +371,8 @@ async function settings(ctx) {
       if (k >= 0 && order[k] !== qualityChoice) { if (ctx && S.members.length) { ctx.savePos(); save(); } setQuality(order[k]); return; }
       continue;
     }
+    if (r === 5) { setPref('autoRun', !prefs.autoRun); continue; }
+    if (r === 6) { setPref('party', !prefs.party); continue; }
     if (r === 3) vol.sfx = Math.round(vol.sfx * 10) >= 10 ? 0 : Math.min(1, Math.round(vol.sfx * 10 + 2) / 10);
     try { localStorage.setItem('prismwander-vol', JSON.stringify(vol)); } catch (e) { /* ignore */ }
   }

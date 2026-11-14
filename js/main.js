@@ -5,20 +5,22 @@ import * as THREE from 'three';
 import './data2.js';
 import './data3.js';
 import './data4.js';
+import './data5.js';
 import { SCRIPTS3 } from './story3.js';
-import { generate, buildChunk, setAtlas, W, WX, WZ, WY, SEA, CHUNK, get, solid, seeThrough, B, regionAt, regionAt3, standAt, REGIONS, ground, SPIRE, NIGHT, EIN_STEPS, tw, sc, OLD_W, VAEL, SPAWN, applyWorldFlags } from './world.js';
+import { generate, buildChunk, setAtlas, W, WX, WZ, WY, SEA, CHUNK, get, solid, seeThrough, B, regionAt, regionAt3, standAt, REGIONS, ground, SPIRE, NIGHT, EIN_STEPS, tw, sc, OLD_W, VAEL, SPAWN, applyWorldFlags, PARKOUR, parkourBlocks } from './world.js';
 import { preload, make, ensure, ready, crystalMesh, homeMesh, instanced, shardMesh, signMesh, herbMesh, rippleMesh, leverMesh, valveMesh, ventMesh, echoMesh, pickMesh, digMesh, oreMesh } from './models.js';
-import { input, setupInput, pollInput, endInput } from './input.js';
+import { input, setupInput, pollInput, endInput, prefs, setPref } from './input.js';
 import { initAudio, playMusic, sfx, jingle, music, setMusic } from './audio.js';
 import { UI, uiUpdate, say, toast, areaName, prompt, fade, wait } from './ui.js';
 import { S, newParty, fullHeal, save, load, hasSave } from './party.js';
 import { HEROES, MONSTERS, ITEMS, ABILITIES } from './data.js';
-import { startBattle, battleRender, battleTick, inBattle, setBattleAtlas, mechAdds, debugWin, debugState } from './battle.js';
+import { startBattle, battleRender, battleTick, inBattle, setBattleAtlas, mechAdds, debugWin, debugState, battleView } from './battle.js';
 import { fieldMenu, loadSettings, homeName, MAPCOL } from './menu.js';
 import { SCRIPTS } from './story.js';
 import { SCRIPTS2, CREDITS2 } from './story2.js';
 import { L, LANG, setLang, onLang } from './i18n.js';
 import { Q } from './quality.js';
+import { heroInst, redress, previewTick } from './doll.js';
 
 Object.assign(SCRIPTS, SCRIPTS2, SCRIPTS3);
 const $ = (id) => document.getElementById(id);
@@ -191,7 +193,7 @@ function buildEnts() {
   }
   for (const c of W.crystals) add('crystal', crystalMesh(c.lost ? 0xffd08a : c.east ? 0xa8ffd0 : 0x8ae8ff), c, c.pos);
   for (const h of W.homes) add('home', homeMesh(), h, h.pos);
-  for (const ch of W.chests) { const inst = make('dungeon/chest').fit(0.8); inst.obj.rotation.y = Math.PI * rnd(ch.pos[0], 2); add('chest', inst, ch, ch.pos); }
+  for (const ch of W.chests) { const inst = make('dungeon/chest', ch.showcase ? { tint: '#ffd860' } : {}).fit(ch.showcase ? 1.0 : 0.8); inst.obj.rotation.y = Math.PI * rnd(ch.pos[0], 2); add('chest', inst, ch, ch.pos); if (ch.pk) add('pkmark', climbMark(ch.showcase), ch, ch.pos); }
   for (const s of W.shards) add('shard', shardMesh(), s, s.pos);
   for (const s of W.echoes) add('echo', echoMesh(), s, s.pos);
   for (const s of W.signs) { const m = signMesh(); m.obj.rotation.y = s.rot; add('sign', m, s, s.pos); }
@@ -210,6 +212,14 @@ function buildEnts() {
   for (let k = 0; k < Q.clouds; k++) { const c = make(k % 3 ? 'hex/cloud_small.gltf' : 'hex/cloud_big.gltf'); c.fit(3 + (k % 4)); c.obj.scale.multiplyScalar(2.4); c.obj.position.set(rnd(k, 7) * WX, 80 + rnd(k, 8) * 10, rnd(k, 9) * WZ); c.obj.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; o.material.emissive = new THREE.Color(0x8890a0); o.material.fog = false; } }); scene.add(c.obj); clouds.push(c.obj); }
 }
 const clouds = [];
+// the prize at the top of a climb glints; a showcase prize also sends up a pillar of light seen from far below
+const MARK_GEO = new THREE.OctahedronGeometry(0.2, 0), MARK_MAT = new THREE.MeshBasicMaterial({ color: 0xfff2a0 });
+const BEAM_GEO = new THREE.CylinderGeometry(0.32, 0.5, 36, 8, 1, true), BEAM_MAT = new THREE.MeshBasicMaterial({ color: 0xffe080, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false });
+function climbMark(showcase) {
+  const g = new THREE.Group(), star = new THREE.Mesh(MARK_GEO, MARK_MAT); star.position.y = 1.5; g.add(star);
+  let beam = null; if (showcase) { beam = new THREE.Mesh(BEAM_GEO, BEAM_MAT); beam.position.y = 18.5; g.add(beam); }
+  return { obj: g, update(dt, t) { star.rotation.y += dt * 2.4; star.position.y = 1.5 + Math.sin(t * 2.2) * 0.12; star.scale.setScalar(0.8 + Math.abs(Math.sin(t * 3.1)) * 0.6); if (beam) beam.material.opacity = 0.16 + Math.sin(t * 1.4) * 0.06; } };
+}
 const rnd = (a, b) => ((Math.sin(a * 12.9898 + b * 78.233) * 43758.5453) % 1 + 1) % 1;
 // monsters only get a model when you come near them, and the east's only once their model has arrived
 function monsterInst(e) {
@@ -239,7 +249,7 @@ const pickNeed = (k) => !k.need || !!S.flags[k.need];
 const crystalGot = (c) => (c.east ? S.crystals2.includes(c.job) : S.crystals.includes(c.job));
 function refreshEnts() {
   for (const e of ents) {
-    if (e.kind === 'chest') e.inst.obj.visible = !S.chests[e.data.id];
+    if (e.kind === 'chest' || e.kind === 'pkmark') e.inst.obj.visible = !S.chests[e.data.id];
     if (e.kind === 'crystal') e.inst.obj.visible = !crystalGot(e.data);
     if (e.kind === 'shard') e.inst.obj.visible = !S.shards.includes(e.data.id);
     if (e.kind === 'echo') e.inst.obj.visible = !S.echoes.includes(e.data.id) && (e.data.pos[1] > 3 || !!S.flags.drained);
@@ -282,7 +292,7 @@ async function board(x, z) {
 }
 let seaT = 40;
 function moveBoat(dt) {
-  const sp = (input.held('run') ? 16 : 10.5) * dt, mx = input.move.x, mz = input.move.z, sin = Math.sin(cam.yaw), cos = Math.cos(cam.yaw);
+  const sp = (running() ? 16 : 10.5) * dt, mx = input.move.x, mz = input.move.z, sin = Math.sin(cam.yaw), cos = Math.cos(cam.yaw);
   const dx = (-mz * sin - mx * cos) * sp, dz = (-mz * cos + mx * sin) * sp;
   const moving = Math.hypot(dx, dz) > 0.0001;
   if (moving) P.yaw = Math.atan2(dx, dz);
@@ -311,8 +321,68 @@ function disembark(x, y, z) {
 // ---------- the player ----------
 function makePlayer() {
   if (player) scene.remove(player.obj);
-  player = make(HEROES[S.members[0].id].model).fit(1.75);
+  player = heroInst(S.members[0]).fit(1.75);
   scene.add(player.obj);
+  partyKey = S.members.map((m) => m.id).join();
+  makeFollowers();
+}
+// ---------- the rest of the party, walking behind ----------
+// they keep to the leader's own footsteps (a trail of points), so they go wherever the leader could go
+let partyKey = '', followers = [];
+const trail = [];
+const showParty = () => prefs.party;
+function makeFollowers() {
+  for (const f of followers) scene.remove(f.inst.obj);
+  followers = []; trail.length = 0;
+  if (!showParty()) return;
+  for (const m of S.members.slice(1)) { const inst = heroInst(m).fit(1.75); inst.obj.position.set(P.x, P.y, P.z); scene.add(inst.obj); followers.push({ m, inst, x: P.x, y: P.y, z: P.z }); }
+}
+// a fresh trail runs straight back from the leader (as far as the ground allows), and everyone takes their place on it
+function seedTrail() {
+  trail.length = 0; trail.push([P.x, P.y, P.z]);
+  const bx = -Math.sin(P.yaw), bz = -Math.cos(P.yaw);
+  for (let j = 1; j <= 24; j++) { const x = P.x + bx * j * 0.25, z = P.z + bz * j * 0.25; if (blockedAt(x, P.y, z) || !blockedAt(x, P.y - 0.6, z) || wetAt(x, P.y, z)) break; trail.push([x, P.y, z]); }
+  followers.forEach((f, i) => { const p = trail[Math.min(trail.length - 1, (i + 1) * 5)]; [f.x, f.y, f.z] = p; f.inst.obj.position.set(...p); f.inst.obj.rotation.y = P.yaw; });
+}
+function updateFollowers(dt) {
+  if (S.members.map((m) => m.id).join() !== partyKey) makePlayer();
+  redress(player, S.members[0]);
+  if (followers.length !== (showParty() ? S.members.length - 1 : 0)) makeFollowers();
+  const head = trail[0];
+  // a jump across the map (a warp, waking up, a boat) leaves no trail to follow
+  if (!head || Math.hypot(P.x - head[0], P.z - head[2]) > 6 || Math.abs(P.y - head[1]) > 12) seedTrail();
+  else if (Math.hypot(P.x - head[0], P.z - head[2]) > 0.2 || Math.abs(P.y - head[1]) > 0.3) trail.unshift([P.x, P.y, P.z]);
+  if (trail.length > 90) trail.length = 90;
+  followers.forEach((f, i) => {
+    f.inst.obj.visible = !P.boat;
+    if (P.boat) return;
+    // a place on the trail this far behind the leader
+    const want = (i + 1) * 1.25; let d = 0, prev = [P.x, P.y, P.z], tgt = trail[trail.length - 1];
+    for (const p of trail) { const s = Math.hypot(p[0] - prev[0], p[2] - prev[2]); if (d + s >= want) { const k = s ? (want - d) / s : 0; tgt = [prev[0] + (p[0] - prev[0]) * k, prev[1] + (p[1] - prev[1]) * k, prev[2] + (p[2] - prev[2]) * k]; break; } d += s; prev = p; }
+    if (d < want) tgt = [f.x, f.y, f.z];
+    const dx = tgt[0] - f.x, dz = tgt[2] - f.z, sp = Math.hypot(dx, dz) / Math.max(dt, 0.001);
+    const k = Math.min(1, dt * 14);
+    f.x += dx * k; f.z += dz * k; f.y += (tgt[1] - f.y) * Math.min(1, dt * 18);
+    const o = f.inst.obj; o.position.set(f.x, f.y, f.z);
+    if (Math.hypot(dx, dz) > 0.02) o.rotation.y = Math.atan2(dx, dz);
+    const air = !solid(get(Math.floor(f.x), Math.floor(f.y - 0.15), Math.floor(f.z))) && !solid(get(Math.floor(f.x), Math.floor(f.y - 0.6), Math.floor(f.z)));
+    f.inst.play(air ? 'jump' : sp > 6.5 ? 'sprint' : sp > 0.6 ? 'walk' : 'idle');
+    redress(f.inst, f.m);
+    f.inst.update(dt);
+  });
+}
+// ---------- running ----------
+// hold Shift to run, or switch on auto-run (Caps Lock / F, or the run button on a touch screen) to run all the time;
+// holding Shift while auto-running walks. On a touch screen, pushing the stick all the way runs as well.
+const running = () => (input.held('run') !== prefs.autoRun) || (input.stickFull && !input.held('run'));
+// little puffs of dust behind running feet
+const dust = [];
+{ const mat = new THREE.MeshBasicMaterial({ color: 0xe8dcc0, transparent: true, opacity: 0.5, depthWrite: false }), g = new THREE.BoxGeometry(0.22, 0.22, 0.22);
+  for (let k = 0; k < 14; k++) { const m = new THREE.Mesh(g, mat.clone()); m.visible = false; scene.add(m); dust.push({ m, t: 0 }); } }
+let dustT = 0, dustI = 0;
+function updateDust(dt, puff) {
+  if (puff && (dustT -= dt) <= 0) { dustT = 0.07; const d = dust[dustI++ % dust.length]; d.t = 0.5; d.m.visible = true; d.m.position.set(P.x - Math.sin(P.yaw) * 0.3 + (Math.random() - 0.5) * 0.3, P.y + 0.1, P.z - Math.cos(P.yaw) * 0.3 + (Math.random() - 0.5) * 0.3); }
+  for (const d of dust) { if (d.t <= 0) continue; d.t -= dt; d.m.position.y += dt * 0.8; d.m.scale.setScalar(1 + (0.5 - d.t) * 2.4); d.m.material.opacity = Math.max(0, d.t) * 0.9; if (d.t <= 0) d.m.visible = false; }
 }
 const PW = 0.3, PH = 1.7;
 const fluid = (id) => id === B.water || id === B.lava;
@@ -333,10 +403,10 @@ function gateBlocks(bx, by, bz) {
   return Math.abs(bx - gx) <= 1 && Math.abs(bz - gz) <= 1 && by >= SPIRE.base + 1 && by <= SPIRE.base + 3;
 }
 function jumpSpeed() { return S.inv.boots ? 12.1 : 10.0; }
-let ventSfx = 0;
+let ventSfx = 0, walkT = 0;
 function movePlayer(dt) {
   if (P.boat) { moveBoat(dt); return; }
-  const sp = (input.held('run') ? 9.5 : 5.6) * dt;
+  const run = running(), sp = (run ? 10 : 5.6) * dt;
   const mx = input.move.x, mz = input.move.z;
   const sin = Math.sin(cam.yaw), cos = Math.cos(cam.yaw);
   const dx = (-mz * sin - mx * cos) * sp, dz = (-mz * cos + mx * sin) * sp;
@@ -347,7 +417,9 @@ function movePlayer(dt) {
     if (!blockedAt(P.x + ax, P.y, P.z + az) && !wetAt(P.x + ax, P.y, P.z + az)) { P.x += ax; P.z += az; continue; }
     if (P.ground && !blockedAt(P.x + ax, P.y + 1.01, P.z + az) && !blockedAt(P.x, P.y + 1.01, P.z) && blockedAt(P.x + ax, P.y, P.z + az)) { P.y += 1.01; P.x += ax; P.z += az; }
   }
-  if (P.ground && input.pressed('jump')) { P.vy = jumpSpeed(); P.ground = false; sfx('jump'); }
+  // a jump pressed a moment before landing, or a moment after running off an edge, still counts
+  P.coyote = P.ground ? 0.12 : (P.coyote || 0) - dt; P.jumpBuf = input.pressed('jump') ? 0.15 : (P.jumpBuf || 0) - dt;
+  if (P.coyote > 0 && P.jumpBuf > 0 && P.vy <= 0.5) { P.vy = jumpSpeed(); P.ground = false; P.coyote = 0; P.jumpBuf = 0; sfx('jump'); }
   P.vy -= 24 * dt;
   // an updraught carries you up
   for (const v of W.vents) if (Math.abs(P.x - v.pos[0]) < 1.4 && Math.abs(P.z - v.pos[2]) < 1.4 && P.y >= v.pos[1] - 0.6 && P.y < v.top) { P.vy = Math.max(P.vy, 15); P.ground = false; if ((ventSfx -= dt) <= 0) { ventSfx = 0.6; sfx('warp'); } }
@@ -363,8 +435,11 @@ function movePlayer(dt) {
   } else if (P.ground && !fluid(get(Math.floor(P.x), Math.floor(P.y - 1), Math.floor(P.z)))) P.safe = [P.x, P.y, P.z];
   player.obj.position.set(P.x, P.y, P.z);
   player.obj.rotation.y = P.yaw;
-  player.play(!P.ground ? 'jump' : moving ? (input.held('run') ? 'sprint' : 'walk') : 'idle');
-  if (moving && P.ground && Math.random() < 0.04) sfx('step');
+  player.play(!P.ground ? 'jump' : moving ? (run ? 'sprint' : 'walk') : 'idle');
+  if (moving && P.ground && Math.random() < (run ? 0.07 : 0.04)) sfx('step');
+  updateDust(dt, moving && run && P.ground);
+  // after a little walking, a word about running (once)
+  if (moving && !run && !S.flags.runTip && (walkT += dt) > 5) { S.flags.runTip = true; toast(document.body.classList.contains('touching') ? L('按 » 切換自動奔跑，或把搖桿推到底奔跑。', 'Tap » for auto-run, or push the stick all the way to run.') : L('按住 Shift 奔跑；Caps Lock 或 F 切換自動奔跑。', 'Hold Shift to run; Caps Lock or F switches auto-run.'), 4200); }
 }
 function updateCamera(dt, instant = false) {
   cam.yaw += input.look; cam.dist = Math.max(4, Math.min(28, cam.dist + input.zoom * 1.2));
@@ -612,7 +687,7 @@ function showTitle() {
   const draw = () => {
     t.innerHTML = `<div class="logo">${L('晶境漫遊', 'PRISMWANDER')}</div><div class="sub">${L('PRISMWANDER', '晶境漫遊')}</div>` +
       `<div class="panel opts">${opts().map((o, i) => `<div class="opt${i === sel ? ' sel' : ''}${o.off ? ' off' : ''}" data-i="${i}">${o.label}</div>`).join('')}</div>` +
-      `<div class="hint">${L('WASD 移動・空白鍵 跳躍・拖曳滑鼠自由轉動視角（V 或右鍵：滑鼠直接轉）・滾輪拉遠・E 調查・Esc 選單・M 音樂開關', 'WASD move · Space jump · drag to look around freely (V or right-click: mouse look) · wheel to zoom · E look · Esc menu · M music on/off')}<br>${L('© 2026 原創作品・模型 KayKit、Kenney、Quaternius (CC0)・音樂 Ninja Adventure (CC0)', '© 2026 an original game · models by KayKit, Kenney and Quaternius (CC0) · music from Ninja Adventure (CC0)')}</div>`;
+      `<div class="hint">${L('WASD 移動・Shift 奔跑（Caps Lock／F 自動奔跑）・空白鍵 跳躍・拖曳滑鼠自由轉動視角（V 或右鍵：滑鼠直接轉）・滾輪拉遠・E 調查・Esc 選單・M 音樂開關', 'WASD move · Shift run (Caps Lock / F: auto-run) · Space jump · drag to look around freely (V or right-click: mouse look) · wheel to zoom · E look · Esc menu · M music on/off')}<br>${L('© 2026 原創作品・模型 KayKit、Kenney、Quaternius (CC0)・音樂 Ninja Adventure (CC0)', '© 2026 an original game · models by KayKit, Kenney and Quaternius (CC0) · music from Ninja Adventure (CC0)')}</div>`;
     t.classList.add('on');
   };
   t.onclick = (e) => { const o = e.target.closest('.opt'); if (o) { sel = +o.dataset.i; choose(); } initAudio(); };
@@ -689,17 +764,20 @@ function frame(now) {
     for (const e of ents) if (e.inst && e.inst.update && Math.hypot(e.pos[0] - tx, e.pos[2] - tz) < 90) e.inst.update(dt, now / 1000);
   } else if (mode === 'field') {
     S.time += dt; if (P.inv > 0) P.inv -= dt;
+    if (input.pressed('autorun') && !UI.active) { setPref('autoRun', !prefs.autoRun); { const tch = document.body.classList.contains('touching'); toast(prefs.autoRun ? (tch ? L('自動奔跑：開（再按 » 走路）', 'Auto-run on (tap » again to walk)') : L('自動奔跑：開（按住 Shift 走路）', 'Auto-run on (hold Shift to walk)')) : (tch ? L('自動奔跑：關（搖桿推到底也會跑）', 'Auto-run off (push the stick all the way to run)') : L('自動奔跑：關（按住 Shift 奔跑）', 'Auto-run off (hold Shift to run)')), 1800); } }
     if (!UI.active && !busy) {
       movePlayer(dt);
       if (input.pressed('menu')) { unlockMouse(); prompt(null); busy = true; fieldMenu(ctx).then(() => { busy = false; refreshEnts(); syncWorld(); }); }
     } else player.play('idle');
-    player.update(dt);
+    player.update(dt); updateFollowers(dt);
+    if (!(!UI.active && !busy)) updateDust(dt, false);
     updateCamera(dt); updateRegion(); updateChunks(P.x, P.z); updateSky(dt); cullFar();
     sky.position.copy(camera.position);
     if (!UI.active && !busy) updateWorldEnts(dt); else for (const e of ents) if (e.inst && e.inst.update && Math.hypot(e.pos[0] - P.x, e.pos[2] - P.z) < 40) e.inst.update(dt, S.time);
     for (const c of clouds) { c.position.x += dt * 0.8; if (c.position.x > WX + 20) c.position.x = -20; }
     if (G.water) G.water.material.opacity = 0.76 + Math.sin(S.time * 0.8) * 0.03;
     renderer.render(scene, camera);
+    if (UI.active) previewTick(renderer, dt);
     drawMinimap();
   } else if (mode === 'battle') {
     battleTick();
@@ -718,5 +796,6 @@ onLang(() => { if (mode === 'title') showTitle(); });
 boot();
 // hooks for automated checks
 Object.defineProperty(G, 'mode', { get: () => mode });
+Object.defineProperty(G, 'player', { get: () => player }); Object.defineProperty(G, 'followers', { get: () => followers });
 G.world = { get, ground, solid, WX, WZ, WY, SEA, B, regionAt, regionAt3, standAt };
-Object.assign(G, { skyMat, scn: scene, camera, P, cam, ents, ctx, startEncounter, refreshEnts, newGame, setMode: (m) => { mode = m; }, ITEMS, inBattle, WY, homeName, rebuildChunkAt, chunks, updateChunks, renderer, isNight, setClock: (c) => { S.clock = c; }, syncWorld, board, battleWith, seaBattle, MONSTERS, debugWin, debugState, SCRIPTS });
+Object.assign(G, { battleView, PARKOUR, parkourBlocks, skyMat, scn: scene, camera, P, cam, ents, ctx, startEncounter, refreshEnts, newGame, setMode: (m) => { mode = m; }, ITEMS, inBattle, WY, homeName, rebuildChunkAt, chunks, updateChunks, renderer, isNight, setClock: (c) => { S.clock = c; }, syncWorld, board, battleWith, seaBattle, MONSTERS, debugWin, debugState, SCRIPTS });

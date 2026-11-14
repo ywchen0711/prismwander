@@ -2,11 +2,19 @@
 const held = new Set(), down = new Set();
 const KEYS = {
   ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
-  Space: 'jump', KeyZ: 'a', Enter: 'a', KeyE: 'a', KeyX: 'b', Escape: 'menu', Backspace: 'b', KeyQ: 'turnL', KeyR: 'turnR', KeyT: 'lookUp', KeyG: 'lookDown', KeyC: 'view', Tab: 'map', ShiftLeft: 'run',
+  Space: 'jump', KeyZ: 'a', Enter: 'a', KeyE: 'a', KeyX: 'b', Escape: 'menu', Backspace: 'b', KeyQ: 'turnL', KeyR: 'turnR', KeyT: 'lookUp', KeyG: 'lookDown', KeyC: 'view', Tab: 'map', ShiftLeft: 'run', ShiftRight: 'run', CapsLock: 'autorun', KeyF: 'autorun',
 };
 addEventListener('keydown', (e) => { const k = KEYS[e.code]; if (!k) return; if (!held.has(k)) down.add(k); held.add(k); e.preventDefault(); });
 addEventListener('keyup', (e) => { const k = KEYS[e.code]; if (k) held.delete(k); });
 addEventListener('blur', () => held.clear());
+// choices that stay between visits: auto-run, and whether the party walks behind the leader
+const pref = (k, d) => { try { const v = localStorage.getItem('prismwander-' + k); return v === null ? d : v === '1'; } catch (e) { return d; } };
+export const prefs = { autoRun: pref('autorun', false), party: pref('party', true) };
+export function setPref(k, v) {
+  prefs[k] = !!v;
+  try { localStorage.setItem('prismwander-' + (k === 'autoRun' ? 'autorun' : k), v ? '1' : '0'); } catch (e) { /* private mode */ }
+  const b = document.getElementById('tRun'); if (b) b.classList.toggle('on', prefs.autoRun);
+}
 export const input = {
   held: (k) => held.has(k) || pad.held.has(k),
   pressed: (k) => down.has(k) || pad.down.has(k),
@@ -38,11 +46,13 @@ export function setupInput(canvas) {
   const move = (e) => { if (stick.id !== e.pointerId) return; let x = (e.clientX - stick.ox) / 50, y = (e.clientY - stick.oy) / 50; const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } stick.x = x; stick.y = y; setKnob(); };
   st.addEventListener('pointermove', move);
   st.addEventListener('pointerup', () => { stick.id = null; stick.x = stick.y = 0; setKnob(); });
-  for (const b of document.querySelectorAll('.tbtn')) {
+  for (const b of document.querySelectorAll('.tbtn[data-k]')) {
     const k = b.dataset.k;
     b.addEventListener('pointerdown', (e) => { e.preventDefault(); if (!held.has(k)) down.add(k); held.add(k); });
     b.addEventListener('pointerup', () => held.delete(k)); b.addEventListener('pointerleave', () => held.delete(k));
   }
+  const run = document.getElementById('tRun');
+  if (run) { run.classList.toggle('on', prefs.autoRun); run.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); down.add('autorun'); }); }
   addEventListener('touchstart', () => document.body.classList.add('touching'), { once: true });
 }
 const stickArea = (e) => e.clientX < 200 && e.clientY > innerHeight - 200;
@@ -67,6 +77,7 @@ export function pollInput() {
   if (input.held('left')) x -= 1; if (input.held('right')) x += 1; if (input.held('up')) z -= 1; if (input.held('down')) z += 1;
   const l = Math.hypot(x, z); if (l > 1) { x /= l; z /= l; }
   input.move.x = x; input.move.z = z;
+  input.stickFull = Math.hypot(stick.x, stick.y) > 0.95;
   // turning left swings the view left (a larger yaw); dragging or turning right does the opposite
   if (input.held('turnL')) input.look += 0.035; if (input.held('turnR')) input.look -= 0.035;
   if (input.held('lookUp')) input.lookY -= 0.025; if (input.held('lookDown')) input.lookY += 0.025;

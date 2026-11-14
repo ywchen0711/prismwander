@@ -77,6 +77,9 @@ body.touching #touch { display: block; }
 #tAct { right: 98px; bottom: 70px; }
 #tBack { right: 22px; bottom: 112px; background: rgba(120, 40, 60, 0.5); }
 #tMenu { right: 22px; top: 262px; }
+#tRun { right: 170px; bottom: 30px; font-size: 26px; }
+#tRun.on { background: rgba(230, 170, 40, 0.7); border-color: #ffe27a; color: #fff6d0; }
+canvas.dollpv { float: right; width: 120px; height: 150px; margin: 0 0 4px 8px; border-radius: 8px; background: radial-gradient(circle at 50% 60%, rgba(111, 216, 255, 0.22), rgba(20, 30, 60, 0.0) 70%); }
 @media (max-width: 640px) { #minimap { width: 96px; height: 96px; } #mini { width: 88px; height: 88px; } #bparty { grid-template-columns: repeat(2, 1fr); font-size: 12px; } #bcmd { bottom: 150px; } }
 #fishui { position: fixed; left: 50%; top: 38%; transform: translate(-50%, -50%); padding: 14px 20px; min-width: 260px; text-align: center; font-size: 20px; }
 #fishui .bang { color: var(--gold); font-size: 40px; text-shadow: 0 0 12px #ff8040; }

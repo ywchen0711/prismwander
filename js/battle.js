@@ -14,6 +14,7 @@ import { sfx, playMusic, jingle } from './audio.js';
 import { L } from './i18n.js';
 import { UI, list, statusHTML } from './ui.js';
 import { Q } from './quality.js';
+import { heroInst, attackOf, playAttack, handPos, shoot } from './doll.js';
 
 const $ = (id) => document.getElementById(id);
 let B = null, tex = null;
@@ -25,6 +26,8 @@ export const inBattle = () => !!B;
 export function debugWin() { if (B) for (const f of B.foes) f.hp = 0; }
 export const debugState = () => B && { round: B.round, foes: B.foes.map((f) => [f.id, f.hp, f.maxhp, f.air || false, f.ward || '']), party: S.members.map((m) => m.hp), tide: B.tide, noon: !!B.noon };
 const rnd = (a, b) => a + Math.random() * (b - a);
+// items that work in a fight (tents and seeds are for the field)
+const battleUse = (k) => ITEMS[k] && ITEMS[k].use && !['tent', 'seed', 'jpseed'].includes(ITEMS[k].use);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // the stage: a floor of the ground you were standing on, a sky colour, two lights
@@ -76,6 +79,7 @@ function buildStage(kind) {
 // the battle camera circles the middle of the field: drag to swing it round and tilt it, the wheel to come closer, C to set it back
 const VIEW0 = { yaw: 0, pitch: 0.85, dist: 16.2 };
 const view = { ...VIEW0 };
+export const battleView = view;
 function placeCamera(cam) {
   view.yaw += input.look; view.pitch = Math.max(0.12, Math.min(1.45, view.pitch + input.lookY)); view.dist = Math.max(6, Math.min(17, view.dist + input.zoom * 0.9));
   if (input.pressed('view')) Object.assign(view, VIEW0);
@@ -160,7 +164,7 @@ export function startBattle(ids, { boss = false, bg = 'grass', canFlee = true, g
     // the kraken comes with its arms
     if (MONSTERS[ids[0]].mech === 'arms') for (const dz of [-2.6, 2.6]) { const f = makeFoe('krakenarm', -1.7, 0.9 + dz); f.add = true; B.foes.push(f); }
     B.party = S.members.map((m, i) => {
-      const inst = make(HEROES[m.id].model).fit(1.9); const [x, z] = heroSpot(i, m);
+      const inst = heroInst(m).fit(1.9); const [x, z] = heroSpot(i, m);
       inst.obj.position.set(x, 0, z);
       st.scene.add(inst.obj); inst.play(m.hp > 0 ? 'idle' : 'die', { once: m.hp <= 0 });
       m.buffs = {}; m.defending = false; delete m.status.sleep; delete m.status.stun; delete m.status.freeze; m.taunt = 0; m.charge = false; m.jumping = null; m.reraised = false; m.endured = false; m.stance = null;
@@ -440,7 +444,7 @@ async function commandFor(p, canBack) {
     if (extra.length) opts.push({ id: 'cmdjob', label: JOBS[m.cmd].name, right: '★', desc: L('精通職業的技能（額外指令）', 'actions of a mastered job (extra command)') });
     if (links.length) opts.push({ id: 'link', label: L('連攜', 'Link'), desc: L('和夥伴一起出招（夥伴這回合不能行動）', 'act together with a friend (they give up their turn)') });
     if (lore.length) opts.push({ id: 'lore', label: L('擬態', 'Lore'), disabled: !!m.status.silence, desc: L('使用學會的魔物招式', 'use monster techniques you have learned') });
-    opts.push({ id: 'item', label: L('道具', 'Items'), disabled: !Object.keys(S.inv).some((k) => ITEMS[k].use && ITEMS[k].use !== 'tent'), desc: L('使用道具', 'use an item') },
+    opts.push({ id: 'item', label: L('道具', 'Items'), disabled: !Object.keys(S.inv).some((k) => battleUse(k)), desc: L('使用道具', 'use an item') },
       { id: 'guard', label: L('防禦', 'Guard'), desc: L('這回合受到的傷害減半，最先行動', 'halve damage this round, act first') },
       { id: 'row', label: m.row === 'back' ? L('換到前排', 'To front row') : L('換到後排', 'To back row'), desc: L('後排物理傷害減四成，近戰也變弱（弓、槍不受影響）。不耗回合', 'Back row: 40% less physical damage, weaker melee (bows, guns unaffected). Free action') },
       { id: 'flee', label: L('逃跑', 'Run'), disabled: !B.canFlee });
@@ -473,7 +477,7 @@ async function commandFor(p, canBack) {
       if (t !== null) return { type: 'lore', id: lore[k], target: t };
     }
     if (id === 'item') {
-      const items = Object.keys(S.inv).filter((k) => ITEMS[k].use && ITEMS[k].use !== 'tent');
+      const items = Object.keys(S.inv).filter((k) => battleUse(k));
       const k = await cmdMenu(items.map((iid) => ({ label: ITEMS[iid].name, right: S.inv[iid], desc: itemLine(iid) })));
       if (k < 0) continue;
       const iid = items[k], t = await target(ITEMS[iid].target, m);
@@ -546,13 +550,30 @@ function heroHit(p, t, power = 1, a = {}) {
   return r;
 }
 async function slide(who) { const o = who.inst.obj.position, [hx, hz] = who.home, sx = o.x, sz = o.z; for (let k = 1; k <= 8; k++) { o.x = sx + (hx - sx) * k / 8; o.z = sz + (hz - sz) * k / 8; await wait(16); } }
-async function lunge(who, toward) {
+// a hero swings, stabs, smashes or punches with what they hold; bows, guns and staves shoot from where they stand
+async function lunge(who, toward, opts = {}) {
   const o = who.inst.obj.position, [hx, hz] = who.home, tx = toward ? toward.inst.obj.position.x : hx, tz = toward ? toward.inst.obj.position.z : hz;
   const ex = hx + (tx - hx) * 0.55, ez = hz + (tz - hz) * 0.55;
   if (toward) who.inst.obj.rotation.y = Math.atan2(tx - hx, tz - hz);
+  const at = who.m ? attackOf(who.m) : null;
+  if (at && at.shot && !opts.melee) { await shootAt(who, toward, at, opts); return; }
   who.inst.play('sprint');
   for (let k = 1; k <= 8; k++) { o.x = hx + (ex - hx) * k / 8; o.z = hz + (ez - hz) * k / 8; await wait(16); }
-  who.inst.play('attack-melee-right', { once: true });
+  if (at) { const lead = playAttack(who.inst, who.m, opts); await wait(Math.max(0, lead - 180)); }
+  else who.inst.play('attack-melee-right', { once: true });
+}
+async function shootAt(who, toward, at, opts = {}) {
+  const lead = playAttack(who.inst, who.m, opts); await wait(lead);
+  if (!B || !toward) return;
+  const to = toward.inst.obj.position.clone(); to.y += (toward.h || 1.8) * 0.55;
+  await shoot(B.scene, at.shot, handPos(who.inst), to, at.glow || 0xffffff, at.shot === 'bullet' ? 130 : 260);
+  if (at.shot === 'bullet') sfx('hit');
+}
+// one blow at every foe: melee heroes swing where they stand, ranged ones loose a shot at each
+async function strikeAll(p, foes, opts = {}) {
+  const at = attackOf(p.m);
+  if (at.shot) { const lead = playAttack(p.inst, p.m, opts); await wait(lead); if (!B) return; const from = handPos(p.inst); await Promise.all(foes.map((t) => { const to = t.inst.obj.position.clone(); to.y += (t.h || 1.8) * 0.55; return shoot(B.scene, at.shot, from, to, at.glow || 0xffffff, 260); })); return; }
+  const lead = playAttack(p.inst, p.m, opts); await wait(Math.max(0, lead - 200));
 }
 async function back(who) { const o = who.inst.obj.position, [hx, hz] = who.home, sx = o.x, sz = o.z; for (let k = 1; k <= 8; k++) { o.x = sx + (hx - sx) * k / 8; o.z = sz + (hz - sz) * k / 8; await wait(16); } if (who.face !== undefined) who.inst.obj.rotation.y = who.face; who.inst.play('idle'); }
 function shake(who) { const o = who.inst.obj.position, x0 = who.home[0]; let k = 0; const t = setInterval(() => { o.x = x0 + (k % 2 ? 0.12 : -0.12); if (++k > 6) { clearInterval(t); o.x = x0; } }, 30); }
@@ -665,7 +686,8 @@ async function heroAct(p, c) {
   const foesT = c.target === 'allFoes' ? alive() : null;
   if (a.type === 'phys') {
     const ts = foesT || [pick(c.target)].filter(Boolean);
-    if (!foesT) await lunge(p, ts[0]); else p.inst.play('attack-melee-right', { once: true });
+    const kick = /kick/.test(c.id || '');
+    if (!foesT) await lunge(p, ts[0], { kick }); else await strikeAll(p, ts, { kick });
     await wait(200);
     // the blows: each one at the same foe, or (scatter) each at a random one; ramp makes each harder
     const blows = [];
@@ -740,7 +762,7 @@ async function heroAct(p, c) {
     }
     if (a.scanIt && ts[0]) msg(foeInfo(ts[0]));
     await wait(a.scanIt ? 1400 : 700);
-  } else if (a.type === 'steal') { const t = pick(c.target); await lunge(p, t); stealFrom(t, m); await wait(700); await back(p); }
+  } else if (a.type === 'steal') { const t = pick(c.target); await lunge(p, t, { melee: true }); stealFrom(t, m); await wait(700); await back(p); }
   else if (a.type === 'flee') { if (B.canFlee) { msg(L('趁著煙幕逃走了！', 'Slipped away in the smoke!')); await wait(700); end('flee'); return; } }
   else if (a.type === 'taunt') { m.taunt = 3; sparkle(p, 0xff8080); msg(L('敵人的目光都集中過來了！', 'All eyes are on them now!')); await wait(700); }
   else if (a.type === 'scan') { const t = pick(c.target); sfx('magic'); sparkle(t, 0xa0f0ff); S.scanned[t.id] = true; msg(foeInfo(t)); await wait(1800); }
@@ -966,7 +988,7 @@ async function foeAct(f) {
     f.fled = true; f.hp = 0; sfx('cancel'); msg(L(`${f.name}逃走了！`, `${f.name} ran away!`)); f.inst.obj.visible = false; await wait(700);
   } else if (tech.kind === 'summon') { msg(L(`${f.name}叫來了齒輪仔！`, `${f.name} calls up a cogling!`)); addFoe('cogling'); await wait(500);
   } else if (tech.kind === 'steal') {
-    const keys = Object.keys(S.inv).filter((k) => ITEMS[k].use);
+    const keys = Object.keys(S.inv).filter((k) => battleUse(k));
     if (keys.length && Math.random() < 0.5) { const k = keys[Math.floor(Math.random() * keys.length)]; addItem(k, -1); msg(L(`被偷走了${ITEMS[k].name}！`, `${ITEMS[k].name} was stolen!`)); } else msg(L('沒被偷走東西。', 'Nothing was stolen.'));
   }
   await wait(600); msg('');

@@ -34,6 +34,9 @@ export function stats(m) {
     maxhp: Math.round((b.hp + (m.lv - 1) * b.hp * 0.16) * j.hp / 100 * k('hp') * (pas.has('hpup') ? 1.15 : 1)), maxmp: Math.round((b.mp + (m.lv - 1) * b.mp * 0.1) * j.mp / 100 * k('mp') * (pas.has('mpup') ? 1.2 : 1)),
     str: Math.round(b.str * g * j.str / 100 * k('str')), def: Math.round(b.def * g * j.def / 100 * k('def')), mag: Math.round(b.mag * g * j.mag / 100 * k('mag')), spr: Math.round(b.spr * g * j.spr / 100 * k('spr')), agi: Math.round(b.agi * g * j.agi / 100 * k('agi')),
   };
+  // seeds eaten along the way stay for good
+  const sd = m.seeds;
+  if (sd) { s.maxhp += sd.hp || 0; s.maxmp += sd.mp || 0; for (const k2 of ['str', 'def', 'mag', 'spr', 'agi']) s[k2] += sd[k2] || 0; }
   let wa = 0, ad = 0;
   for (const slot of ['weapon', 'armor', 'acc']) {
     const it = ITEMS[m.equip[slot]];
@@ -125,6 +128,17 @@ export function gain(exp, jp) {
         if (m.jlv[job] >= JL_MAX) out.push({ lv: true, t: L(`${heroName(m)}精通了${JOBS[job].name}！能力值永久提升。`, `${heroName(m)} has mastered the ${JOBS[job].name}! A lasting stat bonus.`) });
       }
     }
+  }
+  return out;
+}
+// JP given straight to a hero's main job (a Crystal Sprout); returns lines to show
+export function addJP(m, n) {
+  const out = [], job = m.job;
+  m.jp[job] = (m.jp[job] || 0) + n;
+  while (m.jlv[job] < JL_MAX && m.jp[job] >= jpFor(m.jlv[job] + 1)) {
+    const had = learned(job, m.jlv[job]); m.jlv[job]++;
+    out.push(L(`${heroName(m)}的${JOBS[job].name}升到了 ${m.jlv[job]} 級！`, `${heroName(m)}'s ${JOBS[job].name} reached job level ${m.jlv[job]}!`));
+    for (const a of learned(job, m.jlv[job]).filter((x) => !had.includes(x))) out.push(L(`${heroName(m)}學會了「${ABILITIES[a].name}」！`, `${heroName(m)} learned ${ABILITIES[a].name}!`));
   }
   return out;
 }

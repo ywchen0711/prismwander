@@ -8,6 +8,7 @@ import { L } from './i18n.js';
 import { say, talk, ask, toast, fishGame } from './ui.js';
 import { shop, inn } from './menu.js';
 import { jingle, sfx } from './audio.js';
+import { climbCount, climbMilestones, PARKOUR } from './climbs.js';
 
 const n = () => S.crystals.length;
 const LOWE = () => L('洛', 'Lowe'), FLORA = () => L('芙蘿', 'Flora'), BAL = () => L('巴爾', 'Bal'), SHIA = () => L('希雅', 'Shia'), EIN = () => L('艾茵', 'Ein');
@@ -92,7 +93,7 @@ export const SCRIPTS = {
       L('剩下的，要靠你們自己去找。看到發光的水晶，就去碰碰它吧。', 'The rest you must find yourselves. When you see a crystal glowing, go and touch it.'),
       L('聽說集齊八塊的人，能打開稜晶尖塔的大門。……我年輕時只找到三塊呢，哈哈。', 'They say whoever gathers all eight can open the gate of the Prism Spire. ...I only ever found three, ha ha.'),
       L('世界很大喔。北邊有古都的遺跡，東邊有港口，西邊有沼澤……慢慢走吧。', 'The world is wide. Ruins of the old capital to the north, a port to the east, a marsh to the west... take your time.'));
-    await say(null, L('【WASD／方向鍵】移動　【空白鍵】跳躍　【滑鼠拖曳】自由轉動、上下傾斜視角（Q、R、T、G 也可以）\n【V／右鍵】滑鼠直接轉視角　【滾輪】拉遠拉近　【E／Z】調查、對話　【Esc】選單　【M】音樂開關', '[WASD / arrows] move   [Space] jump   [drag] look around and tilt freely (or Q, R, T, G)\n[V / right-click] mouse look   [wheel] zoom   [E / Z] look, talk   [Esc] menu   [M] music on/off'));
+    await say(null, L('【WASD／方向鍵】移動　【Shift】奔跑（【Caps Lock／F】切換自動奔跑）　【空白鍵】跳躍　【滑鼠拖曳】自由轉動、上下傾斜視角（Q、R、T、G 也可以）\n【V／右鍵】滑鼠直接轉視角　【滾輪】拉遠拉近　【E／Z】調查、對話　【Esc】選單　【M】音樂開關', '[WASD / arrows] move   [Shift] run ([Caps Lock / F] auto-run)   [Space] jump   [drag] look around and tilt freely (or Q, R, T, G)\n[V / right-click] mouse look   [wheel] zoom   [E / Z] look, talk   [Esc] menu   [M] music on/off'));
     S.flags.intro = true;
   },
 
@@ -288,9 +289,18 @@ export const SCRIPTS = {
   },
   async chest(ch) {
     sfx('chest');
-    addItem(ch.item, ch.n || 1);
-    await say(null, L(`找到了${ITEMS[ch.item].name}${ch.n > 1 ? '×' + ch.n : ''}！`, `Found ${ITEMS[ch.item].name}${ch.n > 1 ? ' x' + ch.n : ''}!`));
-    if (ITEMS[ch.item].key) await say(null, ITEMS[ch.item].desc);
+    if (ch.gold) { S.gold += ch.gold; await say(null, L(`找到了 ${ch.gold} 金幣！`, `Found ${ch.gold} gold!`)); }
+    else {
+      addItem(ch.item, ch.n || 1);
+      await say(null, L(`找到了${ITEMS[ch.item].name}${ch.n > 1 ? '×' + ch.n : ''}！`, `Found ${ITEMS[ch.item].name}${ch.n > 1 ? ' x' + ch.n : ''}!`));
+      if (ITEMS[ch.item].key) await say(null, ITEMS[ch.item].desc);
+    }
+    // the top of a climb: count it, and hand out the prizes for reaching many
+    if (ch.pk) {
+      jingle('levelup');
+      await say(null, L(`登頂！（難關 ${climbCount()} / ${PARKOUR.length}）`, `Summit reached! (Climbs ${climbCount()} / ${PARKOUR.length})`));
+      for (const line of climbMilestones()) await say(null, line);
+    }
   },
   async home(h, ctx) {
     const first = !S.homes.includes(h.id);

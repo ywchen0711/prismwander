@@ -6,7 +6,9 @@ import { JL_MAX, JOB_INFO, DROPS, RARE_AT, FIELD_AT } from './data3.js';
 import { S, stats, jlvOf, learned, mastered, masteryBonus, canEquip, heroName, cmdAbilities, masteryCount, bookCount, bookNeed, abilitiesOf } from './party.js';
 import { MONSTER_LORE } from './lore.js';
 import { POST_AT, BOOK_REWARDS, MASTERY_REWARDS, HUNTS } from './data4.js';
-import { L } from './i18n.js';
+import { L, LANG } from './i18n.js';
+import { climbCount, climbNeed, PARKOUR, PARKOUR_REWARDS } from './climbs.js';
+import { REGIONS } from './world.js';
 
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 const SEP = () => L('・', ' · ');
@@ -29,7 +31,7 @@ export const STATUS = {
   dusk:    { n: ['暮光', 'Dusk'], col: '#c8a0ff', d: ['艾茵的暮光之紗：擋住永晝的灼燒。', "Ein's veil of dusk: shields you from the endless noon."] },
 };
 export const stName = (s) => (STATUS[s] ? L(STATUS[s].n[0], STATUS[s].n[1]) : s);
-const STAT_N = { str: ['攻擊', 'attack'], def: ['防禦', 'defence'], agi: ['速度', 'speed'], mag: ['魔力', 'magic'], spr: ['魔防', 'magic defence'] };
+const STAT_N = { str: ['攻擊', 'attack'], def: ['防禦', 'defence'], agi: ['速度', 'speed'], mag: ['魔力', 'magic'], spr: ['魔防', 'magic defence'], hp: ['最大 HP', 'max HP'], mp: ['最大 MP', 'max MP'] };
 const statN = (k) => (STAT_N[k] ? L(...STAT_N[k]) : '');
 export const kindName = (k) => ({ sword: L('劍', 'swords'), staff: L('杖', 'staves'), dagger: L('短劍', 'daggers'), hammer: L('鎚', 'hammers'), bow: L('弓', 'bows'), fist: L('拳套', 'fists'), spear: L('槍', 'spears'), gun: L('火槍', 'guns') }[k] || k);
 const TGT = (t) => ({ enemy: L('單體', 'one foe'), enemies: L('全體敵人', 'all foes'), ally: L('一位夥伴', 'one friend'), allies: L('全體夥伴', 'all friends'), self: L('自己', 'self'), dead: L('倒下的夥伴', 'a fallen friend'), none: '' }[t] || '');
@@ -101,9 +103,10 @@ export function itemEffect(id) {
     revive: L(`讓倒下的夥伴以 ${it.power >= 999 ? 100 : 40}% HP 復活`, `revives a fallen friend at ${it.power >= 999 ? 100 : 40}% HP`), cure: L(`解除${(it.cures || ['poison', 'blind']).map(stName).join('、')}`, `cures ${(it.cures || ['poison', 'blind']).map(stName).join(', ')}`),
     cureall: L(`解除所有異常${it.heal ? `並回復 ${it.heal} HP` : ''}`, `cures every ailment${it.heal ? ` and restores ${it.heal} HP` : ''}`), elixir: L(`${who}HP 與 MP 全滿`, `fully restores HP and MP${who ? ' for ' + who : ''}`),
     bomb: L(`對全體敵人造成${elName(it.el)}屬性傷害（威力 ${it.power}，無視防禦）`, `${elName(it.el)} damage to all foes (power ${it.power}, ignores defence)`), buff: L(`${statN(it.stat)} ×1.3（4 回合）`, `${statN(it.stat)} x1.3 (4 rounds)`),
+    seed: L(`${statN(it.stat)}永久 +${it.power}`, `+${it.power} ${statN(it.stat)} for good`), jpseed: L(`主職業得到 ${it.power} JP`, `${it.power} JP for the main job`),
     escape: L('從非頭目的戰鬥中一定能逃走', 'always escape a battle that is not against a guardian'), scan: L('看穿一隻魔物的弱點、抗性、HP 與可偷的東西', "reveals a monster's weaknesses, resistances, HP and what it carries"), tent: L('在野外紮營，全員完全回復', 'camp outside and fully recover'),
   }[it.use] || '';
-  const where = { scan: L('只能在戰鬥中', 'battle only'), bomb: L('只能在戰鬥中', 'battle only'), buff: L('只能在戰鬥中', 'battle only'), escape: L('只能在戰鬥中', 'battle only'), tent: L('只能在野外', 'outside only') }[it.use];
+  const where = { scan: L('只能在戰鬥中', 'battle only'), bomb: L('只能在戰鬥中', 'battle only'), buff: L('只能在戰鬥中', 'battle only'), escape: L('只能在戰鬥中', 'battle only'), tent: L('只能在野外', 'outside only'), seed: L('從選單使用', 'use from the menu'), jpseed: L('從選單使用', 'use from the menu') }[it.use];
   return [u, where, it.meal ? L('當餐點：', 'as a meal: ') + MEAL(it.meal) : ''].filter(Boolean).join(SEP());
 }
 // a short line for any item: what it does or gives
@@ -256,9 +259,28 @@ export const HELP = [
     + P('有些武器、防具和飾品只能從魔物身上得到，有些材料可以拿去鍛造。偷竊成功率約五成五，「盜賊之運」和盜賊手套會提高。', 'Some weapons, armour and charms only come from monsters, and materials can be forged into gear. Steals work about 55% of the time; Thief\'s Luck and the Thief\'s Glove raise that.') },
   { t: ['稀有魔物與野外守護者', 'Rare monsters and field guardians'], b: () => P('有些地方偶爾會出現閃閃發亮的稀有魔物，經驗值、JP 或金幣特別多，但牠們會逃跑。', 'Now and then a gleaming rare monster appears; it gives far more EXP, JP or gold, but it runs away.')
     + P('世界各地還有七隻不一定要打的「野外守護者」，打倒後一定會留下只有牠才有的裝備。', 'Seven optional field guardians wait around the world; each always leaves a piece of gear that only it carries.') },
+  { t: ['移動、奔跑與跳躍', 'Moving, running and jumping'], b: () => `<div class="gl">${[
+      [L('移動', 'Move'), L('WASD／方向鍵，觸控螢幕用左下的搖桿。', 'WASD or the arrow keys; on a touch screen, the stick at the bottom left.')],
+      [L('奔跑', 'Run'), L('按住 Shift 奔跑。Caps Lock 或 F 切換「自動奔跑」：開著時平常就用跑的，按住 Shift 反而走路。觸控螢幕按 » 切換，搖桿推到底也會跑。設定裡也能切換。', 'Hold Shift to run. Caps Lock or F switches auto-run: then you always run, and holding Shift walks. On a touch screen tap », or push the stick all the way. It is also under Settings.')],
+      [L('跳躍', 'Jump'), L('空白鍵（觸控 ⤒）。能跳上兩格高；跑著跳可以越過兩格寬的空隙。彈跳靴讓你多跳一格。', 'Space (⤒ on touch). You can jump up two blocks; a running jump clears a two-block gap. The Spring Boots add one more block.')],
+      [L('滑翔', 'Glide'), L('有滑翔斗篷時，在空中按住跳躍就能慢慢落下。', 'With the Glide Cape, hold jump in the air to float down slowly.')],
+      [L('上升氣流', 'Updraughts'), L('站進白色的氣流圈會被吹上高空。', 'Step into a ring of pale wind and it carries you up.')],
+      [L('隊伍', 'Party'), L('其他夥伴會跟在後面走，身上穿的裝備都看得到。設定裡可以關掉。', 'The rest of the party walks behind you, wearing their gear. You can switch this off under Settings.')],
+    ].map(([n, d]) => `<div><b>${n}</b><span class="small">${d}</span></div>`).join('')}</div>` },
+  { t: ['登頂難關', 'Climbs'], b: () => P(`世界各地藏著 ${PARKOUR.length} 個需要跳躍技巧的難關：高塔、浮空的踏石、樹頂、屋頂、熔岩上的石頭……頂端插著藍旗，寶箱在旗子旁邊。有些寶箱從下面就看得見，會有一道光柱。`, `${PARKOUR.length} climbs that test your jumping are hidden around the world: towers, floating stepping stones, treetops, rooftops, stones over lava... A blue flag flies at the top, with a chest beside it. Some chests can be seen from below, shining with a pillar of light.`)
+    + P('掉下去也沒關係，再爬一次就好。標著「彈跳靴」的難關，要有彈跳靴才跳得上去。', 'Falling is fine; just climb again. Climbs marked "boots" need the Spring Boots.')
+    + `<div class="sub">${L('已登頂', 'Summits reached')}　${climbCount()} / ${PARKOUR.length}</div><div class="gl">${climbList()}</div>`
+    + `<div class="sub">${L('登頂獎勵', 'Climb prizes')}</div>` + rewardList(PARKOUR_REWARDS, climbCount(), 'climb', climbNeed) },
   { t: ['料理與餐點', 'Food and meals'], b: () => P('料理可以在戰鬥中吃來回復，也可以從道具選單當作「餐點」吃：效果會持續五場戰鬥（隊裡有廚師時八場）。', 'Dishes heal when eaten in battle, or can be had as a meal from the Items menu: the effect lasts five battles (eight with a chef in the party).') },
   { t: ['能力值', 'Stats'], b: () => `<div class="gl">${[['HP', '體力。歸零就倒下。', 'Hit points. At zero you fall.'], ['MP', '使用技能的點數。', 'Points spent on abilities.'], [L('攻擊', 'ATK'), '力量加上武器攻擊力 ×1.7，決定物理傷害。', 'Strength plus weapon attack x1.7; sets physical damage.'], [L('防禦', 'DEF'), '減少受到的物理傷害。', 'Lowers physical damage taken.'], [L('魔力', 'MAG'), '決定魔法與回復的威力。', 'Sets the power of magic and healing.'], [L('精神', 'SPR'), '減少受到的魔法傷害，也讓回復更有效。', 'Lowers magic damage taken and strengthens healing.'], [L('速度', 'AGI'), '決定行動順序與閃避。', 'Sets turn order and dodging.'], ['EXP', '升級需要的經驗值。最高 70 級。', 'Experience for levels, up to 70.'], ['JP', '升職業等級需要的點數。', 'Points for job levels.']].map(([n, zh, en]) => `<div><b>${n}</b><span class="small">${L(zh, en)}</span></div>`).join('')}</div>` },
 ];
+// every climb, by where it is: done ones ticked, the rest only hinted at
+function climbList() {
+  const by = new Map();
+  for (const p of PARKOUR) { const r = REGIONS[p.reg] ? REGIONS[p.reg].name[LANG === 'en' ? 1 : 0] : '?'; if (!by.has(r)) by.set(r, []); by.get(r).push(p); }
+  const KIND = { tower: L('高塔', 'tower'), sky: L('浮空踏石', 'sky steps'), stones: L('水上踏石', 'stepping stones'), pillars: L('石柱', 'pillars'), tree: L('樹頂', 'treetop'), mushroom: L('菇傘', 'mushroom caps'), roof: L('屋頂', 'rooftop'), lava: L('熔岩踏石', 'lava stones'), vent: L('上升氣流', 'updraught') };
+  return [...by].map(([r, ps]) => `<div><b>${esc(r)}</b><span class="small">${ps.map((p) => `${S.chests[p.id] ? '✔ ' : '・'}${KIND[p.kind] || p.kind}${p.boots ? L('（彈跳靴）', ' (boots)') : ''}`).join(L('　', '   '))}</span></div>`).join('');
+}
 // a reward track: what you get at each step, done ones ticked
 function rewardList(track, have, key, need) {
   return `<div class="gl">${track.map(([n, item, c]) => { const got = S.rewards && S.rewards[key + n]; return `<div><b class="${got ? 'up' : have >= need(n) ? '' : 'off'}">${got ? '✔ ' : ''}${need(n)}</b><span class="small">${esc(ITEMS[item].name)}${c > 1 ? ' ×' + c : ''}${SEP()}${esc(itemLine(item))}</span></div>`; }).join('')}</div>`;
