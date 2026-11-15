@@ -56,21 +56,33 @@ export function setupInput(canvas) {
   addEventListener('touchstart', () => document.body.classList.add('touching'), { once: true });
 }
 const stickArea = (e) => e.clientX < 200 && e.clientY > innerHeight - 200;
-// gamepads
-const pad = { held: new Set(), down: new Set() };
+// gamepads (standard layout, e.g. Xbox): A ok, B back, X jump, Y / Start menu, RT run (hold), L3 or Select auto-run,
+// LB / RB turn the view (and page the detail panel in menus), right stick looks (with LT held it zooms), R3 resets the
+// view. The left stick and the d-pad move, and both step through menus.
+const pad = { held: new Set(), down: new Set(), nav: { dir: null, t: 0 }, used: false };
+const PADK = { 0: 'a', 1: 'b', 2: 'jump', 3: 'menu', 9: 'menu', 12: 'up', 13: 'down', 14: 'left', 15: 'right', 4: 'turnL', 5: 'turnR', 7: 'run', 10: 'autorun', 8: 'autorun', 11: 'view' };
 function pollPad() {
   pad.down.clear();
   const gp = navigator.getGamepads ? [...navigator.getGamepads()].find((g) => g) : null;
   if (!gp) return { x: 0, z: 0 };
-  const now = new Set(), b = (i) => gp.buttons[i] && gp.buttons[i].pressed;
-  if (b(0)) now.add('a'); if (b(1)) now.add('b'); if (b(2)) now.add('jump'); if (b(3)) now.add('menu'); if (b(9)) now.add('menu');
-  if (b(12)) now.add('up'); if (b(13)) now.add('down'); if (b(14)) now.add('left'); if (b(15)) now.add('right'); if (b(4)) now.add('turnL'); if (b(5)) now.add('turnR');
+  const now = new Set(), b = (i) => gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.4);
+  for (const i in PADK) if (b(+i)) now.add(PADK[i]);
   for (const k of now) if (!pad.held.has(k)) pad.down.add(k);
   pad.held = now;
-  if (Math.abs(gp.axes[2] || 0) > 0.2) input.look -= gp.axes[2] * 0.04;
-  if (Math.abs(gp.axes[3] || 0) > 0.2) input.lookY += gp.axes[3] * 0.03;
-  return { x: Math.abs(gp.axes[0]) > 0.2 ? gp.axes[0] : 0, z: Math.abs(gp.axes[1]) > 0.2 ? gp.axes[1] : 0 };
+  if (now.size && !pad.used) { pad.used = true; document.body.classList.add('pad'); }
+  const ax = (i) => (Math.abs(gp.axes[i] || 0) > 0.2 ? gp.axes[i] : 0), lx = ax(0), ly = ax(1);
+  // the left stick steps through menus like the d-pad: one step on a push, then repeats while held
+  const dir = Math.abs(ly) > 0.6 && Math.abs(ly) >= Math.abs(lx) ? (ly < 0 ? 'up' : 'down') : Math.abs(lx) > 0.6 ? (lx < 0 ? 'left' : 'right') : null;
+  const t = performance.now();
+  if (dir !== pad.nav.dir) { pad.nav = { dir, t: t + 380 }; if (dir) pad.down.add(dir); }
+  else if (dir && t >= pad.nav.t) { pad.nav.t = t + 110; pad.down.add(dir); }
+  if (lx || ly) { if (!pad.used) { pad.used = true; document.body.classList.add('pad'); } }
+  // right stick: look around; with LT held, up and down zoom instead of tilting
+  if (ax(2)) input.look -= ax(2) * 0.04;
+  if (ax(3)) { if (b(6)) input.zoom += ax(3) * 0.12; else input.lookY += ax(3) * 0.03; }
+  return { x: lx, z: ly };
 }
+export const usingPad = () => pad.used;
 export function pollInput() {
   const g = pollPad();
   let x = g.x + stick.x, z = g.z + stick.y;

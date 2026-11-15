@@ -9,7 +9,7 @@ import './data5.js';
 import { SCRIPTS3 } from './story3.js';
 import { generate, buildChunk, setAtlas, W, WX, WZ, WY, SEA, CHUNK, get, solid, seeThrough, B, regionAt, regionAt3, standAt, REGIONS, ground, SPIRE, NIGHT, EIN_STEPS, tw, sc, OLD_W, VAEL, SPAWN, applyWorldFlags, PARKOUR, parkourBlocks } from './world.js';
 import { preload, make, ensure, ready, crystalMesh, homeMesh, instanced, shardMesh, signMesh, herbMesh, rippleMesh, leverMesh, valveMesh, ventMesh, echoMesh, pickMesh, digMesh, oreMesh } from './models.js';
-import { input, setupInput, pollInput, endInput, prefs, setPref } from './input.js';
+import { input, setupInput, pollInput, endInput, prefs, setPref, usingPad } from './input.js';
 import { initAudio, playMusic, sfx, jingle, music, setMusic } from './audio.js';
 import { UI, uiUpdate, say, toast, areaName, prompt, fade, wait } from './ui.js';
 import { S, newParty, fullHeal, save, load, hasSave } from './party.js';
@@ -357,11 +357,13 @@ function updateFollowers(dt) {
     f.inst.obj.visible = !P.boat;
     if (P.boat) return;
     // a place on the trail this far behind the leader
-    const want = (i + 1) * 1.25; let d = 0, prev = [P.x, P.y, P.z], tgt = trail[trail.length - 1];
+    const want = (i + 1) * 1.25; let d = 0, prev = [P.x, P.y, P.z], tgt = null;
     for (const p of trail) { const s = Math.hypot(p[0] - prev[0], p[2] - prev[2]); if (d + s >= want) { const k = s ? (want - d) / s : 0; tgt = [prev[0] + (p[0] - prev[0]) * k, prev[1] + (p[1] - prev[1]) * k, prev[2] + (p[2] - prev[2]) * k]; break; } d += s; prev = p; }
-    if (d < want) tgt = [f.x, f.y, f.z];
-    const dx = tgt[0] - f.x, dz = tgt[2] - f.z, sp = Math.hypot(dx, dz) / Math.max(dt, 0.001);
-    const k = Math.min(1, dt * 14);
+    // the trail is still shorter than this place in the line: wait where you are
+    if (!tgt) tgt = [f.x, f.y, f.z];
+    const dx = tgt[0] - f.x, dz = tgt[2] - f.z, k = Math.min(1, dt * 14);
+    // speed from how far they really move this frame, so walking looks like walking
+    const sp = f.sp = (f.sp || 0) * 0.8 + (Math.hypot(dx, dz) * k / Math.max(dt, 0.001)) * 0.2;
     f.x += dx * k; f.z += dz * k; f.y += (tgt[1] - f.y) * Math.min(1, dt * 18);
     const o = f.inst.obj; o.position.set(f.x, f.y, f.z);
     if (Math.hypot(dx, dz) > 0.02) o.rotation.y = Math.atan2(dx, dz);
@@ -439,7 +441,7 @@ function movePlayer(dt) {
   if (moving && P.ground && Math.random() < (run ? 0.07 : 0.04)) sfx('step');
   updateDust(dt, moving && run && P.ground);
   // after a little walking, a word about running (once)
-  if (moving && !run && !S.flags.runTip && (walkT += dt) > 5) { S.flags.runTip = true; toast(document.body.classList.contains('touching') ? L('按 » 切換自動奔跑，或把搖桿推到底奔跑。', 'Tap » for auto-run, or push the stick all the way to run.') : L('按住 Shift 奔跑；Caps Lock 或 F 切換自動奔跑。', 'Hold Shift to run; Caps Lock or F switches auto-run.'), 4200); }
+  if (moving && !run && !S.flags.runTip && (walkT += dt) > 5) { S.flags.runTip = true; toast(usingPad() ? L('按住 RT 奔跑；按 L3 或 Select 切換自動奔跑。', 'Hold RT to run; L3 or Select switches auto-run.') : document.body.classList.contains('touching') ? L('按 » 切換自動奔跑，或把搖桿推到底奔跑。', 'Tap » for auto-run, or push the stick all the way to run.') : L('按住 Shift 奔跑；Caps Lock 或 F 切換自動奔跑。', 'Hold Shift to run; Caps Lock or F switches auto-run.'), 4200); }
 }
 function updateCamera(dt, instant = false) {
   cam.yaw += input.look; cam.dist = Math.max(4, Math.min(28, cam.dist + input.zoom * 1.2));
@@ -687,7 +689,7 @@ function showTitle() {
   const draw = () => {
     t.innerHTML = `<div class="logo">${L('晶境漫遊', 'PRISMWANDER')}</div><div class="sub">${L('PRISMWANDER', '晶境漫遊')}</div>` +
       `<div class="panel opts">${opts().map((o, i) => `<div class="opt${i === sel ? ' sel' : ''}${o.off ? ' off' : ''}" data-i="${i}">${o.label}</div>`).join('')}</div>` +
-      `<div class="hint">${L('WASD 移動・Shift 奔跑（Caps Lock／F 自動奔跑）・空白鍵 跳躍・拖曳滑鼠自由轉動視角（V 或右鍵：滑鼠直接轉）・滾輪拉遠・E 調查・Esc 選單・M 音樂開關', 'WASD move · Shift run (Caps Lock / F: auto-run) · Space jump · drag to look around freely (V or right-click: mouse look) · wheel to zoom · E look · Esc menu · M music on/off')}<br>${L('© 2026 原創作品・模型 KayKit、Kenney、Quaternius (CC0)・音樂 Ninja Adventure (CC0)', '© 2026 an original game · models by KayKit, Kenney and Quaternius (CC0) · music from Ninja Adventure (CC0)')}</div>`;
+      `<div class="hint">${L('WASD 移動・Shift 奔跑（Caps Lock／F 自動奔跑）・空白鍵 跳躍・拖曳滑鼠自由轉動視角（V 或右鍵：滑鼠直接轉）・滾輪拉遠・E 調查・Esc 選單・M 音樂開關・支援手把', 'WASD move · Shift run (Caps Lock / F: auto-run) · Space jump · drag to look around freely (V or right-click: mouse look) · wheel to zoom · E look · Esc menu · M music on/off · gamepads work')}<br>${L('© 2026 原創作品・模型 KayKit、Kenney、Quaternius (CC0)・音樂 Ninja Adventure (CC0)', '© 2026 an original game · models by KayKit, Kenney and Quaternius (CC0) · music from Ninja Adventure (CC0)')}</div>`;
     t.classList.add('on');
   };
   t.onclick = (e) => { const o = e.target.closest('.opt'); if (o) { sel = +o.dataset.i; choose(); } initAudio(); };
@@ -764,7 +766,7 @@ function frame(now) {
     for (const e of ents) if (e.inst && e.inst.update && Math.hypot(e.pos[0] - tx, e.pos[2] - tz) < 90) e.inst.update(dt, now / 1000);
   } else if (mode === 'field') {
     S.time += dt; if (P.inv > 0) P.inv -= dt;
-    if (input.pressed('autorun') && !UI.active) { setPref('autoRun', !prefs.autoRun); { const tch = document.body.classList.contains('touching'); toast(prefs.autoRun ? (tch ? L('自動奔跑：開（再按 » 走路）', 'Auto-run on (tap » again to walk)') : L('自動奔跑：開（按住 Shift 走路）', 'Auto-run on (hold Shift to walk)')) : (tch ? L('自動奔跑：關（搖桿推到底也會跑）', 'Auto-run off (push the stick all the way to run)') : L('自動奔跑：關（按住 Shift 奔跑）', 'Auto-run off (hold Shift to run)')), 1800); } }
+    if (input.pressed('autorun') && !UI.active) { setPref('autoRun', !prefs.autoRun); { const tch = document.body.classList.contains('touching'); toast(usingPad() ? (prefs.autoRun ? L('自動奔跑：開（按住 RT 走路）', 'Auto-run on (hold RT to walk)') : L('自動奔跑：關（按住 RT 奔跑）', 'Auto-run off (hold RT to run)')) : prefs.autoRun ? (tch ? L('自動奔跑：開（再按 » 走路）', 'Auto-run on (tap » again to walk)') : L('自動奔跑：開（按住 Shift 走路）', 'Auto-run on (hold Shift to walk)')) : (tch ? L('自動奔跑：關（搖桿推到底也會跑）', 'Auto-run off (push the stick all the way to run)') : L('自動奔跑：關（按住 Shift 奔跑）', 'Auto-run off (hold Shift to run)')), 1800); } }
     if (!UI.active && !busy) {
       movePlayer(dt);
       if (input.pressed('menu')) { unlockMouse(); prompt(null); busy = true; fieldMenu(ctx).then(() => { busy = false; refreshEnts(); syncWorld(); }); }

@@ -97,6 +97,9 @@ export function list(title, items, { cancel = true, start = 0, footer = '', widt
         if (!items.length) { if (input.pressed('b') || input.pressed('a')) finish(-1); return; }
         if (input.pressed('down')) { sel = (sel + 1) % items.length; sfx('cursor'); if (onMove) onMove(sel); draw(); }
         if (input.pressed('up')) { sel = (sel + items.length - 1) % items.length; sfx('cursor'); if (onMove) onMove(sel); draw(); }
+        // left / right jump ten rows in a long list; LB / RB (Q / R) scroll the detail panel, for a gamepad
+        if (items.length > 12 && (input.pressed('right') || input.pressed('left'))) { sel = input.pressed('right') ? Math.min(items.length - 1, sel + 10) : Math.max(0, sel - 10); sfx('cursor'); if (onMove) onMove(sel); draw(); }
+        if (detail && (input.pressed('turnL') || input.pressed('turnR'))) { const d = root.querySelector('.det'); if (d) d.scrollTop += input.pressed('turnR') ? 160 : -160; }
         if (input.pressed('a')) choose();
         if (cancel && (input.pressed('b') || input.pressed('menu'))) { sfx('cancel'); finish(-1); }
       },
