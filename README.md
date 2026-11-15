@@ -53,6 +53,7 @@ When the Prism is whole again, the fog over the eastern sea lifts. Nina the sail
 - **The bestiary** records every monster met; scanned ones show their weaknesses, drops and haunts.
 - **The Saltmere Arena**: six ranks of three fights each, up to the Masked Blade.
 - **Treasure maps** mark a red X on the map; dig there.
+- **Tactics (battle orders).** In the menu under Tactics, give each hero up to 6 orders (10 later in the journey): a condition such as "Ally HP < 50%", "Enemy not stolen from" or "Enemy weakness known", and an action such as Potion, Steal, Scan or Hit a weakness. On their turn the first order that holds and can be done is used, otherwise a plain attack. 30 conditions, 24 action kinds plus every ability the hero knows, seven presets (Thief, Healer, Attacker, Scanner, Support, Defender, Showtime), copy between heroes. In battle, switch between Manual, Tactics and Mixed (some heroes by hand, the rest by orders) with Space, pad X or the button at the top right; F or pad Select doubles the speed; B during an auto turn hands control back. A label over the hero shows which order fired.
 - **Village stories.** Tibb's rainbow shell, the Fenside granny's locket, the lost climber's journal, the smith's fire, the harbour kitchen, the wreck of the Gull's Wing, the song of Vael, Unit 7's memory, the fledgling who would not fly, the fossil collector, the hermit's abyss morels, and 24 blue echoes that tell the other side of that day.
 
 ## Controls
@@ -66,12 +67,15 @@ When the Prism is whole again, the fog over the eastern sea lifts. Nina the sail
 | Turn and tilt the camera | drag the mouse (any direction), Q / R / T / G; V or right-click captures the mouse for free look | drag | right stick, LB / RB |
 | Zoom | mouse wheel | | |
 | Menu | Esc | ≡ | Start / Y |
+| Battle: Manual / Tactics / Mixed | Space | the Orders button | X |
+| Battle: double speed when auto | F | the » button | Select |
 
 ## Files
 
 - `js/world.js` generates the 966 x 966 world: regions, villages, the ruins, the Spire, crystals, chests, spawns, memory shards, signs, herbs and fishing spots, and builds chunk meshes.
 - `js/main.js` streams chunks in around you and covers day and night, walking, jumping, the camera, interaction, roaming monsters, the minimap, the title and the ending.
 - `js/battle.js` runs the battles.
+- `js/tactics.js` holds the battle orders: the conditions, actions and presets, and how a hero picks a command from them.
 - `js/party.js` covers levels, main and sub jobs, JP and saving.
 - `js/data.js` holds the jobs, abilities, items and monsters; `js/data2.js` adds those of the east, link arts, recipes, forging and the arena.
 - `js/menu.js` has the menus, shops and inns.

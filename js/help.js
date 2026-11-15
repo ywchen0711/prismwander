@@ -9,6 +9,7 @@ import { POST_AT, BOOK_REWARDS, MASTERY_REWARDS, HUNTS } from './data4.js';
 import { L, LANG } from './i18n.js';
 import { climbCount, climbNeed, PARKOUR, PARKOUR_REWARDS } from './climbs.js';
 import { REGIONS } from './world.js';
+import { COND, ACT, ACT_ORDER, GROUPS, PRESETS, SLOT_STEPS, maxSlots, condName, actName } from './tactics.js';
 
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 const SEP = () => L('・', ' · ');
@@ -223,10 +224,32 @@ export function monsterHTML(id, where = '') {
 // ---------- the Help pages ----------
 const P = (zh, en) => `<p>${L(zh, en)}</p>`;
 const elementList = () => `<div class="els">${Object.keys(EL_NAME).map((e) => `<b class="el-${e}">${elName(e)}</b>`).join('')}</div>`;
+// the battle orders page: how they work, then every condition, action and preset, straight from tactics.js
+function tacticsHelp() {
+  const gl = (rows) => `<div class="gl">${rows.map(([n, d]) => `<div><b>${esc(n)}</b><span class="small">${d}</span></div>`).join('')}</div>`;
+  return P('在選單的「作戰指令」替每位夥伴排好幾條「條件 → 行動」。輪到他時從第一條往下看：第一條條件成立、而且現在做得到（MP 夠、有那個道具、現在的主職業／副職業／額外指令有那個技能）的就執行；一條都不符合就普通攻擊。', 'In the Tactics menu, give each hero a few orders: CONDITION → ACTION. On their turn the list is read from the top: the first order whose condition holds and that can be done right now (enough MP, the item in the bag, the ability on the current main job, sub job or extra command) is used; if none fits, a plain attack.')
+    + P('條件會決定目標：「夥伴 HP < 50%」配「回復藥」就是把藥給那位夥伴；「敵人還沒被偷過」配「偷竊」就是去偷那隻。同一回合裡，已經有人要回復、復活、偷或看破的對象，下一個人不會重複去做。', 'The condition picks the target: "Ally HP < 50%" with "Potion" gives that ally the Potion; "Enemy not stolen from" with "Steal" steals from that one. Within a round, someone already being healed, revived, stolen from or scanned is not picked again by the next hero.')
+    + P('作戰只看得到你也知道的事：弱點要看破過才知道；沒看破的敵人看不到 HP，只看牠受了多少傷害。', 'Orders only know what you know: weaknesses only after a scan; an unscanned enemy shows no HP, only how much damage it has taken.')
+    + `<div class="sub">${L('模式與操作', 'Modes and controls')}</div>` + gl([
+      [L('手動', 'Manual'), L('每個人都由你選指令。', 'You choose for everyone.')],
+      [L('作戰', 'Tactics'), L('全員照作戰指令行動。', 'Everyone follows their orders.')],
+      [L('混合', 'Mixed'), L('照各人的「混合模式時」設定：例如隊長手動、其他人照作戰。', 'As set per hero: e.g. you steer the leader, the others follow orders.')],
+      [L('切換模式', 'Switch mode'), L('戰鬥中按 Space、搖桿 X、點右上角的按鈕，或指令選單的「作戰」。', 'In battle: Space, pad X, the button at the top right, or Orders in the command menu.')],
+      [L('兩倍速', 'Double speed'), L('自動時按 F、搖桿 Select 或點 » 按鈕。', 'When auto: F, pad Select or the » button.')],
+      [L('拿回控制', 'Take control'), L('自動行動中按 B（取消）或選單鍵：下一位起改回手動。', 'Press B (cancel) or the menu button during an auto turn: manual from the next hero on.')],
+      [L('標籤', 'Labels'), L('照作戰行動時，頭上會出現「第幾條・條件」和「行動 → 目標」。', 'A hero acting by an order shows "number · condition" and "action → target" overhead.')],
+    ])
+    + `<div class="sub">${L('作戰欄', 'Order slots')}　${maxSlots()}</div>` + gl(SLOT_STEPS().map(([w, n]) => [L(`${n} 格`, `${n} slots`), w]))
+    + Object.keys(GROUPS).map((g) => `<div class="sub">${L('條件', 'Conditions')}・${L(...GROUPS[g])}</div>` + gl(Object.keys(COND).filter((k) => COND[k].g === g).map((k) => [condName(k), L(...COND[k].d)]))).join('')
+    + `<div class="sub">${L('行動', 'Actions')}</div>` + gl(ACT_ORDER.map((k) => [actName(k), L(...ACT[k].d)]))
+    + P('行動清單的最後是這位夥伴現在會的每一個技能，也可以直接指定。', 'At the end of the action list come all the abilities the hero knows right now, to name one directly.')
+    + `<div class="sub">${L('預設作戰', 'Presets')}</div>` + gl(Object.values(PRESETS).map((pr) => [L(...pr.n), L(...pr.d) + '<br>' + pr.rules.map((r) => `${esc(condName(r.c))} → ${esc(actName(r.a))}`).join(L('；', '; '))]));
+}
 export const HELP = [
   { t: ['戰鬥的流程', 'How battles work'], b: () => P('每回合先替每個人選好指令，然後大家依速度（AGI）輪流行動。「防禦」會最先行動，這回合受到的物理傷害減半、魔法傷害減四成。', 'Each round you choose a command for everyone, then all act in order of speed (AGI). Guard always goes first and halves physical damage (magic -40%) that round.')
     + P('「逃跑」有六成機率成功；守護者的戰鬥逃不掉。會心一擊的機率是 7%，傷害 ×1.6。', 'Run works 60% of the time, but never against a guardian. Critical hits happen 7% of the time for x1.6 damage.')
     + P('打贏就會得到經驗值、JP、金幣和掉落物。全員倒下時，會在最後碰過的家石醒來，失去一半的金幣。', 'Winning gives EXP, JP, gold and drops. If everyone falls you wake at the last home stone you touched, with half your gold gone.') },
+  { t: ['作戰指令', 'Tactics (battle orders)'], b: tacticsHelp },
   { t: ['前排與後排', 'Front and back rows'], b: () => P('後排受到的物理傷害少四成，也比較不會被盯上（前排被攻擊的機率是兩倍），但近戰傷害也少四成。', 'The back row takes 40% less physical damage and is targeted half as often, but melee hits from there are 40% softer.')
     + P('弓、火槍、遠距離技能和跳躍不受後排影響。換排在戰鬥中不消耗回合，也可以從選單的「隊形」設定。', 'Bows, guns, ranged abilities and jumps do not mind the back row. Switching rows in battle costs no turn; you can also set rows under Formation.') },
   { t: ['屬性', 'Elements'], b: () => elementList() + P('打中魔物的弱點時傷害 ×1.6，被抵抗時只有 ×0.4，有些魔物在特定時候會吸收屬性而回復。', "Hitting a monster's weakness does x1.6 damage; a resisted element does only x0.4, and a few monsters absorb an element at times.")

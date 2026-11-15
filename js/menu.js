@@ -15,6 +15,7 @@ import { QUESTS, SHARDS } from './story.js';
 import { ECHOES } from './story2.js';
 import { qualityChoice, autoLevel, setQuality } from './quality.js';
 import { prefs, setPref } from './input.js';
+import { T, rulesOf, maxSlots, MODES, modeName, COND, ACT_ORDER, GROUPS, PRESETS, presetRules, suggested, condName, actName, actDesc, actAvailable, kindReady, heroAbilities } from './tactics.js';
 
 export const MAPCOL = { [B.grass]: [96, 176, 72], [B.sand]: [232, 214, 160], [B.redsand]: [208, 112, 64], [B.redstone]: [168, 80, 56], [B.snow]: [236, 244, 252], [B.stone]: [140, 146, 160], [B.gravel]: [150, 150, 150], [B.cobble]: [120, 120, 130], [B.leaves]: [56, 130, 56], [B.orange]: [220, 130, 50], [B.brick]: [150, 150, 160], [B.crystal]: [150, 230, 255], [B.ice]: [190, 230, 250], [B.plank]: [180, 120, 80], [B.wood]: [110, 80, 50], [B.birch]: [220, 220, 200], [B.lava]: [255, 110, 30], [B.mushroom]: [210, 50, 50], [B.moss]: [96, 128, 84], [B.mud]: [128, 126, 108], [B.cactus]: [80, 150, 60],
   [B.coral]: [230, 96, 104], [B.sandstone]: [220, 200, 150], [B.skystone]: [130, 160, 230], [B.gold]: [240, 200, 70], [B.iron]: [130, 130, 140], [B.brass]: [180, 160, 90], [B.ruby]: [150, 60, 80], [B.coal]: [60, 60, 70], [B.plank2]: [190, 150, 100], [B.redwood]: [160, 70, 50], [B.frame]: [170, 180, 190], [B.hedge]: [70, 150, 70], [B.emerald]: [90, 200, 120], [B.silver]: [190, 200, 210] };
@@ -107,7 +108,7 @@ export async function fieldMenu(ctx) {
   for (;;) {
     const opts = [
       ['jobs', L('職業', 'Jobs')], ['abil', L('技能', 'Abilities')], ['equip', L('裝備', 'Equipment')], ['items', L('道具', 'Items')], ['status', L('能力', 'Status')],
-      ['form', L('隊形', 'Formation')], ['quest', L('委託', 'Requests')], ['mem', L('回憶', 'Memories'), !S.shards.length && !S.echoes.length],
+      ['form', L('隊形', 'Formation')], ['tac', L('作戰指令', 'Tactics')], ['quest', L('委託', 'Requests')], ['mem', L('回憶', 'Memories'), !S.shards.length && !S.echoes.length],
       ['map', L('地圖', 'Map')], ['warp', L('傳送', 'Warp'), S.homes.length < 2], ['save', L('記錄', 'Save')], ['set', L('設定', 'Settings')],
       ['book', L('魔物圖鑑', 'Bestiary')], ['cook', L('料理', 'Cooking'), !S.inv.recipebook], ['help', L('說明', 'Help')],
     ];
@@ -120,6 +121,7 @@ export async function fieldMenu(ctx) {
     if (id === 'items') await itemsMenu(ctx);
     if (id === 'status') await statusMenu();
     if (id === 'form') await formationMenu();
+    if (id === 'tac') await tacticsMenu();
     if (id === 'quest') await questMenu();
     if (id === 'mem') await memoryMenu();
     if (id === 'map') await mapMenu(ctx);
@@ -408,3 +410,105 @@ export async function inn(ctx, name) {
   S.gold -= price; await ctx.rest();
 }
 void HEROES; void fullHeal; void kindN; void describeGear; void monsterStats; void affinity; void EL_NAME;
+
+// ---------- battle orders (tactics) ----------
+const escT = (x) => String(x).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const onOff = (v) => (v ? L('開', 'On') : L('關', 'Off'));
+const ruleRow = (m, r, i) => `<span class="trule${r.on ? '' : ' toff'}"><span class="tn">${i + 1}</span><span class="tg">${r.on ? '●' : '○'}</span><span class="tc">${escT(condName(r.c))}</span><span class="ta">→</span><span class="tx${kindReady(m, r.a) ? '' : ' tna'}">${escT(actName(r.a))}</span></span>`;
+const rulesList = (m) => { const rs = rulesOf(m); return rs.length ? `<ol class="tlist">${rs.map((r) => `<li class="${r.on ? '' : 'off'}">${escT(condName(r.c))} → ${escT(actName(r.a))}${actAvailable(m, r.a) ? '' : ` <span class="dn">${L('（現在的職業用不到）', '(not with these jobs)')}</span>`}</li>`).join('')}</ol>` : `<p class="small off">${L('（沒有作戰指令：只會普通攻擊）', '(no orders: plain attacks only)')}</p>`; };
+const MODE_TXT = () => ({ manual: L('每個人都由你選指令（原本的玩法）。', 'You choose every command (the usual way).'), auto: L('全員照自己的作戰指令自動行動。戰鬥中按 B（取消）就會在下一位改回手動。', 'Everyone acts by their own orders. In battle, press B (cancel) to take control back from the next turn.'), mix: L('照每個人的「混合模式時」設定：例如隊長手動、其他人照作戰指令。', "As each hero's \"In Mixed mode\" setting says: e.g. you steer the leader, the others follow orders.") });
+function ruleDetail(m, r) {
+  const ready = kindReady(m, r.a);
+  return `<h3>${escT(condName(r.c))} → ${escT(actName(r.a))}</h3><div class="sub">${L('條件', 'Condition')}・${L(...GROUPS[COND[r.c].g])}</div><p>${L(...COND[r.c].d)}</p><div class="sub">${L('行動', 'Action')}</div><p>${actDesc(r.a)}</p>`
+    + (r.a.startsWith('ab:') ? `<p class="small">${abilityLine(ABILITIES[r.a.slice(3)])}</p>` : '')
+    + `<p class="small ${ready ? 'up' : 'dn'}">${ready ? L('現在的職業和道具做得到。', 'Possible with the current jobs and bag.') : r.a.startsWith('ab:') ? L('現在的主職業、副職業和額外指令沒有這個技能：會跳過這一條。', 'Not on the current main job, sub job or extra command: this order is skipped.') : L('現在沒有這一類的技能或道具：會跳過這一條。', 'No ability or item of this kind right now: this order is skipped.')}</p>`
+    + `<p class="small">${r.on ? L('開著：戰鬥中會檢查這一條。', 'On: checked in battle.') : L('關著：戰鬥中會跳過。', 'Off: skipped in battle.')}</p>`;
+}
+export async function tacticsMenu() {
+  let at = 0;
+  for (;;) {
+    const t = T(), n = maxSlots();
+    const rows = [{ label: L('戰鬥模式', 'Battle mode'), right: modeName(t.mode) }, { label: L('自動時兩倍速', 'Double speed when auto'), right: onOff(t.fast) },
+      ...S.members.map((m) => ({ label: heroName(m), right: `${t.per[m.id] === 'auto' ? L('混合：作戰', 'Mixed: orders') : L('混合：手動', 'Mixed: by hand')}　${rulesOf(m).length}/${n}` }))];
+    const r = await list(L('作戰指令', 'Tactics'), rows, { width: 380, dwidth: 420, start: at, footer: L('選夥伴來編輯他的作戰指令。戰鬥中 Space／搖桿 X 切換模式。', 'Pick a hero to edit their orders. In battle, Space / pad X switches the mode.'),
+      detail: (k) => (k === 0 ? `<h3>${L('戰鬥模式', 'Battle mode')}</h3>${MODES.map((md) => `<p><b class="${md === t.mode ? 'star' : ''}">${modeName(md)}${md === t.mode ? ' ✔' : ''}</b><br><span class="small">${MODE_TXT()[md]}</span></p>`).join('')}<p class="small">${L('戰鬥中隨時可以切換：Space 鍵、搖桿 X、或點右上角的按鈕；指令選單裡的「作戰」也可以。', 'Switch any time in battle: Space, pad X, the button at the top right, or Orders in the command menu.')}</p>`
+        : k === 1 ? `<h3>${L('自動時兩倍速', 'Double speed when auto')}</h3><p>${L('作戰或混合模式時，戰鬥的動作加快一倍。戰鬥中按 F 或搖桿 Select 也能切換。', 'In Tactics or Mixed mode, battles play twice as fast. Press F or pad Select in battle to switch it too.')}</p>`
+        : `<h3>${heroName(S.members[k - 2])}</h3><p class="small">${JOBS[S.members[k - 2].job].name}${S.members[k - 2].sub ? ' / ' + JOBS[S.members[k - 2].sub].name : ''}　${L('作戰指令', 'Orders')} ${rulesOf(S.members[k - 2]).length}/${n}</p>${rulesList(S.members[k - 2])}`) });
+    if (r < 0) return;
+    at = r;
+    if (r === 0) { t.mode = MODES[(MODES.indexOf(t.mode) + 1) % MODES.length]; sfx('ok'); continue; }
+    if (r === 1) { t.fast = !t.fast; sfx('ok'); continue; }
+    await heroTactics(S.members[r - 2]);
+  }
+}
+async function heroTactics(m) {
+  let at = 1;
+  for (;;) {
+    const t = T(), rules = rulesOf(m), n = maxSlots();
+    const rows = [{ label: L('混合模式時', 'In Mixed mode'), right: t.per[m.id] === 'auto' ? L('照作戰指令', 'By orders') : L('手動', 'By hand') },
+      ...Array.from({ length: n }, (_, i) => (rules[i] ? { html: ruleRow(m, rules[i], i) } : i === rules.length ? { html: `<span class="trule tadd"><span class="tn">${i + 1}</span><span class="tc">＋ ${L('新增作戰', 'Add an order')}</span></span>` } : { html: `<span class="trule tempty"><span class="tn">${i + 1}</span><span class="tc">－</span></span>`, disabled: true })),
+      { label: L('套用預設作戰…', 'Use a preset…'), right: '▶' }, { label: L('從夥伴複製…', 'Copy from a friend…'), right: '▶' }];
+    const k = await list(L(`${heroName(m)}的作戰指令`, `${heroName(m)}: orders`), rows, { width: 440, dwidth: 400, start: Math.min(at, rows.length - 1), footer: L('從上往下檢查：第一條「條件成立又做得到」的就執行，都不符合就普通攻擊。', 'Checked from the top: the first order whose condition holds and that can be done is used; if none, a plain attack.'),
+      detail: (i) => (i === 0 ? `<h3>${L('混合模式時', 'In Mixed mode')}</h3><p>${L('戰鬥模式是「混合」時，這位夥伴要由你下指令，還是照作戰指令行動。', 'When the battle mode is Mixed, whether you choose for this hero or they follow their orders.')}</p><p class="small">${MODE_TXT().mix}</p>`
+        : i <= n ? (rules[i - 1] ? ruleDetail(m, rules[i - 1]) : `<h3>${L('新增作戰', 'Add an order')}</h3><p>${L('先選「條件」，再選「行動」。條件會決定目標：例如「夥伴 HP < 50%」配「回復藥」，就是把藥給那位夥伴。', 'Pick a condition, then an action. The condition picks the target: "Ally HP < 50%" with "Potion" gives the Potion to that ally.')}</p><p class="small">${L(`作戰欄 ${n} 格，隨著冒險會增加（最多 10 格）。`, `${n} slots; more open up along the journey (up to 10).`)}</p>`)
+        : i === n + 1 ? `<h3>${L('預設作戰', 'Presets')}</h3><p>${L('一鍵換成一套現成的作戰，之後還能再修改。★ 是適合目前職業的。', 'Swap in a ready-made set in one press, then edit it. ★ suits the current job.')}</p>`
+        : `<h3>${L('從夥伴複製', 'Copy from a friend')}</h3><p>${L('把另一位夥伴的作戰指令整套複製過來。', "Copy another hero's whole list of orders.")}</p>`) });
+    if (k < 0) return;
+    at = k;
+    if (k === 0) { t.per[m.id] = t.per[m.id] === 'auto' ? 'manual' : 'auto'; sfx('ok'); continue; }
+    if (k === n + 1) { await presetMenu(m); continue; }
+    if (k === n + 2) { await copyMenu(m); continue; }
+    const i = k - 1;
+    if (!rules[i]) { const c = await pickCond(m, null); if (!c) continue; const a = await pickAction(m, null); if (!a) continue; rules.push({ c, a, on: true }); sfx('ok'); continue; }
+    at = 1 + await ruleMenu(m, i);
+  }
+}
+// one order: change its condition or action, switch it off, move it, delete it; returns where it ended up
+async function ruleMenu(m, i) {
+  let at = 0;
+  for (;;) {
+    const rules = rulesOf(m), r = rules[i];
+    if (!r) return Math.max(0, Math.min(i, rules.length - 1));
+    const opts = [{ label: L('條件：', 'If: ') + condName(r.c), right: '▶' }, { label: L('行動：', 'Do: ') + actName(r.a), right: '▶' }, { label: L('開／關', 'On / off'), right: onOff(r.on) },
+      { label: L('往上移', 'Move up'), disabled: i === 0 }, { label: L('往下移', 'Move down'), disabled: i >= rules.length - 1 }, { label: L('刪除', 'Delete') }];
+    const k = await list(L(`作戰 ${i + 1}`, `Order ${i + 1}`), opts, { width: 360, dwidth: 400, start: at, detail: () => ruleDetail(m, r) });
+    if (k < 0) return i;
+    at = k;
+    if (k === 0) { const c = await pickCond(m, r.c); if (c) { r.c = c; sfx('ok'); } }
+    if (k === 1) { const a = await pickAction(m, r.a); if (a) { r.a = a; sfx('ok'); } }
+    if (k === 2) { r.on = !r.on; sfx('ok'); }
+    if (k === 3 && i > 0) { [rules[i - 1], rules[i]] = [rules[i], rules[i - 1]]; i--; sfx('ok'); }
+    if (k === 4 && i < rules.length - 1) { [rules[i + 1], rules[i]] = [rules[i], rules[i + 1]]; i++; sfx('ok'); }
+    if (k === 5) { rules.splice(i, 1); sfx('cancel'); toast(L('刪除了。', 'Deleted.')); return Math.max(0, Math.min(i, rules.length - 1)); }
+  }
+}
+const GROUP_COL = { ally: '#7cf29a', self: '#7cc4ff', foe: '#ff9a9a', field: '#ffe27a' };
+async function pickCond(m, cur) {
+  const ids = Object.keys(COND);
+  const k = await list(L('條件', 'Condition'), ids.map((id) => ({ html: `<span class="tgp" style="color:${GROUP_COL[COND[id].g]}">${L(...GROUPS[COND[id].g])}</span>${escT(condName(id))}`, right: id === cur ? '✔' : '' })), { width: 340, dwidth: 400, start: Math.max(0, ids.indexOf(cur)),
+    detail: (i) => `<h3>${escT(condName(ids[i]))}</h3><div class="sub">${L(...GROUPS[COND[ids[i]].g])}</div><p>${L(...COND[ids[i]].d)}</p><p class="small">${{ ally: L('目標是那位夥伴：回復、解除異常、復活類的行動會用在他身上。', 'The target is that ally: heals, cures and revives go to them.'), self: L('目標是自己。攻擊類的行動會打隊長的目標或第一個敵人。', "The target is you. Attacks go to the leader's target or the first enemy."), foe: L('目標是那個敵人：攻擊、偷竊、看破類的行動會用在牠身上。', 'The target is that enemy: attacks, steals and scans go to it.'), field: L('不指定目標：行動自己挑合適的對象。', 'No target: the action picks a fitting one itself.') }[COND[ids[i]].g]}</p>` });
+  return k < 0 ? null : ids[k];
+}
+async function pickAction(m, cur) {
+  const own = heroAbilities(m), ab = [...own, ...(cur && cur.startsWith('ab:') && !own.includes(cur.slice(3)) ? [cur.slice(3)] : [])];
+  const ids = [...ACT_ORDER, ...ab.map((a) => 'ab:' + a)];
+  const k = await list(L('行動', 'Action'), ids.map((id, i) => {
+    const ready = kindReady(m, id), A = id.startsWith('ab:') ? ABILITIES[id.slice(3)] : null;
+    return { html: `${i === ACT_ORDER.length ? `<span class="tsep">${L('技能', 'Abilities')}</span>` : ''}<span class="${ready ? '' : 'tgrey'}">${escT(actName(id))}</span>`, right: id === cur ? '✔' : A ? (A.hpcost ? 'HP' : `MP ${A.mp}`) : '' };
+  }), { width: 340, dwidth: 400, start: Math.max(0, ids.indexOf(cur)), footer: L('灰色的現在用不到（沒學會或沒有道具），規則會先跳過。', 'Grey ones cannot be done now (not learned, or none in the bag); the order is skipped until they can.'),
+    detail: (i) => (ids[i].startsWith('ab:') ? abilityHTML(ids[i].slice(3)) + `<p class="small">${actDesc(ids[i])}</p>` : `<h3>${escT(actName(ids[i]))}</h3><p>${actDesc(ids[i])}</p><p class="small ${kindReady(m, ids[i]) ? 'up' : 'dn'}">${kindReady(m, ids[i]) ? L('現在做得到。', 'Possible now.') : L('現在沒有這一類的技能或道具。', 'No ability or item of this kind right now.')}</p>`) });
+  return k < 0 ? null : ids[k];
+}
+async function presetMenu(m) {
+  const ks = Object.keys(PRESETS), good = new Set([...suggested(m.job), ...(m.sub ? suggested(m.sub).slice(0, 1) : [])]);
+  const k = await list(L('預設作戰', 'Presets'), ks.map((p) => ({ label: L(...PRESETS[p].n) + (good.has(p) ? ' ★' : ''), right: `${PRESETS[p].rules.length}` })), { width: 340, dwidth: 420, start: Math.max(0, ks.indexOf(suggested(m.job)[0])),
+    detail: (i) => `<h3>${L(...PRESETS[ks[i]].n)}</h3><p>${L(...PRESETS[ks[i]].d)}</p><ol class="tlist">${PRESETS[ks[i]].rules.map((r) => `<li>${escT(condName(r.c))} → ${escT(actName(r.a))}${kindReady(m, r.a) ? '' : ` <span class="dn">${L('（現在用不到）', '(not now)')}</span>`}</li>`).join('')}</ol><p class="small">${L('會取代目前的作戰指令。', 'Replaces the current orders.')}</p>` });
+  if (k < 0) return;
+  T().rules[m.id] = presetRules(ks[k]); sfx('ok'); toast(`${heroName(m)}${L('：', ': ')}${L(...PRESETS[ks[k]].n)}`);
+}
+async function copyMenu(m) {
+  const others = S.members.filter((o) => o !== m);
+  const k = await list(L('從誰複製？', 'Copy from whom?'), others.map((o) => ({ label: heroName(o), right: `${rulesOf(o).length}` })), { width: 320, dwidth: 400, detail: (i) => `<h3>${heroName(others[i])}</h3>${rulesList(others[i])}<p class="small">${L(`會取代${heroName(m)}目前的作戰指令。`, `Replaces ${heroName(m)}'s current orders.`)}</p>` });
+  if (k < 0) return;
+  T().rules[m.id] = rulesOf(others[k]).slice(0, maxSlots()).map((r) => ({ ...r })); sfx('ok'); toast(L(`複製了${heroName(others[k])}的作戰指令。`, `Copied ${heroName(others[k])}'s orders.`));
+}

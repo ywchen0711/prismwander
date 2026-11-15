@@ -9,7 +9,8 @@ import { LINKS, LORE_MP } from './data2.js';
 import { DROPS } from './data3.js';
 import { abilityLine, techLine, itemLine } from './help.js';
 import { S, stats, abilitiesOf, hasPassive, heroName, gain, addItem, count, gearHas, immuneTo, resists, hasJob, cmdAbilities, milestones } from './party.js';
-import { input } from './input.js';
+import { input, usingPad } from './input.js';
+import { T, isAuto, decide, reserve, newPlan, MODES, modeName, condName } from './tactics.js';
 import { sfx, playMusic, jingle } from './audio.js';
 import { L } from './i18n.js';
 import { UI, list, statusHTML } from './ui.js';
@@ -24,11 +25,13 @@ const onTick = (f) => { ticks.add(f); return () => ticks.delete(f); };
 export const inBattle = () => !!B;
 // for automated checks: end the fight as a win
 export function debugWin() { if (B) for (const f of B.foes) f.hp = 0; }
-export const debugState = () => B && { round: B.round, foes: B.foes.map((f) => [f.id, f.hp, f.maxhp, f.air || false, f.ward || '']), party: S.members.map((m) => m.hp), tide: B.tide, noon: !!B.noon };
+export const debugState = () => B && { mode: T().mode, fast: pace() > 1, tacLog: B.tacLog, round: B.round, foes: B.foes.map((f) => [f.id, f.hp, f.maxhp, f.air || false, f.ward || '', !!f.stolen]), party: S.members.map((m) => m.hp), tide: B.tide, noon: !!B.noon };
 const rnd = (a, b) => a + Math.random() * (b - a);
 // items that work in a fight (tents and seeds are for the field)
 const battleUse = (k) => ITEMS[k] && ITEMS[k].use && !['tent', 'seed', 'jpseed'].includes(ITEMS[k].use);
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// auto battles can run at double speed
+const pace = () => (B && S.tactics && S.tactics.fast && S.tactics.mode !== 'manual' ? 2 : 1);
+const wait = (ms) => new Promise((r) => setTimeout(r, ms / pace()));
 
 // the stage: a floor of the ground you were standing on, a sky colour, two lights
 const SKY = { grass: 0x8cc8f0, forest: 0x305a3a, sand: 0x9ad0f0, redsand: 0xe8a070, stone: 0x8890a8, snow: 0xc8d8f0, crystal: 0x40306a, marsh: 0x5a6e62, spore: 0x5a3e7a, ember: 0x6a2a1a,
@@ -183,8 +186,13 @@ export function startBattle(ids, { boss = false, bg = 'grass', canFlee = true, g
     if (B.guest) B.guest.inst.obj.rotation.y = B.guest.face;
     for (const o of B.party) o.h = Math.max(0.6, measureHeight(o.inst.obj));
     $('battleui').innerHTML = '<div id="bmsg" class="panel"></div><div id="bparty" class="panel"></div><div id="bcmd" class="panel"></div><div id="bfx"></div>'
-      + `<div id="bview"><span>${L('拖曳轉動視角・滾輪拉近拉遠', 'Drag to turn the view · wheel to zoom')}</span><button id="bviewReset">${L('視角回正 (C)', 'Reset view (C)')}</button></div>`;
+      + `<div id="bview"><span>${L('拖曳轉動視角・滾輪拉近拉遠', 'Drag to turn the view · wheel to zoom')}</span><button id="bviewReset">${L('視角回正 (C)', 'Reset view (C)')}</button></div>`
+      + '<div id="btac"><button id="btMode"></button><button id="btFast"></button><div id="btNote"></div></div>';
     $('bviewReset').addEventListener('click', (e) => { e.stopPropagation(); Object.assign(view, VIEW0); sfx('cursor'); });
+    $('btMode').addEventListener('click', (e) => { e.stopPropagation(); cycleMode(); });
+    $('btFast').addEventListener('click', (e) => { e.stopPropagation(); toggleFast(); });
+    for (const id of ['btMode', 'btFast']) $(id).addEventListener('pointerdown', (e) => e.stopPropagation());
+    B.tacOff = onTick(tacKeys); drawTac();
     $('battleui').classList.add('on');
     playMusic(boss ? (['varek', 'aurel', 'umbra', 'morwen', 'champion'].includes(ids[0]) ? 'boss2' : 'boss') : 'battle');
     drawParty();
@@ -193,17 +201,19 @@ export function startBattle(ids, { boss = false, bg = 'grass', canFlee = true, g
 }
 export function battleRender(renderer, dt) {
   if (!B) return;
-  B.t += dt;
+  dt *= pace(); B.t += dt;
   for (const f of B.foes) { f.inst.update(dt); if (MONSTERS[f.id].fly && f.hp > 0) f.inst.obj.position.y = (f.air ? 3.2 : 0.5) + Math.sin(B.t * 2 + f.home[1]) * 0.15; }
   for (const p of B.party) p.inst.update(dt);
   if (B.guest) B.guest.inst.update(dt);
   if (B.spirit) B.spirit.inst.update(dt);
   B.cam.aspect = innerWidth / innerHeight; B.cam.updateProjectionMatrix(); placeCamera(B.cam);
   renderer.render(B.scene, B.cam);
+  for (const el of document.querySelectorAll('#bfx .tacl')) { const o = el.who.inst.obj.position; el.dataset.x = o.x; el.dataset.z = o.z; el.dataset.y = (el.who.h || 1.9) + 0.75 + o.y; }
   for (const el of document.querySelectorAll('#bfx [data-x]')) { const p = screenOf(+el.dataset.x, +el.dataset.y, +el.dataset.z); el.style.left = p[0] + 'px'; el.style.top = p[1] + 'px'; }
 }
-function screenOf(x, y, z) { const v = new THREE.Vector3(x, y, z).project(B.cam); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }
+function screenOf(x, y, z) { if (!B) return [-999, -999]; const v = new THREE.Vector3(x, y, z).project(B.cam); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }
 function popup(who, s, col = '#ffffff') {
+  if (!B || !$('bfx')) return;
   const o = who.inst.obj.position, el = document.createElement('div');
   el.className = 'pop'; el.textContent = s; el.style.color = col; el.dataset.x = o.x; el.dataset.y = (who.h || 1.8) + 0.3 + o.y; el.dataset.z = o.z;
   const p = screenOf(o.x, (who.h || 1.8) + 0.3 + o.y, o.z); el.style.left = p[0] + 'px'; el.style.top = p[1] + 'px';
@@ -340,6 +350,7 @@ async function checkEnd() {
   return false;
 }
 async function victory() {
+  B.won = true;
   await wait(400);
   jingle('victory');
   const meal = S.meal && ITEMS[S.meal.id] && ITEMS[S.meal.id].meal, anyGear = (k) => S.members.some((m) => m.hp > 0 && gearHas(m, k));
@@ -379,7 +390,7 @@ function disposeStage(scene) {
 }
 function end(result) {
   if (!B || B.ended) return;
-  B.ended = true;
+  B.ended = true; if (B.tacOff) B.tacOff();
   for (const m of S.members) { m.buffs = {}; m.defending = false; m.taunt = 0; m.charge = false; m.jumping = null; m.stance = null; for (const k of ['sleep', 'stun', 'slow', 'blind', 'regen', 'silence', 'burn', 'freeze', 'doom', 'dusk', 'reraise', 'thorns']) delete m.status[k]; }
   $('battleui').classList.remove('on'); $('battleui').innerHTML = '';
   disposeStage(B.scene);
@@ -389,28 +400,100 @@ function end(result) {
 // ---------- choosing ----------
 async function choose() {
   const cmds = [], skip = new Set();
+  B.plan = newPlan();
+  const canBack = (i) => B.party.slice(0, i).some((q, k) => cmds[k] && !isAuto(q.m));
   for (let i = 0; i < B.party.length; i++) {
     const p = B.party[i], m = p.m;
     if (m.hp <= 0 || m.status.sleep || m.status.stun || m.status.freeze || m.jumping || skip.has(i)) { cmds[i] = null; continue; }
     B.active = m; drawParty();
-    const c = await commandFor(p, i > 0);
-    if (c === 'back') { let j = i - 1; while (j >= 0 && !cmds[j]) j--; skip.clear(); i = Math.max(-1, j - 1); continue; }
+    // a hero on tactics picks by their rules; the others choose by hand
+    const c = isAuto(m) ? autoCommand(p) : await commandFor(p, canBack(i));
+    if (!B || B.ended) return 'flee';
+    if (c === 'retac') { i--; continue; }
+    if (c === 'back') {
+      let j = i - 1; while (j >= 0 && (!cmds[j] || isAuto(B.party[j].m))) j--;
+      skip.clear(); B.plan = newPlan(); for (let k = 0; k < Math.max(0, j); k++) if (cmds[k]) reserve({ plan: B.plan, party: B.party }, cmds[k]);
+      i = Math.max(-1, j - 1); continue;
+    }
     if (c.type === 'flee') { B.active = null; drawParty(); return 'flee'; }
     cmds[i] = { ...c, p };
+    reserve({ plan: B.plan, party: B.party }, c);
+    if (p === B.party[0] && c.target && c.target.kind === 'foe') B.leaderTarget = c.target;
     // a link art takes the partner's turn too
     if (c.partner) { const j = B.party.indexOf(c.partner); if (j < i) cmds[j] = null; else skip.add(j); }
   }
   B.active = null; drawParty();
   return cmds;
 }
+// ---------- tactics in battle ----------
+function tacCtx(p) {
+  const m = p.m, wep = ITEMS[m.equip.weapon];
+  return { me: p, party: B.party, foes: alive(), round: B.round, leaderTarget: B.leaderTarget && B.leaderTarget.hp > 0 ? B.leaderTarget : null, plan: B.plan || newPlan(), usable, links: linksFor(p), ranged: !!(wep && (wep.kind === 'bow' || wep.kind === 'gun')), weaponEl: wep && wep.el };
+}
+const tgtName = (t) => (t === 'allFoes' ? L('全體敵人', 'all foes') : t === 'allHeroes' ? L('全隊', 'the party') : t && t.kind === 'foe' ? t.name : t && t.m ? heroName(t.m) : '');
+const cmdName = (c) => (c.type === 'attack' ? L('攻擊', 'Attack') : c.type === 'guard' ? L('防禦', 'Guard') : c.type === 'item' ? ITEMS[c.id].name : c.type === 'link' ? LINKS[c.id].name : c.type === 'ability' ? ABILITIES[c.id].name : '');
+// the rules pick this hero's command; a row change is free, and the rules are read again after it
+function autoCommand(p) {
+  const m = p.m, x = tacCtx(p), rules = T().rules[m.id] || [];
+  let d = decide(x);
+  if (d.cmd && d.cmd.type === 'row') {
+    m.row = d.cmd.row; p.home = heroSpot(B.party.indexOf(p), m); slide(p); drawParty();
+    popup(p, m.row === 'back' ? L('→後排', '→ back') : L('→前排', '→ front'), '#9fe0ff');
+    x.rowDone = true; d = decide(x);
+  }
+  if (!d.cmd || d.cmd.type === 'row') d = { cmd: { type: 'guard' }, rule: -1 };
+  const c = d.cmd, rule = rules[d.rule];
+  return { ...c, tac: { rule: d.rule, cond: rule ? condName(rule.c) : L('沒有符合的作戰', 'no rule applied'), text: cmdName(c) + (tgtName(c.target) ? ' → ' + tgtName(c.target) : '') } };
+}
+// a rule's command that no longer fits when the hero's turn comes (someone else already did it) is aimed again
+function retarget(p, c) {
+  const a = c.type === 'ability' ? ABILITIES[c.id] : null, it = c.type === 'item' ? ITEMS[c.id] : null, t = c.target;
+  if (a && (a.type === 'steal' || a.steal) && t && t.kind === 'foe' && (t.stolen || t.hp <= 0)) { const f = alive().find((g) => !g.stolen); if (f) c.target = f; else if (a.type === 'steal') return { type: 'attack', target: alive()[0], tac: c.tac }; }
+  const healOne = (a && (a.type === 'pctheal' || (a.type === 'heal' && a.target === 'ally'))) || (it && it.use === 'heal' && it.target === 'ally');
+  if (healOne && t && t.m && (t.m.hp <= 0 || t.m.hp >= stats(t.m).maxhp)) { const q = heroesUp().filter((h) => h.m.hp < stats(h.m).maxhp).sort((u, v) => u.m.hp / stats(u.m).maxhp - v.m.hp / stats(v.m).maxhp)[0]; if (q) c.target = q; else if (it) return { type: 'guard', tac: c.tac }; }
+  const rev = (a && a.type === 'revive') || (it && it.use === 'revive' && it.target !== 'allies');
+  if (rev && t && t.m && t.m.hp > 0) { const q = B.party.find((h) => h.m.hp <= 0); if (q) c.target = q; else return { type: 'attack', target: alive()[0], tac: c.tac }; }
+  return c;
+}
+// a small label over the hero: which rule fired, and what it does
+function tacLabel(p, tac) {
+  if (!B || !$('bfx')) return;
+  const o = p.inst.obj.position, el = document.createElement('div');
+  el.className = 'tacl'; el.who = p; el.innerHTML = `<i>${tac.rule >= 0 ? tac.rule + 1 + '. ' : ''}${tac.cond}</i>${tac.text}`;
+  el.dataset.x = o.x; el.dataset.y = (p.h || 1.9) + 0.75; el.dataset.z = o.z;
+  const s = screenOf(o.x, (p.h || 1.9) + 0.75, o.z); el.style.left = s[0] + 'px'; el.style.top = s[1] + 'px';
+  $('bfx').appendChild(el); setTimeout(() => el.remove(), 1700 / pace());
+  B.tacLog = (B.tacLog || []).concat(`${heroName(p.m)}: ${tac.rule >= 0 ? '#' + (tac.rule + 1) : '-'} ${tac.text}`).slice(-40);
+}
+// the mode button and the speed button (Space / pad X switch the mode, F / pad Select the speed)
+function drawTac() {
+  const t = T(), pad = usingPad(), touch = document.body.classList.contains('touching');
+  const k1 = touch && !pad ? '' : ` <kbd>${pad ? 'X' : 'Space'}</kbd>`, k2 = touch && !pad ? '' : ` <kbd>${pad ? 'Select' : 'F'}</kbd>`;
+  const bm = $('btMode'), bf = $('btFast'); if (!bm) return;
+  bm.innerHTML = `${L('作戰：', 'Orders: ')}<b>${modeName(t.mode)}</b>${k1}`; bm.className = 'm-' + t.mode;
+  bf.innerHTML = `» ×${t.fast ? 2 : 1}${k2}`; bf.className = t.fast ? 'on' : ''; bf.style.display = t.mode === 'manual' ? 'none' : '';
+}
+function note(s) { const n = $('btNote'); if (!n) return; n.textContent = s; n.classList.add('on'); clearTimeout(note.t); note.t = setTimeout(() => n.classList.remove('on'), 1800); }
+function cycleMode() { const t = T(); t.mode = MODES[(MODES.indexOf(t.mode) + 1) % MODES.length]; sfx('ok'); drawTac(); note({ manual: L('手動：每個人都由你下指令', 'Manual: you choose for everyone'), auto: L('作戰：全員照作戰指令行動', 'Tactics: everyone follows their orders'), mix: L('混合：照各人的設定（作戰指令選單）', 'Mixed: as set per hero in the Tactics menu') }[t.mode]); }
+function toggleFast() { const t = T(); t.fast = !t.fast; sfx('cursor'); drawTac(); note(t.fast ? L('自動戰鬥兩倍速', 'Auto battles at double speed') : L('一般速度', 'Normal speed')); }
+function tacKeys() {
+  if (!B || B.ended) return;
+  if (input.pressed('jump')) cycleMode();
+  if (input.pressed('autorun')) toggleFast();
+  // cancel during an auto turn hands control back from the next hero's turn
+  if (T().mode !== 'manual' && !B.menuOpen && !B.won && (input.pressed('b') || input.pressed('menu'))) { T().mode = 'manual'; sfx('cancel'); drawTac(); note(L('下一位起改為手動', 'Manual from the next turn')); }
+}
 function cmdMenu(items, { cancel = true } = {}) {
   return new Promise((res) => {
     const el = $('bcmd'); let sel = 0;
+    B.menuOpen = true;
     const draw = () => { el.innerHTML = items.map((o, i) => `<div class="opt${i === sel ? ' sel' : ''}${o.disabled ? ' off' : ''}" data-i="${i}"><div class="row"><span>${o.label}</span><span class="small">${o.right !== undefined ? o.right : ''}</span></div></div>`).join('') + (items.some((o) => o.desc) ? `<div class="small bdesc">${(items[sel] && items[sel].desc) || ''}</div>` : ''); el.classList.add('on'); const s = el.querySelector('.sel'); if (s) s.scrollIntoView({ block: 'nearest' }); };
     el.onclick = (e) => { const o = e.target.closest('.opt'); if (!o) return; sel = +o.dataset.i; pick(); };
     const pick = () => { if (items[sel].disabled) { sfx('buzz'); return; } sfx('ok'); done(sel); };
-    const done = (v) => { el.classList.remove('on'); el.onclick = null; off(); res(v); };
+    const done = (v) => { el.classList.remove('on'); el.onclick = null; off(); if (B) B.menuOpen = false; res(v); };
     const off = onTick(() => {
+      // switched to tactics while choosing: the rules take over this hero
+      if (!B || B.ended || (B.active && isAuto(B.active))) { done(-2); return; }
       if (input.pressed('down')) { sel = (sel + 1) % items.length; sfx('cursor'); draw(); }
       if (input.pressed('up')) { sel = (sel + items.length - 1) % items.length; sfx('cursor'); draw(); }
       if (input.pressed('a')) { pick(); return; }
@@ -447,8 +530,10 @@ async function commandFor(p, canBack) {
     opts.push({ id: 'item', label: L('道具', 'Items'), disabled: !Object.keys(S.inv).some((k) => battleUse(k)), desc: L('使用道具', 'use an item') },
       { id: 'guard', label: L('防禦', 'Guard'), desc: L('這回合受到的傷害減半，最先行動', 'halve damage this round, act first') },
       { id: 'row', label: m.row === 'back' ? L('換到前排', 'To front row') : L('換到後排', 'To back row'), desc: L('後排物理傷害減四成，近戰也變弱（弓、槍不受影響）。不耗回合', 'Back row: 40% less physical damage, weaker melee (bows, guns unaffected). Free action') },
+      { id: 'tac', label: L('作戰', 'Orders'), right: modeName(T().mode), desc: L('照作戰指令行動、切換手動／作戰／混合、兩倍速', 'act by your orders, switch Manual / Tactics / Mixed, double speed') },
       { id: 'flee', label: L('逃跑', 'Run'), disabled: !B.canFlee });
     const r = await cmdMenu(opts, { cancel: canBack });
+    if (r === -2) return 'retac';
     if (r < 0) return 'back';
     const id = opts[r].id;
     if (id === 'attack') { const t = await target('enemy', m); if (t) return { type: 'attack', target: t }; }
@@ -484,6 +569,23 @@ async function commandFor(p, canBack) {
       if (t !== null) return { type: 'item', id: iid, target: t };
     }
     if (id === 'guard') return { type: 'guard' };
+    if (id === 'tac') {
+      const t = T(), rules = t.rules[m.id] || [];
+      const tops = [
+        { id: 'now', label: L('這回合照作戰指令', 'Follow my orders now'), right: `${rules.filter((x) => x.on).length}`, desc: L('只有這一次，讓這位夥伴照他的作戰指令行動。', 'Just this once, this hero acts by their orders.') },
+        ...MODES.map((k) => ({ id: k, label: L('模式：', 'Mode: ') + modeName(k), right: t.mode === k ? '✔' : '', desc: { manual: L('每個人都由你選指令。', 'You choose for everyone.'), auto: L('全員照作戰指令自動行動。按 B 可在下一位時拿回控制。', 'Everyone acts by their orders. Press B to take control back from the next turn.'), mix: L('照「作戰指令」選單裡每個人的設定：有人手動、有人自動。', 'As set for each hero in the Tactics menu: some by hand, some by orders.') }[k] })),
+        { id: 'fast', label: L('自動時兩倍速', 'Double speed when auto'), right: t.fast ? L('開', 'On') : L('關', 'Off'), desc: L('自動戰鬥時動作加快一倍（F 鍵或搖桿 Select 也可以）。', 'Auto battles play twice as fast (or press F / pad Select).') },
+      ];
+      const k = await cmdMenu(tops);
+      if (k === -2) return 'retac';
+      if (k < 0) continue;
+      const o = tops[k].id;
+      if (o === 'now') return autoCommand(p);
+      if (o === 'fast') { toggleFast(); continue; }
+      t.mode = o; drawTac();
+      if (isAuto(m)) return 'retac';
+      continue;
+    }
     if (id === 'row') { m.row = m.row === 'back' ? 'front' : 'back'; sfx('ok'); const i = B.party.indexOf(p); p.home = heroSpot(i, m); slide(p); drawParty(); continue; }
     if (id === 'flee') return { type: 'flee' };
   }
@@ -499,11 +601,13 @@ function target(kind, m) {
     let i = 0;
     const arrow = document.createElement('div'); arrow.className = 'tgt'; arrow.textContent = '▼'; $('bfx').appendChild(arrow);
     const place = () => { const o = pool[i].inst.obj.position; arrow.dataset.x = o.x; arrow.dataset.y = (pool[i].h || 1.9) + 0.5 + o.y; arrow.dataset.z = o.z; msg(pool[i].kind === 'foe' ? foeInfo(pool[i]) : heroName(pool[i].m)); };
+    B.menuOpen = true;
     const off = onTick(() => {
+      if (!B || B.ended || (B.active && isAuto(B.active))) { off(); arrow.remove(); msg(''); if (B) B.menuOpen = false; res(null); return; }
       if (input.pressed('right') || input.pressed('down')) { i = (i + 1) % pool.length; sfx('cursor'); place(); }
       if (input.pressed('left') || input.pressed('up')) { i = (i + pool.length - 1) % pool.length; sfx('cursor'); place(); }
-      if (input.pressed('a')) { sfx('ok'); off(); arrow.remove(); msg(''); res(pool[i]); return; }
-      if (input.pressed('b')) { sfx('cancel'); off(); arrow.remove(); msg(''); res(null); }
+      if (input.pressed('a')) { sfx('ok'); off(); arrow.remove(); msg(''); B.menuOpen = false; res(pool[i]); return; }
+      if (input.pressed('b')) { sfx('cancel'); off(); arrow.remove(); msg(''); B.menuOpen = false; res(null); }
     });
     place();
   });
@@ -581,7 +685,7 @@ function flinch(who) { if (who.inst.has && who.inst.has('hit')) { who.inst.play(
 function hurt(t, d, col = '#ffffff') {
   if (t.kind === 'foe') {
     if (t.hp <= 0) return;
-    t.hp = Math.max(0, t.hp - d); popup(t, d, col); shake(t);
+    t.taken = (t.taken || 0) + Math.min(d, t.hp); t.hp = Math.max(0, t.hp - d); popup(t, d, col); shake(t);
     if (t.status.sleep) delete t.status.sleep;
     if (t.hp <= 0) { sfx('die'); t.inst.play('die', { once: true }); const o = t.inst.obj; setTimeout(() => { let k = 0; const fade = setInterval(() => { o.scale.multiplyScalar(0.86); o.position.y -= 0.02; if (++k > 14) { clearInterval(fade); o.visible = false; } }, 30); }, 300); }
     else flinch(t);
@@ -653,6 +757,7 @@ async function stanceCounter(f, p) {
 async function heroAct(p, c) {
   const m = p.m;
   if (m.status.sleep || m.status.stun || m.status.freeze || m.jumping) return;
+  if (c.tac) { c = retarget(p, c); c.tac = { ...c.tac, text: cmdName(c) + (tgtName(c.target) ? ' → ' + tgtName(c.target) : '') }; tacLabel(p, c.tac); if (c.type === 'guard') { await wait(500); return; } }
   const me = heroFighter(m), pick = (t) => (t && t.hp > 0 ? t : alive()[Math.floor(Math.random() * alive().length)]);
   if (c.type === 'guard' || c.type === 'flee') return;
   if (c.type === 'attack') {
