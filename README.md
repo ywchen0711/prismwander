@@ -70,6 +70,13 @@ When the Prism is whole again, the fog over the eastern sea lifts. Nina the sail
 | Battle: Manual / Tactics / Mixed | Space | the Orders button | X |
 | Battle: double speed when auto | F | the » button | Select |
 
+## iPhone and iPad
+
+- Touch controls show on the first touch (iPad included). The stick also steps through menus and battle targets; tap a monster to aim at it and tap it again to strike. Two fingers pinch to zoom. In menus only B stays on screen; tap an entry to pick it.
+- Music comes as `.ogg` and `.m4a` (Safari before 18.4 cannot play Ogg); the game picks what the browser can play. Sound starts on the first tap and comes back after a call or the lock screen.
+- Phones held upright: the battle camera widens so the monsters stay in view. Phones on their side: a smaller map, and the buttons and dialogue are laid out around the picture. The notch and the home bar never cover anything.
+- Add to Home Screen for a full-screen app. When the page is hidden while you walk the land, the game saves as the menu's Save does, since iOS may close background tabs.
+
 ## Files
 
 - `js/world.js` generates the 966 x 966 world: regions, villages, the ruins, the Spire, crystals, chests, spawns, memory shards, signs, herbs and fishing spots, and builds chunk meshes.

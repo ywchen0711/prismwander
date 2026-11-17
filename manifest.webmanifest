@@ -1,0 +1,14 @@
+{
+  "name": "晶境漫遊 Prismwander",
+  "short_name": "Prismwander",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#0a1020",
+  "theme_color": "#0a1020",
+  "icons": [
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }
+  ]
+}

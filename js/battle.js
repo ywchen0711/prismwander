@@ -206,7 +206,10 @@ export function battleRender(renderer, dt) {
   for (const p of B.party) p.inst.update(dt);
   if (B.guest) B.guest.inst.update(dt);
   if (B.spirit) B.spirit.inst.update(dt);
-  B.cam.aspect = innerWidth / innerHeight; B.cam.updateProjectionMatrix(); placeCamera(B.cam);
+  // a tall screen (a phone held upright) keeps the stage's width in view: the camera opens up instead of cutting
+  // the monsters off at the sides
+  { const asp = innerWidth / innerHeight, h = Math.tan((42 * Math.PI) / 360) * 1.5; B.cam.aspect = asp; B.cam.fov = asp >= 1.5 ? 42 : Math.min(84, (Math.atan(h / asp) * 360) / Math.PI); }
+  B.cam.updateProjectionMatrix(); placeCamera(B.cam);
   renderer.render(B.scene, B.cam);
   for (const el of document.querySelectorAll('#bfx .tacl')) { const o = el.who.inst.obj.position; el.dataset.x = o.x; el.dataset.z = o.z; el.dataset.y = (el.who.h || 1.9) + 0.75 + o.y; }
   for (const el of document.querySelectorAll('#bfx [data-x]')) { const p = screenOf(+el.dataset.x, +el.dataset.y, +el.dataset.z); el.style.left = p[0] + 'px'; el.style.top = p[1] + 'px'; }
@@ -602,13 +605,29 @@ function target(kind, m) {
     const arrow = document.createElement('div'); arrow.className = 'tgt'; arrow.textContent = '▼'; $('bfx').appendChild(arrow);
     const place = () => { const o = pool[i].inst.obj.position; arrow.dataset.x = o.x; arrow.dataset.y = (pool[i].h || 1.9) + 0.5 + o.y; arrow.dataset.z = o.z; msg(pool[i].kind === 'foe' ? foeInfo(pool[i]) : heroName(pool[i].m)); };
     B.menuOpen = true;
-    const off = onTick(() => {
+    // touch: tap a monster or hero to aim at it, tap it again (or A) to confirm
+    let tapAt = null, tapNow = null;
+    const tdown = (e) => { tapAt = [e.clientX, e.clientY]; };
+    const tup = (e) => {
+      if (!tapAt || Math.hypot(e.clientX - tapAt[0], e.clientY - tapAt[1]) > 12) return; tapAt = null;
+      let best = -1, bd = 70;
+      pool.forEach((p, j) => { const o = p.inst.obj.position, q = screenOf(o.x, o.y + (p.h || 1.8) * 0.5, o.z), d = Math.hypot(q[0] - e.clientX, q[1] - e.clientY); if (d < bd) { bd = d; best = j; } });
+      if (best < 0) return;
+      if (best === i) tapNow = 'ok'; else { i = best; sfx('cursor'); place(); }
+    };
+    const cv = document.getElementById('view'); cv.addEventListener('pointerdown', tdown); cv.addEventListener('pointerup', tup);
+    const unTap = () => { cv.removeEventListener('pointerdown', tdown); cv.removeEventListener('pointerup', tup); };
+    const off0 = onTick(() => {
+      if (tapNow === 'ok') { tapNow = null; sfx('ok'); off(); arrow.remove(); msg(''); B.menuOpen = false; res(pool[i]); }
+    });
+    const off1 = onTick(() => {
       if (!B || B.ended || (B.active && isAuto(B.active))) { off(); arrow.remove(); msg(''); if (B) B.menuOpen = false; res(null); return; }
       if (input.pressed('right') || input.pressed('down')) { i = (i + 1) % pool.length; sfx('cursor'); place(); }
       if (input.pressed('left') || input.pressed('up')) { i = (i + pool.length - 1) % pool.length; sfx('cursor'); place(); }
       if (input.pressed('a')) { sfx('ok'); off(); arrow.remove(); msg(''); B.menuOpen = false; res(pool[i]); return; }
       if (input.pressed('b')) { sfx('cancel'); off(); arrow.remove(); msg(''); B.menuOpen = false; res(null); }
     });
+    const off = () => { off0(); off1(); unTap(); };
     place();
   });
 }

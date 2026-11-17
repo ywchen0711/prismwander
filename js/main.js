@@ -56,6 +56,9 @@ let skyKind = 'default', caveDark = 1;
 const C = (h) => new THREE.Color(h);
 const NIGHT_TOP = C('#070d24'), NIGHT_HOR = C('#22325a'), DUSK = C('#f2a068');
 const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, VIEW + 160);
+// iOS: a lost WebGL context (memory pressure, a long time in the background) comes back on its own; don't let the
+// browser give up on it
+canvas.addEventListener('webglcontextlost', (e) => e.preventDefault());
 function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
 addEventListener('resize', resize); resize();
 setupInput(canvas);
@@ -689,7 +692,7 @@ function showTitle() {
   const draw = () => {
     t.innerHTML = `<div class="logo">${L('晶境漫遊', 'PRISMWANDER')}</div><div class="sub">${L('PRISMWANDER', '晶境漫遊')}</div>` +
       `<div class="panel opts">${opts().map((o, i) => `<div class="opt${i === sel ? ' sel' : ''}${o.off ? ' off' : ''}" data-i="${i}">${o.label}</div>`).join('')}</div>` +
-      `<div class="hint">${L('WASD 移動・Shift 奔跑（Caps Lock／F 自動奔跑）・空白鍵 跳躍・拖曳滑鼠自由轉動視角（V 或右鍵：滑鼠直接轉）・滾輪拉遠・E 調查・Esc 選單・M 音樂開關・支援手把', 'WASD move · Shift run (Caps Lock / F: auto-run) · Space jump · drag to look around freely (V or right-click: mouse look) · wheel to zoom · E look · Esc menu · M music on/off · gamepads work')}<br>${L('© 2026 原創作品・模型 KayKit、Kenney、Quaternius (CC0)・音樂 Ninja Adventure (CC0)', '© 2026 an original game · models by KayKit, Kenney and Quaternius (CC0) · music from Ninja Adventure (CC0)')}</div>`;
+      `<div class="hint"><span class="th">${L('左搖桿移動・⤒ 跳躍・A 調查・B 返回・≡ 選單・拖曳畫面轉動視角・兩指縮放', 'Stick to move · ⤒ jump · A look · B back · ≡ menu · drag to look around · pinch to zoom')}</span><span class="kh">${L('WASD 移動・Shift 奔跑（Caps Lock／F 自動奔跑）・空白鍵 跳躍・拖曳滑鼠自由轉動視角（V 或右鍵：滑鼠直接轉）・滾輪拉遠・E 調查・Esc 選單・M 音樂開關・支援手把', 'WASD move · Shift run (Caps Lock / F: auto-run) · Space jump · drag to look around freely (V or right-click: mouse look) · wheel to zoom · E look · Esc menu · M music on/off · gamepads work')}</span><br>${L('© 2026 原創作品・模型 KayKit、Kenney、Quaternius (CC0)・音樂 Ninja Adventure (CC0)', '© 2026 an original game · models by KayKit, Kenney and Quaternius (CC0) · music from Ninja Adventure (CC0)')}</div>`;
     t.classList.add('on');
   };
   t.onclick = (e) => { const o = e.target.closest('.opt'); if (o) { sel = +o.dataset.i; choose(); } initAudio(); };
@@ -755,7 +758,7 @@ async function theEnd2() {
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  pollInput();
+  pollInput(dt);
   if (UI.active) uiUpdate();
   if (mode === 'title') {
     if (titleKeys) titleKeys();
@@ -792,6 +795,11 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 addEventListener('keydown', initAudio); addEventListener('pointerdown', initAudio);
+// iPhone and iPad close background tabs without warning: when the game is hidden while walking about the land, it
+// records the journey the way the menu's Save does, so Continue picks up from there
+function suspendSave() { if (mode === 'field' && !busy && !UI.active && S.members && S.members.length) { try { ctx.savePos(); save(); } catch (e) { /* storage full or private */ } } }
+document.addEventListener('visibilitychange', () => { if (document.hidden) suspendSave(); });
+addEventListener('pagehide', suspendSave);
 { const mb = $('musicBtn'); mb.classList.toggle('off', !music.on); mb.addEventListener('click', (e) => { e.stopPropagation(); initAudio(); setMusic(!music.on); }); mb.addEventListener('pointerdown', (e) => e.stopPropagation()); }
 addEventListener('keydown', (e) => { if (e.code === 'KeyM' && !e.repeat) setMusic(!music.on); });
 onLang(() => { if (mode === 'title') showTitle(); });
